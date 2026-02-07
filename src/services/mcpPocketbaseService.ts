@@ -182,7 +182,7 @@ export const pocketbaseService = {
       ai_model: record.ai_model,
       dataset_id: record.dataset_id,
       dataset_name: record.dataset_name,
-      created: record.created_at || record.created || now,
+      created: record.created || now,
     }
   },
 
@@ -206,7 +206,7 @@ export const pocketbaseService = {
       ai_model: record.ai_model,
       dataset_id: record.dataset_id,
       dataset_name: record.dataset_name,
-      created: (record as Record<string, string>).created_at || record.created || new Date().toISOString(),
+      created: record.created || new Date().toISOString(),
     }))
   },
 
