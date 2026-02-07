@@ -4,14 +4,22 @@
 
 set -e
 
-echo "🚀 Deploying Data Analyzer..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
-# Pull latest changes (if using git)
-# git pull origin main
+echo "Deploying Data Analyzer..."
+echo "Directory: $(pwd)"
+
+# Pull latest changes
+echo "Pulling latest changes..."
+git pull
 
 # Build and restart the container
+echo "Rebuilding containers..."
 docker compose down
 docker compose build --no-cache
 docker compose up -d
 
-echo "✅ Deployment complete! App running at http://localhost:8080"
+echo ""
+echo "Deployment complete!"
+docker compose ps
