@@ -1,5 +1,5 @@
 import { mcpN8nApi, mcpPocketbaseApi } from './api'
-import type { Dataset, AIModel, NavLink } from '../types'
+import type { Dataset, AIModel, NavLink, ConversationHistory } from '../types'
 
 interface ListDatasetsResponse {
   status: 'ok' | 'error'
@@ -39,6 +39,33 @@ interface ListNavLinksResponse {
   totalItems?: number
 }
 
+interface PocketbaseConversationRecord {
+  id: string
+  user_email: string
+  prompt: string
+  response: string
+  ai_model: string
+  dataset_id: string
+  dataset_name: string
+  created: string
+}
+
+interface ListConversationsResponse {
+  status: 'ok' | 'error'
+  items?: PocketbaseConversationRecord[]
+  totalItems?: number
+}
+
+interface CreateRecordResponse {
+  status: 'ok' | 'error'
+  record?: PocketbaseConversationRecord
+}
+
+interface DeleteRecordResponse {
+  status: 'ok' | 'error'
+  message?: string
+}
+
 export const pocketbaseService = {
   // Fetch navigation links from Pocketbase
   async getNavLinks(): Promise<NavLink[]> {
@@ -46,12 +73,13 @@ export const pocketbaseService = {
       skill: 'pb-list-records',
       params: {
         collection: 'nav_links',
-        sort: 'order',
+        sort: '+order',
         perPage: 50,
       },
     })
     const items = response.data.items || []
-    return items.map((record) => ({
+    // Map and sort client-side as fallback
+    const navLinks = items.map((record) => ({
       id: record.id,
       name: record.name,
       path: record.path,
@@ -59,6 +87,8 @@ export const pocketbaseService = {
       color: record.color,
       separator_before: record.separator_before,
     }))
+    // Sort by order ascending
+    return navLinks.sort((a, b) => a.order - b.order)
   },
 
   // Fetch AI models directly from Pocketbase
@@ -115,5 +145,86 @@ export const pocketbaseService = {
         aiModel: data.aiModel,
       },
     })
+  },
+
+  // Save a single conversation to Pocketbase
+  async saveConversation(data: {
+    email: string
+    prompt: string
+    response: string
+    aiModel: string
+    datasetId: string
+    datasetName: string
+  }): Promise<ConversationHistory> {
+    const now = new Date().toISOString()
+    const response = await mcpPocketbaseApi.post<CreateRecordResponse>('/mcp/execute', {
+      skill: 'pb-create-record',
+      params: {
+        collection: 'conversation_history',
+        data: {
+          user_email: data.email,
+          prompt: data.prompt,
+          response: data.response,
+          ai_model: data.aiModel,
+          dataset_id: data.datasetId,
+          dataset_name: data.datasetName,
+          created_at: now,
+        },
+      },
+    })
+    const record = response.data.record
+    if (!record) throw new Error('Failed to save conversation')
+    return {
+      id: record.id,
+      user_email: record.user_email,
+      prompt: record.prompt,
+      response: record.response,
+      ai_model: record.ai_model,
+      dataset_id: record.dataset_id,
+      dataset_name: record.dataset_name,
+      created: record.created_at || record.created || now,
+    }
+  },
+
+  // Fetch conversation history for a user
+  async getConversationHistory(email: string): Promise<ConversationHistory[]> {
+    const response = await mcpPocketbaseApi.post<ListConversationsResponse>('/mcp/execute', {
+      skill: 'pb-list-records',
+      params: {
+        collection: 'conversation_history',
+        filter: `user_email="${email}"`,
+        sort: '-created_at,-created',
+        perPage: 500,
+      },
+    })
+    const items = response.data.items || []
+    return items.map((record) => ({
+      id: record.id,
+      user_email: record.user_email,
+      prompt: record.prompt,
+      response: record.response,
+      ai_model: record.ai_model,
+      dataset_id: record.dataset_id,
+      dataset_name: record.dataset_name,
+      created: (record as Record<string, string>).created_at || record.created || new Date().toISOString(),
+    }))
+  },
+
+  // Delete a conversation by ID
+  async deleteConversation(id: string): Promise<void> {
+    await mcpPocketbaseApi.post<DeleteRecordResponse>('/mcp/execute', {
+      skill: 'pb-delete-record',
+      params: {
+        collection: 'conversation_history',
+        id,
+      },
+    })
+  },
+
+  // Get unique dataset names from conversation history
+  async getHistoryDatasets(email: string): Promise<string[]> {
+    const conversations = await this.getConversationHistory(email)
+    const uniqueDatasets = [...new Set(conversations.map((c) => c.dataset_name))]
+    return uniqueDatasets.sort()
   },
 }

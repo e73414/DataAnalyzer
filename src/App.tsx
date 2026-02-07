@@ -7,6 +7,7 @@ import EditSummaryPage from './pages/EditSummaryPage'
 import UpdateDatasetPage from './pages/UpdateDatasetPage'
 import UploadDatasetPage from './pages/UploadDatasetPage'
 import DeleteDatasetPage from './pages/DeleteDatasetPage'
+import HistoryPage from './pages/HistoryPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isLoggedIn } = useSession()
@@ -65,6 +66,14 @@ function App() {
         element={
           <ProtectedRoute>
             <DeleteDatasetPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/history"
+        element={
+          <ProtectedRoute>
+            <HistoryPage />
           </ProtectedRoute>
         }
       />

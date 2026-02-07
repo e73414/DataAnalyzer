@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -8,6 +8,46 @@ import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
 import type { AnalysisResult } from '../types'
 
+const WITTY_PHRASES = [
+  'Doodling',
+  'Thinking really hard',
+  'Crunching numbers',
+  'Consulting the oracle',
+  'Brewing insights',
+  'Pondering the data',
+  'Mining for gold',
+  'Connecting the dots',
+  'Reading tea leaves',
+  'Channeling the AI spirits',
+  'Decoding the matrix',
+  'Summoning wisdom',
+  'Beating up on Ironman',
+  'Heckling Jarvis',
+  'Fixing the Great Wall',
+  'Finding Nemo',
+  'Waiting for AGI',
+  'Playing Poker',
+  'Watching paint dry',
+  'Watching Friends reruns',
+  'Doing situps',
+  'Running backwards',
+  'Kicking tires',
+  'Praying for a raise',
+  'Buying fartcoin',
+  'Lowering expectations',
+  'Brushing teeth',
+]
+
+// Fisher-Yates shuffle algorithm
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const shuffled = [...array]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
 export default function DatasetPromptPage() {
   const navigate = useNavigate()
   const { session, setAIModel } = useSession()
@@ -16,6 +56,9 @@ export default function DatasetPromptPage() {
   const [prompt, setPrompt] = useState('')
   const [emailResponse, setEmailResponse] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [shuffledPhrases, setShuffledPhrases] = useState<string[]>([])
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const {
     data: datasets,
@@ -43,6 +86,33 @@ export default function DatasetPromptPage() {
       setAIModel(defaultModel)
     }
   }, [aiModels, selectedModelId, setAIModel])
+
+  // Timer for elapsed time during analysis
+  useEffect(() => {
+    if (isAnalyzing) {
+      setElapsedSeconds(0)
+      setShuffledPhrases(shuffleArray(WITTY_PHRASES))
+      timerRef.current = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1)
+      }, 1000)
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+    }
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
+    }
+  }, [isAnalyzing])
+
+  const getCurrentPhrase = () => {
+    if (shuffledPhrases.length === 0) return WITTY_PHRASES[0]
+    const phraseIndex = Math.floor(elapsedSeconds / 10) % shuffledPhrases.length
+    return shuffledPhrases[phraseIndex]
+  }
 
   const handleModelChange = (modelId: string) => {
     setSelectedModelId(modelId)
@@ -200,42 +270,45 @@ export default function DatasetPromptPage() {
                 />
               </div>
 
-              {/* Email Response Checkbox */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="emailResponse"
-                  checked={emailResponse}
-                  onChange={(e) => setEmailResponse(e.target.checked)}
-                  disabled={isAnalyzing}
-                  className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:checked:bg-blue-600"
-                />
-                <label htmlFor="emailResponse" className="text-sm text-gray-700 dark:text-gray-300">
-                  Email the response
-                </label>
-              </div>
+              {/* Analyze Button Row */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <button
+                    type="submit"
+                    disabled={isAnalyzing || !selectedDatasetId || !selectedModelId || !prompt.trim()}
+                    className="btn-primary"
+                  >
+                    {isAnalyzing ? (
+                      <span className="flex items-center gap-2">
+                        <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
+                        Analyzing...
+                      </span>
+                    ) : (
+                      'Analyze'
+                    )}
+                  </button>
 
-              <div className="flex items-center gap-4">
-                <button
-                  type="submit"
-                  disabled={isAnalyzing || !selectedDatasetId || !selectedModelId || !prompt.trim()}
-                  className="btn-primary"
-                >
-                  {isAnalyzing ? (
-                    <span className="flex items-center gap-2">
-                      <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
-                      Analyzing...
-                    </span>
-                  ) : (
-                    'Analyze'
+                  {isAnalyzing && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {getCurrentPhrase()} for {elapsedSeconds} sec{elapsedSeconds !== 1 ? 's' : ''}...
+                    </p>
                   )}
-                </button>
+                </div>
 
-                {isAnalyzing && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    This may take a moment...
-                  </p>
-                )}
+                {/* Email Response Checkbox - Right Justified */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="emailResponse"
+                    checked={emailResponse}
+                    onChange={(e) => setEmailResponse(e.target.checked)}
+                    disabled={isAnalyzing}
+                    className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:checked:bg-blue-600"
+                  />
+                  <label htmlFor="emailResponse" className="text-sm text-gray-700 dark:text-gray-300">
+                    Email the response
+                  </label>
+                </div>
               </div>
             </form>
           )}

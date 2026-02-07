@@ -44,7 +44,7 @@ export default function Navigation() {
   const { data: navLinks, isLoading: isLoadingNavLinks } = useQuery({
     queryKey: ['navLinks'],
     queryFn: () => pocketbaseService.getNavLinks(),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000, // 30 seconds - refresh more frequently
   })
 
   useEffect(() => {

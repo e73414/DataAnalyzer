@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -7,6 +7,46 @@ import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
 import type { AnalysisResult } from '../types'
+
+const WITTY_PHRASES = [
+  'Doodling',
+  'Thinking really hard',
+  'Crunching numbers',
+  'Consulting the oracle',
+  'Brewing insights',
+  'Pondering the data',
+  'Mining for gold',
+  'Connecting the dots',
+  'Reading tea leaves',
+  'Channeling the AI spirits',
+  'Decoding the matrix',
+  'Summoning wisdom',
+  'Beating up on Ironman',
+  'Heckling Jarvis',
+  'Fixing the Great Wall',
+  'Finding Nemo',
+  'Waiting for AGI',
+  'Playing Poker',
+  'Watching paint dry',
+  'Watching Friends reruns',
+  'Doing situps',
+  'Running backwards',
+  'Kicking tires',
+  'Praying for a raise',
+  'Buying fartcoin',
+  'Lowering expectations',
+  'Brushing teeth',
+]
+
+// Fisher-Yates shuffle algorithm
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const shuffled = [...array]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
 
 interface ConversationItem {
   prompt: string
@@ -35,7 +75,10 @@ export default function ResultsPage() {
   const [hasSaved, setHasSaved] = useState(false)
   const [datasetId, setDatasetId] = useState('')
   const [datasetName, setDatasetName] = useState('')
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [shuffledPhrases, setShuffledPhrases] = useState<string[]>([])
   const conversationEndRef = useRef<HTMLDivElement>(null)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const state = location.state as LocationState | undefined
 
@@ -56,12 +99,53 @@ export default function ResultsPage() {
       ])
       setDatasetId(state.datasetId)
       setDatasetName(state.datasetName)
+
+      // Save initial conversation to history
+      if (session?.email) {
+        pocketbaseService.saveConversation({
+          email: session.email,
+          prompt: state.prompt,
+          response: state.result.result,
+          aiModel: session.aiModel,
+          datasetId: state.datasetId,
+          datasetName: state.datasetName,
+        }).catch((err) => {
+          console.error('Failed to save conversation to history:', err)
+        })
+      }
     }
-  }, [state, conversation.length])
+  }, [state, conversation.length, session])
 
   useEffect(() => {
     conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [conversation])
+
+  // Timer for elapsed time during analysis
+  useEffect(() => {
+    if (isAnalyzing) {
+      setElapsedSeconds(0)
+      setShuffledPhrases(shuffleArray(WITTY_PHRASES))
+      timerRef.current = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1)
+      }, 1000)
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+    }
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
+    }
+  }, [isAnalyzing])
+
+  const getCurrentPhrase = useCallback(() => {
+    if (shuffledPhrases.length === 0) return WITTY_PHRASES[0]
+    const phraseIndex = Math.floor(elapsedSeconds / 10) % shuffledPhrases.length
+    return shuffledPhrases[phraseIndex]
+  }, [elapsedSeconds, shuffledPhrases])
 
   if (!state?.result && conversation.length === 0) {
     navigate('/analyze', { replace: true })
@@ -88,10 +172,11 @@ export default function ResultsPage() {
         emailResponse,
       })
 
+      const trimmedPrompt = followUpPrompt.trim()
       setConversation((prev) => [
         ...prev,
         {
-          prompt: followUpPrompt.trim(),
+          prompt: trimmedPrompt,
           response: result.result,
           processUsed: result.processUsed,
           timestamp: new Date(),
@@ -99,6 +184,18 @@ export default function ResultsPage() {
       ])
       setFollowUpPrompt('')
       setHasSaved(false)
+
+      // Save follow-up conversation to history
+      pocketbaseService.saveConversation({
+        email: session.email,
+        prompt: trimmedPrompt,
+        response: result.result,
+        aiModel: selectedModelId || session.aiModel,
+        datasetId: datasetId,
+        datasetName: datasetName,
+      }).catch((err) => {
+        console.error('Failed to save conversation to history:', err)
+      })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Analysis failed'
       toast.error(message)
@@ -243,28 +340,37 @@ export default function ResultsPage() {
               </button>
             </form>
 
-            {/* AI Model Dropdown and Email Checkbox */}
-            <div className="mt-3 flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <label htmlFor="model-select" className="text-sm text-gray-600 dark:text-gray-400">
-                  AI Model:
-                </label>
-                <select
-                  id="model-select"
-                  value={selectedModelId}
-                  onChange={(e) => handleModelChange(e.target.value)}
-                  disabled={isAnalyzing || isSaving}
-                  className="input-field max-w-xs py-1.5 text-sm"
-                >
-                  {aiModels?.map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {model.name}
-                      {model.provider && ` (${model.provider})`}
-                    </option>
-                  ))}
-                </select>
+            {/* AI Model Dropdown, Elapsed Time, and Email Checkbox */}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <label htmlFor="model-select" className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                    AI Model:
+                  </label>
+                  <select
+                    id="model-select"
+                    value={selectedModelId}
+                    onChange={(e) => handleModelChange(e.target.value)}
+                    disabled={isAnalyzing || isSaving}
+                    className="input-field max-w-xs py-1.5 text-sm"
+                  >
+                    {aiModels?.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name}
+                        {model.provider && ` (${model.provider})`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {isAnalyzing && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {getCurrentPhrase()} for {elapsedSeconds} sec{elapsedSeconds !== 1 ? 's' : ''}...
+                  </p>
+                )}
               </div>
 
+              {/* Email Response Checkbox - Right Justified */}
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -274,15 +380,12 @@ export default function ResultsPage() {
                   disabled={isAnalyzing || isSaving}
                   className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:checked:bg-blue-600"
                 />
-                <label htmlFor="emailResponseFollowUp" className="text-sm text-gray-600 dark:text-gray-400">
+                <label htmlFor="emailResponseFollowUp" className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
                   Email the response
                 </label>
               </div>
             </div>
 
-            {isAnalyzing && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Processing your question...</p>
-            )}
             {hasSaved && !isAnalyzing && (
               <p className="text-sm text-green-600 dark:text-green-400 mt-2">Conversation saved. You can continue asking questions.</p>
             )}

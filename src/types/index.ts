@@ -109,3 +109,19 @@ export interface NavLink {
   color?: string // e.g., 'red' for delete
   separator_before?: boolean
 }
+
+export interface ConversationHistory {
+  id: string
+  user_email: string
+  prompt: string
+  response: string
+  ai_model: string
+  dataset_id: string
+  dataset_name: string
+  created: string // ISO date string from Pocketbase
+}
+
+export interface ConversationsByDate {
+  date: string // YYYY-MM-DD format
+  conversations: ConversationHistory[]
+}
