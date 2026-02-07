@@ -1,0 +1,255 @@
+{
+  "name": "Data Analyzer - React",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "analyze",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "webhookId": "f47d9207-d893-434b-bb52-2bcf59fa6e8b"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT dataset_id, dataset_name, dataset_summary, owner_email FROM n8n_data.datasets WHERE dataset_id = '{{ $json.body.datasetId }}'",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [400, 300],
+      "id": "get-dataset",
+      "name": "Get Dataset",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate dynamic view query for the dataset\nconst datasetId = $input.first().json.dataset_id;\nconst viewName = 'v_active_analysis';\n\nconst viewUpdateSql = `\nCREATE OR REPLACE VIEW n8n_data.${viewName} AS\nSELECT *\nFROM n8n_data.universal_datatable\nWHERE dataset_id = '${datasetId}';\n`;\n\nreturn {\n  view_update_sql: viewUpdateSql,\n  dataset_id: datasetId,\n  dataset_name: $input.first().json.dataset_name,\n  dataset_summary: $input.first().json.dataset_summary\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 300],
+      "id": "generate-view",
+      "name": "Generate Dynamic View Query"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.view_update_sql }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [800, 300],
+      "id": "update-view",
+      "name": "Update Dynamic View",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "prompt",
+              "name": "prompt",
+              "value": "={{ $('Webhook Trigger').item.json.body.prompt }}",
+              "type": "string"
+            },
+            {
+              "id": "dataset_id",
+              "name": "dataset_id",
+              "value": "={{ $('Get Dataset').item.json.dataset_id }}",
+              "type": "string"
+            },
+            {
+              "id": "dataset_summary",
+              "name": "dataset_summary",
+              "value": "={{ $('Get Dataset').item.json.dataset_summary }}",
+              "type": "string"
+            },
+            {
+              "id": "view_query",
+              "name": "view_query",
+              "value": "={{ $('Generate Dynamic View Query').item.json.view_update_sql }}",
+              "type": "string"
+            },
+            {
+              "id": "session",
+              "name": "session",
+              "value": "={{ Date.now() + Math.floor(Math.random() * 1000) }}",
+              "type": "string"
+            },
+            {
+              "id": "ai_model",
+              "name": "ai_model",
+              "value": "={{ $('Webhook Trigger').item.json.body.model }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1000, 300],
+      "id": "set-prompt",
+      "name": "Set Prompt and ID"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "options": {
+          "systemMessage": "=ROLE You are a Senior Data Analyst. Your goal is to answer user inquiries by querying the n8n_data.v_active_analysis table. You must present all data-heavy responses using Rich HTML and HTML Tables.\n\nDATABASE CONTEXT\n\nVIEW DEFINITION: {{ $json.view_query }}\n\nDATASET SUMMARY: {{ $json.dataset_summary }}\n\nSTRICT SQL CONSTRUCTION RULES\n\nDouble Quotes: Always wrap column names (e.g., \"CFBU\", \"Year\").\n\nSingle Quotes: Always wrap values (e.g., 'Revenue').\n\nNo Markdown in Tool Call: Send ONLY the raw SQL string to the tool.\n\nHTML OUTPUT SPECIFICATIONS Your final response MUST be valid HTML. Follow these styling rules:\n\nTables: Use <table border=\"1\" style=\"border-collapse: collapse; width: 100%;\"> for any data comparison or list.\n\nHeaders: Use <th> with a light gray background (background-color: #f2f2f2;) for table headers.\n\nEmphasis: Use <strong> for key figures and <u> for category names.\n\nNo Markdown Tags: Do NOT use ```html or **bold**. Use only <b> or <strong> and raw HTML tags.\n\nYou MUST SHOW THE USER PROMPT before stating the response with a header: \"<b>User Prompt:</b><br>\". Put a \"<br>\" before the response for better readability\n\nOPERATIONAL WORKFLOW\n\nAnalyze & Map: Identify columns and values from the context.\n\nComplex Analysis: For Variance/Comparisons, run multiple queries and calculate manually.\n\nExecute: Pass raw SQL to the SQL Datastore.\n\nSynthesize HTML Response:\n\nStart with a brief, friendly sentence: <span><b>Here is the analysis for your request:</b></span>.\n\nPresent findings in a structured <table>.\n\nIf providing a summary, use <ul> and <li>.\n\nCRITICAL: Ensure all tags are properly closed to prevent rendering errors.",
+          "maxIterations": 30,
+          "returnIntermediateSteps": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [1200, 300],
+      "id": "ai-agent",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "={{ $('Webhook Trigger').item.json.body.model }}",
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [1200, 520],
+      "id": "chat-model",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "SScyp7rqdYRmN9lx",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Set Prompt and ID').item.json.session }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [1320, 520],
+      "id": "simple-memory",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [1440, 520],
+      "id": "calculator",
+      "name": "Calculator"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Execute SQL queries against the n8n_data.v_active_analysis view to retrieve data"
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.2,
+      "position": [1560, 520],
+      "id": "sql-datastore",
+      "name": "SQL Datastore",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format the response for the React app\nconst agentOutput = $input.first().json;\n\n// Extract intermediate steps for process documentation\nlet processUsed = '';\nif (agentOutput.intermediateSteps && agentOutput.intermediateSteps.length > 0) {\n  processUsed = agentOutput.intermediateSteps.map(step => {\n    const toolName = step.action?.tool || 'Unknown';\n    const observation = step.observation || '';\n    return `Tool: ${toolName}\\nObservation: ${observation}`;\n  }).join('\\n\\n---\\n\\n');\n}\n\nreturn {\n  status: 'ok',\n  result: agentOutput.output || 'No response generated',\n  processUsed: processUsed,\n  metadata: {\n    model: $('Webhook Trigger').item.json.body.model,\n    datasetName: $('Get Dataset').item.json.dataset_name\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1400, 300],
+      "id": "format-response",
+      "name": "Format Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1600, 300],
+      "id": "respond-webhook",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Get Dataset", "type": "main", "index": 0 }]]
+    },
+    "Get Dataset": {
+      "main": [[{ "node": "Generate Dynamic View Query", "type": "main", "index": 0 }]]
+    },
+    "Generate Dynamic View Query": {
+      "main": [[{ "node": "Update Dynamic View", "type": "main", "index": 0 }]]
+    },
+    "Update Dynamic View": {
+      "main": [[{ "node": "Set Prompt and ID", "type": "main", "index": 0 }]]
+    },
+    "Set Prompt and ID": {
+      "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]]
+    },
+    "AI Agent": {
+      "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]]
+    },
+    "Format Response": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [[{ "node": "AI Agent", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Simple Memory": {
+      "ai_memory": [[{ "node": "AI Agent", "type": "ai_memory", "index": 0 }]]
+    },
+    "Calculator": {
+      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "SQL Datastore": {
+      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "id": "O5gBsgGfepw7ZCCU",
+      "name": "AI-DEV"
+    }
+  ],
+  "triggerCount": 0,
+  "active": false
+}

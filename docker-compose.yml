@@ -1,0 +1,15 @@
+services:
+  data-analyzer:
+    build: .
+    container_name: data-analyzer
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - NODE_ENV=production
+    networks:
+      - homelab
+
+networks:
+  homelab:
+    external: true

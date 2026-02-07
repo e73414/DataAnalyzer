@@ -1,0 +1,60 @@
+{
+  "name": "Data Analyzer - List Datasets",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "list-datasets",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "id": "webhook-list",
+      "name": "Webhook - List Datasets",
+      "webhookId": "list-datasets-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT id as id, dataset_name as name, dataset_summary as description, owner_email FROM n8n_data.dataset_record_manager WHERE owner_email = '{{ $json.body.email }}' ORDER BY dataset_name",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [400, 300],
+      "id": "get-datasets",
+      "name": "Get Datasets",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'ok', items: $input.all().map(item => item.json) } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [600, 300],
+      "id": "respond-list",
+      "name": "Respond with Datasets"
+    }
+  ],
+  "connections": {
+    "Webhook - List Datasets": {
+      "main": [[{ "node": "Get Datasets", "type": "main", "index": 0 }]]
+    },
+    "Get Datasets": {
+      "main": [[{ "node": "Respond with Datasets", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
