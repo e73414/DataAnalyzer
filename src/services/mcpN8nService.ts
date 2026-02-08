@@ -33,7 +33,7 @@ interface SendReportResult {
   message?: string
   // When review=true, these fields are returned for editing
   subject?: string
-  emails?: string[]
+  emails?: string[] | string  // Can be array or comma-separated string from n8n
   content?: string
 }
 

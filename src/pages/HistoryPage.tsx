@@ -193,7 +193,13 @@ export default function HistoryPage() {
       if (editBeforeSending) {
         // Open review modal with the returned data (use defaults if missing)
         setReviewSubject(result.subject ?? 'Data Analysis Report')
-        setReviewEmails(result.emails?.join(', ') ?? emails.join(', '))
+        // Handle emails as either string or array
+        const resultEmails = result.emails
+          ? Array.isArray(result.emails)
+            ? result.emails.join(', ')
+            : String(result.emails)
+          : emails.join(', ')
+        setReviewEmails(resultEmails)
         setReviewContent(result.content ?? reportContent)
         setShowReviewModal(true)
       } else {
