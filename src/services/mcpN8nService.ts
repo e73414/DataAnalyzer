@@ -19,6 +19,17 @@ const UPDATE_SUMMARY_WEBHOOK_PATH = 'webhook/update-summary'
 const UPDATE_DATASET_WEBHOOK_PATH = 'webhook/update-dataset'
 const UPLOAD_DATASET_WEBHOOK_PATH = 'webhook/upload-dataset'
 const DELETE_DATASET_WEBHOOK_PATH = 'webhook/delete-dataset'
+const SEND_REPORT_WEBHOOK_PATH = 'webhook/send-report'
+
+interface SendReportRequest {
+  emails: string[]
+  content: string
+}
+
+interface SendReportResult {
+  status: 'ok' | 'error'
+  message?: string
+}
 
 export const n8nService = {
   async runAnalysis(request: AnalysisRequest): Promise<AnalysisResult> {
@@ -164,6 +175,28 @@ export const n8nService = {
       status: 'ok',
       datasetName: data?.datasetName,
       message: data?.message || 'Dataset deleted successfully',
+    }
+  },
+
+  async sendReport(request: SendReportRequest): Promise<SendReportResult> {
+    const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
+      skill: 'n8n-webhook',
+      params: {
+        webhookPath: SEND_REPORT_WEBHOOK_PATH,
+      },
+      input: {
+        emails: request.emails,
+        content: request.content,
+      },
+    })
+
+    if (response.data.status === 'error') {
+      throw new Error(response.data.error || 'Failed to send report')
+    }
+
+    return {
+      status: 'ok',
+      message: 'Report sent successfully',
     }
   },
 }

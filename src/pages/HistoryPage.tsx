@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
+import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
 import type { ConversationHistory } from '../types'
 
@@ -16,9 +17,11 @@ export default function HistoryPage() {
   const { session } = useSession()
   const queryClient = useQueryClient()
   const [viewMode, setViewMode] = useState<ViewMode>('by-date')
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [selectedDataset, setSelectedDataset] = useState<string | null>(null)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [expandedConversation, setExpandedConversation] = useState<string | null>(null)
+  const [selectedConversations, setSelectedConversations] = useState<Set<string>>(new Set())
+  const [recipientEmails, setRecipientEmails] = useState('')
+  const [isSendingReport, setIsSendingReport] = useState(false)
 
   const {
     data: conversations,
@@ -83,30 +86,109 @@ export default function HistoryPage() {
     return Object.keys(groupedByDataset).sort()
   }, [groupedByDataset])
 
-  // Get conversations to display based on current view and selection
-  const displayConversations = useMemo(() => {
-    if (viewMode === 'by-date' && selectedDate) {
-      return groupedByDate[selectedDate] || []
-    }
-    if (viewMode === 'by-dataset' && selectedDataset) {
-      // Group by date within selected dataset
-      const datasetConvs = groupedByDataset[selectedDataset] || []
-      return datasetConvs
-    }
-    return []
-  }, [viewMode, selectedDate, selectedDataset, groupedByDate, groupedByDataset])
-
-  // Group display conversations by date (for dataset view)
-  const displayConversationsByDate = useMemo(() => {
-    if (viewMode !== 'by-dataset' || !selectedDataset) return null
-    const grouped: GroupedConversations = {}
-    displayConversations.forEach((conv) => {
-      const date = getDateFromCreated(conv.created)
-      if (!grouped[date]) grouped[date] = []
-      grouped[date].push(conv)
+  // Toggle group expansion
+  const toggleGroup = (groupKey: string) => {
+    setExpandedGroups((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(groupKey)) {
+        newSet.delete(groupKey)
+      } else {
+        newSet.add(groupKey)
+      }
+      return newSet
     })
-    return grouped
-  }, [viewMode, selectedDataset, displayConversations])
+  }
+
+  // Toggle conversation selection
+  const toggleConversationSelection = (convId: string) => {
+    setSelectedConversations((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(convId)) {
+        newSet.delete(convId)
+      } else {
+        newSet.add(convId)
+      }
+      return newSet
+    })
+  }
+
+  // Select/deselect all conversations in a group
+  const toggleGroupSelection = (groupKey: string) => {
+    const groupConvs = viewMode === 'by-date' ? groupedByDate[groupKey] : groupedByDataset[groupKey]
+    if (!groupConvs) return
+
+    const groupIds = groupConvs.map((c) => c.id)
+    const allSelected = groupIds.every((id) => selectedConversations.has(id))
+
+    setSelectedConversations((prev) => {
+      const newSet = new Set(prev)
+      if (allSelected) {
+        groupIds.forEach((id) => newSet.delete(id))
+      } else {
+        groupIds.forEach((id) => newSet.add(id))
+      }
+      return newSet
+    })
+  }
+
+  // Get selected conversations data
+  const selectedConversationData = useMemo(() => {
+    if (!conversations) return []
+    return conversations.filter((c) => selectedConversations.has(c.id))
+  }, [conversations, selectedConversations])
+
+  // Build report content from selected conversations
+  const buildReportContent = () => {
+    return selectedConversationData
+      .map((conv) => {
+        const date = formatDate(getDateFromCreated(conv.created))
+        const time = formatTime(conv.created)
+        return `=== ${date} at ${time} ===\nDataset: ${conv.dataset_name}\nAI Model: ${conv.ai_model}\n\nPROMPT:\n${conv.prompt}\n\nRESPONSE:\n${conv.response}\n`
+      })
+      .join('\n' + '='.repeat(50) + '\n\n')
+  }
+
+  // Send report via n8n webhook
+  const handleSendReport = async () => {
+    if (selectedConversations.size === 0) {
+      toast.error('Please select at least one conversation')
+      return
+    }
+
+    const emails = recipientEmails
+      .split(/[,;\s]+/)
+      .map((e) => e.trim())
+      .filter((e) => e.length > 0)
+
+    if (emails.length === 0) {
+      toast.error('Please enter at least one recipient email')
+      return
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const invalidEmails = emails.filter((e) => !emailRegex.test(e))
+    if (invalidEmails.length > 0) {
+      toast.error(`Invalid email format: ${invalidEmails.join(', ')}`)
+      return
+    }
+
+    setIsSendingReport(true)
+    try {
+      const reportContent = buildReportContent()
+      await n8nService.sendReport({
+        emails: emails,
+        content: reportContent,
+      })
+      toast.success('Report sent successfully!')
+      setSelectedConversations(new Set())
+      setRecipientEmails('')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to send report')
+    } finally {
+      setIsSendingReport(false)
+    }
+  }
 
   const formatDate = (dateStr: string) => {
     if (!dateStr || dateStr === 'Unknown Date') return dateStr
@@ -148,28 +230,40 @@ export default function HistoryPage() {
     }
   }
 
-  const handleBack = () => {
-    if (viewMode === 'by-date') {
-      setSelectedDate(null)
-    } else {
-      setSelectedDataset(null)
-    }
-    setExpandedConversation(null)
-  }
-
   const renderConversationCard = (conv: ConversationHistory) => {
     const isExpanded = expandedConversation === conv.id
+    const isSelected = selectedConversations.has(conv.id)
 
     return (
       <div
         key={conv.id}
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden"
+        className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border overflow-hidden transition-colors ${
+          isSelected
+            ? 'border-blue-500 dark:border-blue-400 ring-1 ring-blue-500 dark:ring-blue-400'
+            : 'border-gray-200 dark:border-gray-700'
+        }`}
       >
         <div
           className="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
           onClick={() => setExpandedConversation(isExpanded ? null : conv.id)}
         >
-          <div className="flex justify-between items-start gap-4">
+          <div className="flex items-start gap-3">
+            {/* Checkbox */}
+            <div
+              className="flex-shrink-0 pt-0.5"
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleConversationSelection(conv.id)
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => {}}
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+              />
+            </div>
+
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                 {conv.prompt}
@@ -252,6 +346,64 @@ export default function HistoryPage() {
     )
   }
 
+  // Render a group header with expand/collapse and select all
+  const renderGroupHeader = (groupKey: string, count: number, isDataset: boolean = false) => {
+    const isExpanded = expandedGroups.has(groupKey)
+    const groupConvs = isDataset ? groupedByDataset[groupKey] : groupedByDate[groupKey]
+    const groupIds = groupConvs?.map((c) => c.id) || []
+    const allSelected = groupIds.length > 0 && groupIds.every((id) => selectedConversations.has(id))
+    const someSelected = groupIds.some((id) => selectedConversations.has(id))
+
+    return (
+      <div
+        className="w-full p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all"
+      >
+        <div className="flex items-center gap-3">
+          {/* Group checkbox */}
+          <div
+            className="flex-shrink-0"
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleGroupSelection(groupKey)
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={allSelected}
+              ref={(el) => {
+                if (el) el.indeterminate = someSelected && !allSelected
+              }}
+              onChange={() => {}}
+              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+            />
+          </div>
+
+          <div
+            className="flex-1 flex justify-between items-center cursor-pointer"
+            onClick={() => toggleGroup(groupKey)}
+          >
+            <div>
+              <p className="font-medium text-gray-900 dark:text-white">
+                {isDataset ? groupKey : formatDate(groupKey)}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {count} conversation{count !== 1 ? 's' : ''}
+              </p>
+            </div>
+            <svg
+              className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
       <Navigation />
@@ -261,50 +413,45 @@ export default function HistoryPage() {
           {/* Header */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-4">
-              {(selectedDate || selectedDataset) && (
-                <button
-                  onClick={handleBack}
-                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-              )}
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {selectedDate
-                  ? formatDate(selectedDate)
-                  : selectedDataset
-                    ? selectedDataset
-                    : 'Conversation History'}
+                Conversation History
               </h2>
+              {selectedConversations.size > 0 && (
+                <span className="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full">
+                  {selectedConversations.size} selected
+                </span>
+              )}
             </div>
 
             {/* View Mode Toggle */}
-            {!selectedDate && !selectedDataset && (
-              <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
-                <button
-                  onClick={() => setViewMode('by-date')}
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${
-                    viewMode === 'by-date'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  By Date
-                </button>
-                <button
-                  onClick={() => setViewMode('by-dataset')}
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${
-                    viewMode === 'by-dataset'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  By Dataset
-                </button>
-              </div>
-            )}
+            <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
+              <button
+                onClick={() => {
+                  setViewMode('by-date')
+                  setExpandedGroups(new Set())
+                }}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  viewMode === 'by-date'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
+                }`}
+              >
+                By Date
+              </button>
+              <button
+                onClick={() => {
+                  setViewMode('by-dataset')
+                  setExpandedGroups(new Set())
+                }}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  viewMode === 'by-dataset'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
+                }`}
+              >
+                By Dataset
+              </button>
+            </div>
           </div>
 
           {/* Content */}
@@ -336,82 +483,96 @@ export default function HistoryPage() {
                 Your conversations will appear here after you analyze data.
               </p>
             </div>
-          ) : !selectedDate && !selectedDataset ? (
-            // Show list of dates or datasets
-            <div className="space-y-2">
-              {viewMode === 'by-date' && dates.length === 0 && (
-                <p className="text-center text-gray-500 dark:text-gray-400 py-8">
-                  No conversations found. Try refreshing the page.
-                </p>
-              )}
-              {viewMode === 'by-dataset' && datasets.length === 0 && (
-                <p className="text-center text-gray-500 dark:text-gray-400 py-8">
-                  No conversations found. Try refreshing the page.
-                </p>
-              )}
+          ) : (
+            // Show all groups with expand/collapse
+            <div className="space-y-3">
               {viewMode === 'by-date'
                 ? dates.map((date) => (
-                    <button
-                      key={date}
-                      onClick={() => setSelectedDate(date)}
-                      className="w-full text-left p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-sm transition-all"
-                    >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">{formatDate(date)}</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {groupedByDate[date]?.length || 0} conversation{(groupedByDate[date]?.length || 0) !== 1 ? 's' : ''}
-                          </p>
+                    <div key={date}>
+                      {renderGroupHeader(date, groupedByDate[date]?.length || 0, false)}
+                      {expandedGroups.has(date) && (
+                        <div className="mt-2 ml-6 space-y-2">
+                          {groupedByDate[date].map(renderConversationCard)}
                         </div>
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </div>
-                    </button>
+                      )}
+                    </div>
                   ))
                 : datasets.map((dataset) => (
-                    <button
-                      key={dataset}
-                      onClick={() => setSelectedDataset(dataset)}
-                      className="w-full text-left p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-sm transition-all"
-                    >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">{dataset}</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {groupedByDataset[dataset]?.length || 0} conversation{(groupedByDataset[dataset]?.length || 0) !== 1 ? 's' : ''}
-                          </p>
+                    <div key={dataset}>
+                      {renderGroupHeader(dataset, groupedByDataset[dataset]?.length || 0, true)}
+                      {expandedGroups.has(dataset) && (
+                        <div className="mt-2 ml-6 space-y-2">
+                          {groupedByDataset[dataset].map(renderConversationCard)}
                         </div>
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </div>
-                    </button>
+                      )}
+                    </div>
                   ))}
             </div>
-          ) : viewMode === 'by-date' && selectedDate ? (
-            // Show conversations for selected date
-            <div className="space-y-3">
-              {displayConversations.map(renderConversationCard)}
-            </div>
-          ) : viewMode === 'by-dataset' && selectedDataset && displayConversationsByDate ? (
-            // Show conversations for selected dataset, grouped by date
-            <div className="space-y-6">
-              {Object.keys(displayConversationsByDate)
-                .sort((a, b) => b.localeCompare(a))
-                .map((date) => (
-                  <div key={date}>
-                    <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">
-                      {formatDate(date)}
-                    </h3>
-                    <div className="space-y-3">
-                      {displayConversationsByDate[date].map(renderConversationCard)}
-                    </div>
-                  </div>
-                ))}
-            </div>
-          ) : null}
+          )}
         </div>
+
+        {/* Send Report Panel - appears when conversations are selected */}
+        {selectedConversations.size > 0 && (
+          <div className="mt-6 card p-6 border-2 border-blue-500 dark:border-blue-400">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Send Report ({selectedConversations.size} conversation{selectedConversations.size !== 1 ? 's' : ''})
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="recipientEmails"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Recipient Email(s)
+                </label>
+                <input
+                  type="text"
+                  id="recipientEmails"
+                  value={recipientEmails}
+                  onChange={(e) => setRecipientEmails(e.target.value)}
+                  placeholder="Enter email addresses (comma or space separated)"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Separate multiple emails with commas, semicolons, or spaces
+                </p>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={handleSendReport}
+                  disabled={isSendingReport || recipientEmails.trim().length === 0}
+                  className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                >
+                  {isSendingReport ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      Send Report
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setSelectedConversations(new Set())
+                    setRecipientEmails('')
+                  }}
+                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white transition-colors"
+                >
+                  Clear Selection
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )
