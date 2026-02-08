@@ -190,11 +190,11 @@ export default function HistoryPage() {
         review: editBeforeSending,
       })
 
-      if (editBeforeSending && result.subject !== undefined) {
-        // Open review modal with the returned data
-        setReviewSubject(result.subject || '')
-        setReviewEmails(result.emails?.join(', ') || emails.join(', '))
-        setReviewContent(result.content || '')
+      if (editBeforeSending) {
+        // Open review modal with the returned data (use defaults if missing)
+        setReviewSubject(result.subject ?? 'Data Analysis Report')
+        setReviewEmails(result.emails?.join(', ') ?? emails.join(', '))
+        setReviewContent(result.content ?? reportContent)
         setShowReviewModal(true)
       } else {
         toast.success('Report sent successfully!')
