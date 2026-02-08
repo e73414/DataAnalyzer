@@ -1,11 +1,42 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import ReactQuill from 'react-quill-new'
+import 'react-quill-new/dist/quill.snow.css'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
 import type { ConversationHistory } from '../types'
+
+// Quill editor toolbar configuration
+const quillModules = {
+  toolbar: [
+    [{ header: [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ color: [] }, { background: [] }],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    [{ indent: '-1' }, { indent: '+1' }],
+    ['blockquote', 'code-block'],
+    ['link'],
+    ['clean'],
+  ],
+}
+
+const quillFormats = [
+  'header',
+  'bold',
+  'italic',
+  'underline',
+  'strike',
+  'color',
+  'background',
+  'list',
+  'indent',
+  'blockquote',
+  'code-block',
+  'link',
+]
 
 type ViewMode = 'by-date' | 'by-dataset'
 
@@ -723,13 +754,16 @@ export default function HistoryPage() {
                 >
                   Content
                 </label>
-                <textarea
-                  id="reviewContent"
-                  value={reviewContent}
-                  onChange={(e) => setReviewContent(e.target.value)}
-                  rows={15}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white font-mono text-sm resize-y"
-                />
+                <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-300 [&_.ql-toolbar]:dark:border-gray-600 [&_.ql-toolbar]:bg-gray-50 [&_.ql-toolbar]:dark:bg-gray-800 [&_.ql-container]:border-0 [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-gray-900 [&_.ql-editor]:dark:text-gray-100 [&_.ql-picker-label]:text-gray-700 [&_.ql-picker-label]:dark:text-gray-300 [&_.ql-stroke]:stroke-gray-700 [&_.ql-stroke]:dark:stroke-gray-300 [&_.ql-fill]:fill-gray-700 [&_.ql-fill]:dark:fill-gray-300 [&_.ql-picker-options]:dark:bg-gray-700 [&_.ql-picker-item]:dark:text-gray-300">
+                  <ReactQuill
+                    theme="snow"
+                    value={reviewContent}
+                    onChange={setReviewContent}
+                    modules={quillModules}
+                    formats={quillFormats}
+                    placeholder="Compose your report content..."
+                  />
+                </div>
               </div>
             </div>
 
