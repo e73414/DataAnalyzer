@@ -20,12 +20,14 @@ const UPDATE_DATASET_WEBHOOK_PATH = 'webhook/update-dataset'
 const UPLOAD_DATASET_WEBHOOK_PATH = 'webhook/upload-dataset'
 const DELETE_DATASET_WEBHOOK_PATH = 'webhook/delete-dataset'
 const SEND_REPORT_WEBHOOK_PATH = 'webhook/send-report'
-const SEND_EMAIL_WEBHOOK_PATH = 'webhook/send-email'
 
 interface SendReportRequest {
   emails: string[]
   content: string
   review?: boolean
+  // When reviewed=true, this is the final send after user edits
+  reviewed?: boolean
+  subject?: string
 }
 
 interface SendReportResult {
@@ -35,17 +37,6 @@ interface SendReportResult {
   subject?: string
   emails?: string[] | string  // Can be array or comma-separated string from n8n
   content?: string
-}
-
-interface SendEmailRequest {
-  subject: string
-  emails: string[]
-  content: string
-}
-
-interface SendEmailResult {
-  status: 'ok' | 'error'
-  message?: string
 }
 
 export const n8nService = {
@@ -205,6 +196,8 @@ export const n8nService = {
         emails: request.emails,
         content: request.content,
         review: request.review ?? false,
+        reviewed: request.reviewed ?? false,
+        subject: request.subject,
       },
     })
 
@@ -226,29 +219,6 @@ export const n8nService = {
     return {
       status: 'ok',
       message: 'Report sent successfully',
-    }
-  },
-
-  async sendEmail(request: SendEmailRequest): Promise<SendEmailResult> {
-    const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
-      skill: 'n8n-webhook',
-      params: {
-        webhookPath: SEND_EMAIL_WEBHOOK_PATH,
-      },
-      input: {
-        subject: request.subject,
-        emails: request.emails,
-        content: request.content,
-      },
-    })
-
-    if (response.data.status === 'error') {
-      throw new Error(response.data.error || 'Failed to send email')
-    }
-
-    return {
-      status: 'ok',
-      message: 'Email sent successfully',
     }
   },
 }

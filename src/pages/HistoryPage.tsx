@@ -1,13 +1,21 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import ReactQuill from 'react-quill-new'
+import ReactQuill, { Quill } from 'react-quill-new'
 import 'react-quill-new/dist/quill.snow.css'
+import QuillBetterTable from 'quill-better-table'
+import 'quill-better-table/dist/quill-better-table.css'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
+import { convertToEmailHtml } from '../utils/emailHtmlConverter'
 import type { ConversationHistory } from '../types'
+
+// Register quill-better-table module
+Quill.register({
+  'modules/better-table': QuillBetterTable,
+}, true)
 
 // Quill editor toolbar configuration
 const quillModules = {
@@ -18,9 +26,22 @@ const quillModules = {
     [{ list: 'ordered' }, { list: 'bullet' }],
     [{ indent: '-1' }, { indent: '+1' }],
     ['blockquote', 'code-block'],
-    ['link'],
+    ['link', 'image'],
     ['clean'],
   ],
+  table: false,
+  'better-table': {
+    operationMenu: {
+      items: {
+        unmergeCells: {
+          text: 'Unmerge cells',
+        },
+      },
+    },
+  },
+  keyboard: {
+    bindings: QuillBetterTable.keyboardBindings,
+  },
 }
 
 const quillFormats = [
@@ -36,6 +57,13 @@ const quillFormats = [
   'blockquote',
   'code-block',
   'link',
+  'image',
+  'table',
+  'table-row',
+  'table-cell',
+  'table-cell-line',
+  'table-col',
+  'table-col-group',
 ]
 
 type ViewMode = 'by-date' | 'by-dataset'
@@ -61,6 +89,18 @@ export default function HistoryPage() {
   const [reviewEmails, setReviewEmails] = useState('')
   const [reviewContent, setReviewContent] = useState('')
   const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const quillRef = useRef<ReactQuill>(null)
+
+  // Insert table into Quill editor
+  const insertTable = () => {
+    const quill = quillRef.current?.getEditor()
+    if (quill) {
+      const tableModule = quill.getModule('better-table') as { insertTable?: (rows: number, cols: number) => void } | null
+      if (tableModule?.insertTable) {
+        tableModule.insertTable(3, 3) // Insert a 3x3 table
+      }
+    }
+  }
 
   const {
     data: conversations,
@@ -270,10 +310,14 @@ export default function HistoryPage() {
 
     setIsSendingEmail(true)
     try {
-      await n8nService.sendEmail({
-        subject: reviewSubject,
+      // Convert Quill HTML to email-friendly HTML with inline styles
+      const emailContent = convertToEmailHtml(reviewContent)
+
+      await n8nService.sendReport({
         emails: emails,
-        content: reviewContent,
+        content: emailContent,
+        reviewed: true,
+        subject: reviewSubject,
       })
       toast.success('Email sent successfully!')
       setShowReviewModal(false)
@@ -748,14 +792,27 @@ export default function HistoryPage() {
               </div>
 
               <div>
-                <label
-                  htmlFor="reviewContent"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  Content
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label
+                    htmlFor="reviewContent"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Content
+                  </label>
+                  <button
+                    type="button"
+                    onClick={insertTable}
+                    className="px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded border border-gray-300 dark:border-gray-600 transition-colors flex items-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M10 3v18M14 3v18" />
+                    </svg>
+                    Insert Table
+                  </button>
+                </div>
                 <div className="rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-300 [&_.ql-toolbar]:dark:border-gray-600 [&_.ql-toolbar]:bg-gray-50 [&_.ql-toolbar]:dark:bg-gray-700 [&_.ql-container]:border-0 [&_.ql-container]:bg-white [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:bg-white [&_.ql-editor]:text-gray-900 [&_.ql-picker-label]:text-gray-700 [&_.ql-picker-label]:dark:text-gray-300 [&_.ql-stroke]:stroke-gray-700 [&_.ql-stroke]:dark:stroke-gray-300 [&_.ql-fill]:fill-gray-700 [&_.ql-fill]:dark:fill-gray-300 [&_.ql-picker-options]:dark:bg-gray-700 [&_.ql-picker-item]:dark:text-gray-300">
                   <ReactQuill
+                    ref={quillRef}
                     theme="snow"
                     value={reviewContent}
                     onChange={setReviewContent}
