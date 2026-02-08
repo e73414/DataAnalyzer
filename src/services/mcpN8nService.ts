@@ -20,13 +20,30 @@ const UPDATE_DATASET_WEBHOOK_PATH = 'webhook/update-dataset'
 const UPLOAD_DATASET_WEBHOOK_PATH = 'webhook/upload-dataset'
 const DELETE_DATASET_WEBHOOK_PATH = 'webhook/delete-dataset'
 const SEND_REPORT_WEBHOOK_PATH = 'webhook/send-report'
+const SEND_EMAIL_WEBHOOK_PATH = 'webhook/send-email'
 
 interface SendReportRequest {
   emails: string[]
   content: string
+  review?: boolean
 }
 
 interface SendReportResult {
+  status: 'ok' | 'error'
+  message?: string
+  // When review=true, these fields are returned for editing
+  subject?: string
+  emails?: string[]
+  content?: string
+}
+
+interface SendEmailRequest {
+  subject: string
+  emails: string[]
+  content: string
+}
+
+interface SendEmailResult {
   status: 'ok' | 'error'
   message?: string
 }
@@ -187,6 +204,7 @@ export const n8nService = {
       input: {
         emails: request.emails,
         content: request.content,
+        review: request.review ?? false,
       },
     })
 
@@ -194,9 +212,43 @@ export const n8nService = {
       throw new Error(response.data.error || 'Failed to send report')
     }
 
+    // If review was requested, return the editable fields
+    if (request.review && response.data.data) {
+      const data = response.data.data as { subject?: string; emails?: string[]; content?: string }
+      return {
+        status: 'ok',
+        subject: data.subject,
+        emails: data.emails,
+        content: data.content,
+      }
+    }
+
     return {
       status: 'ok',
       message: 'Report sent successfully',
+    }
+  },
+
+  async sendEmail(request: SendEmailRequest): Promise<SendEmailResult> {
+    const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
+      skill: 'n8n-webhook',
+      params: {
+        webhookPath: SEND_EMAIL_WEBHOOK_PATH,
+      },
+      input: {
+        subject: request.subject,
+        emails: request.emails,
+        content: request.content,
+      },
+    })
+
+    if (response.data.status === 'error') {
+      throw new Error(response.data.error || 'Failed to send email')
+    }
+
+    return {
+      status: 'ok',
+      message: 'Email sent successfully',
     }
   },
 }

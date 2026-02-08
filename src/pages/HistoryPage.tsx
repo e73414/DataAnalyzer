@@ -22,6 +22,14 @@ export default function HistoryPage() {
   const [selectedConversations, setSelectedConversations] = useState<Set<string>>(new Set())
   const [recipientEmails, setRecipientEmails] = useState('')
   const [isSendingReport, setIsSendingReport] = useState(false)
+  const [editBeforeSending, setEditBeforeSending] = useState(false)
+
+  // Review modal state
+  const [showReviewModal, setShowReviewModal] = useState(false)
+  const [reviewSubject, setReviewSubject] = useState('')
+  const [reviewEmails, setReviewEmails] = useState('')
+  const [reviewContent, setReviewContent] = useState('')
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
 
   const {
     data: conversations,
@@ -176,18 +184,80 @@ export default function HistoryPage() {
     setIsSendingReport(true)
     try {
       const reportContent = buildReportContent()
-      await n8nService.sendReport({
+      const result = await n8nService.sendReport({
         emails: emails,
         content: reportContent,
+        review: editBeforeSending,
       })
-      toast.success('Report sent successfully!')
-      setSelectedConversations(new Set())
-      setRecipientEmails('')
+
+      if (editBeforeSending && result.subject !== undefined) {
+        // Open review modal with the returned data
+        setReviewSubject(result.subject || '')
+        setReviewEmails(result.emails?.join(', ') || emails.join(', '))
+        setReviewContent(result.content || '')
+        setShowReviewModal(true)
+      } else {
+        toast.success('Report sent successfully!')
+        setSelectedConversations(new Set())
+        setRecipientEmails('')
+        setEditBeforeSending(false)
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to send report')
     } finally {
       setIsSendingReport(false)
     }
+  }
+
+  // Send email after review/edit
+  const handleSendEmail = async () => {
+    const emails = reviewEmails
+      .split(/[,;\s]+/)
+      .map((e) => e.trim())
+      .filter((e) => e.length > 0)
+
+    if (emails.length === 0) {
+      toast.error('Please enter at least one recipient email')
+      return
+    }
+
+    if (!reviewSubject.trim()) {
+      toast.error('Please enter a subject')
+      return
+    }
+
+    if (!reviewContent.trim()) {
+      toast.error('Please enter content')
+      return
+    }
+
+    setIsSendingEmail(true)
+    try {
+      await n8nService.sendEmail({
+        subject: reviewSubject,
+        emails: emails,
+        content: reviewContent,
+      })
+      toast.success('Email sent successfully!')
+      setShowReviewModal(false)
+      setSelectedConversations(new Set())
+      setRecipientEmails('')
+      setEditBeforeSending(false)
+      setReviewSubject('')
+      setReviewEmails('')
+      setReviewContent('')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to send email')
+    } finally {
+      setIsSendingEmail(false)
+    }
+  }
+
+  const handleCloseReviewModal = () => {
+    setShowReviewModal(false)
+    setReviewSubject('')
+    setReviewEmails('')
+    setReviewContent('')
   }
 
   const formatDate = (dateStr: string) => {
@@ -539,7 +609,7 @@ export default function HistoryPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4">
                 <button
                   onClick={handleSendReport}
                   disabled={isSendingReport || recipientEmails.trim().length === 0}
@@ -548,22 +618,33 @@ export default function HistoryPage() {
                   {isSendingReport ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Sending...
+                      {editBeforeSending ? 'Processing...' : 'Sending...'}
                     </>
                   ) : (
                     <>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
-                      Send Report
+                      {editBeforeSending ? 'Generate Report' : 'Send Report'}
                     </>
                   )}
                 </button>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editBeforeSending}
+                    onChange={(e) => setEditBeforeSending(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Edit Before Sending</span>
+                </label>
 
                 <button
                   onClick={() => {
                     setSelectedConversations(new Set())
                     setRecipientEmails('')
+                    setEditBeforeSending(false)
                   }}
                   className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white transition-colors"
                 >
@@ -574,6 +655,108 @@ export default function HistoryPage() {
           </div>
         )}
       </main>
+
+      {/* Review/Edit Modal */}
+      {showReviewModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Review & Edit Report
+                </h3>
+                <button
+                  onClick={handleCloseReviewModal}
+                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 flex-1 overflow-y-auto space-y-4">
+              <div>
+                <label
+                  htmlFor="reviewSubject"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Subject
+                </label>
+                <input
+                  type="text"
+                  id="reviewSubject"
+                  value={reviewSubject}
+                  onChange={(e) => setReviewSubject(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="reviewEmails"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Recipients
+                </label>
+                <input
+                  type="text"
+                  id="reviewEmails"
+                  value={reviewEmails}
+                  onChange={(e) => setReviewEmails(e.target.value)}
+                  placeholder="Enter email addresses (comma separated)"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="reviewContent"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Content
+                </label>
+                <textarea
+                  id="reviewContent"
+                  value={reviewContent}
+                  onChange={(e) => setReviewContent(e.target.value)}
+                  rows={15}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white font-mono text-sm resize-y"
+                />
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+              <button
+                onClick={handleCloseReviewModal}
+                className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendEmail}
+                disabled={isSendingEmail}
+                className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              >
+                {isSendingEmail ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                    Send Email
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
