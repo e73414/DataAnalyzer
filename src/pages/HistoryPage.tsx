@@ -754,7 +754,7 @@ export default function HistoryPage() {
                 >
                   Content
                 </label>
-                <div className="bg-white dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-300 [&_.ql-toolbar]:dark:border-gray-600 [&_.ql-toolbar]:bg-gray-50 [&_.ql-toolbar]:dark:bg-gray-800 [&_.ql-container]:border-0 [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-gray-900 [&_.ql-editor]:dark:text-gray-100 [&_.ql-picker-label]:text-gray-700 [&_.ql-picker-label]:dark:text-gray-300 [&_.ql-stroke]:stroke-gray-700 [&_.ql-stroke]:dark:stroke-gray-300 [&_.ql-fill]:fill-gray-700 [&_.ql-fill]:dark:fill-gray-300 [&_.ql-picker-options]:dark:bg-gray-700 [&_.ql-picker-item]:dark:text-gray-300">
+                <div className="rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-300 [&_.ql-toolbar]:dark:border-gray-600 [&_.ql-toolbar]:bg-gray-50 [&_.ql-toolbar]:dark:bg-gray-700 [&_.ql-container]:border-0 [&_.ql-container]:bg-white [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:bg-white [&_.ql-editor]:text-gray-900 [&_.ql-picker-label]:text-gray-700 [&_.ql-picker-label]:dark:text-gray-300 [&_.ql-stroke]:stroke-gray-700 [&_.ql-stroke]:dark:stroke-gray-300 [&_.ql-fill]:fill-gray-700 [&_.ql-fill]:dark:fill-gray-300 [&_.ql-picker-options]:dark:bg-gray-700 [&_.ql-picker-item]:dark:text-gray-300">
                   <ReactQuill
                     theme="snow"
                     value={reviewContent}
