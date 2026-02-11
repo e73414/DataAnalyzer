@@ -49,12 +49,19 @@ export interface UpdateDatasetResult {
   rowsInserted?: number
 }
 
+export interface UserProfile {
+  id: string
+  user_email: string
+  template_id: string
+}
+
 export interface AnalysisRequest {
   email: string
   model: string
   datasetId: string
   prompt: string
   emailResponse?: boolean
+  templateId?: string
 }
 
 export interface AnalysisResult {
@@ -124,4 +131,13 @@ export interface ConversationHistory {
 export interface ConversationsByDate {
   date: string // YYYY-MM-DD format
   conversations: ConversationHistory[]
+}
+
+export interface ReportTemplate {
+  template_id: string
+  title: string
+  description: string
+  html_content: string
+  owner_email: string
+  is_public: boolean
 }

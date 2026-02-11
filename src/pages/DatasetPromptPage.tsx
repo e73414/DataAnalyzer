@@ -79,6 +79,12 @@ export default function DatasetPromptPage() {
     queryFn: () => pocketbaseService.getAIModels(),
   })
 
+  const { data: userProfile } = useQuery({
+    queryKey: ['user-profile', session?.email],
+    queryFn: () => pocketbaseService.getUserProfile(session!.email),
+    enabled: !!session?.email,
+  })
+
   useEffect(() => {
     if (aiModels && aiModels.length > 0 && !selectedModelId) {
       const defaultModel = aiModels[0].id
@@ -144,6 +150,7 @@ export default function DatasetPromptPage() {
         datasetId: selectedDatasetId,
         prompt: prompt.trim(),
         emailResponse,
+        templateId: userProfile?.template_id,
       })
 
       const selectedDataset = datasets?.find((d) => d.id === selectedDatasetId)

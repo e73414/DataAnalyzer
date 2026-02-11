@@ -1,5 +1,5 @@
 import { mcpN8nApi, mcpPocketbaseApi } from './api'
-import type { Dataset, AIModel, NavLink, ConversationHistory } from '../types'
+import type { Dataset, AIModel, NavLink, ConversationHistory, UserProfile } from '../types'
 
 interface ListDatasetsResponse {
   status: 'ok' | 'error'
@@ -48,6 +48,7 @@ interface PocketbaseConversationRecord {
   dataset_id: string
   dataset_name: string
   created: string
+  created_at: string
 }
 
 interface ListConversationsResponse {
@@ -66,7 +67,61 @@ interface DeleteRecordResponse {
   message?: string
 }
 
+interface UpdateRecordResponse {
+  status: 'ok' | 'error'
+  record?: PocketbaseUserProfileRecord
+}
+
+interface PocketbaseUserProfileRecord {
+  id: string
+  user_email: string
+  template_id: string
+}
+
+interface ListUserProfileResponse {
+  status: 'ok' | 'error'
+  items?: PocketbaseUserProfileRecord[]
+  totalItems?: number
+}
+
 export const pocketbaseService = {
+  // Fetch user profile by email to get template_id
+  async getUserProfile(email: string): Promise<UserProfile | undefined> {
+    const response = await mcpPocketbaseApi.post<ListUserProfileResponse>('/mcp/execute', {
+      skill: 'pb-list-records',
+      params: {
+        collection: 'data_analyzer_user_profile',
+        filter: `user_email="${email}"`,
+        perPage: 1,
+      },
+    })
+    const items = response.data.items || []
+    if (items.length === 0) return undefined
+    const record = items[0]
+    return {
+      id: record.id,
+      user_email: record.user_email,
+      template_id: record.template_id,
+    }
+  },
+
+  // Update the template_id for a user profile
+  async updateUserTemplateId(recordId: string, templateId: string): Promise<void> {
+    const response = await mcpPocketbaseApi.post<UpdateRecordResponse>('/mcp/execute', {
+      skill: 'pb-update-record',
+      params: {
+        collection: 'data_analyzer_user_profile',
+        id: recordId,
+        data: {
+          template_id: templateId,
+        },
+      },
+    })
+    if (response.data.status === 'error') {
+      throw new Error('Failed to update template')
+    }
+  },
+
   // Fetch navigation links from Pocketbase
   async getNavLinks(): Promise<NavLink[]> {
     const response = await mcpPocketbaseApi.post<ListNavLinksResponse>('/mcp/execute', {
@@ -182,7 +237,7 @@ export const pocketbaseService = {
       ai_model: record.ai_model,
       dataset_id: record.dataset_id,
       dataset_name: record.dataset_name,
-      created: record.created || now,
+      created: record.created_at || record.created || now,
     }
   },
 
@@ -206,7 +261,7 @@ export const pocketbaseService = {
       ai_model: record.ai_model,
       dataset_id: record.dataset_id,
       dataset_name: record.dataset_name,
-      created: record.created || new Date().toISOString(),
+      created: record.created_at || record.created || new Date().toISOString(),
     }))
   },
 

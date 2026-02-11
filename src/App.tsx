@@ -8,6 +8,8 @@ import UpdateDatasetPage from './pages/UpdateDatasetPage'
 import UploadDatasetPage from './pages/UploadDatasetPage'
 import DeleteDatasetPage from './pages/DeleteDatasetPage'
 import HistoryPage from './pages/HistoryPage'
+import ReportTemplateManagerPage from './pages/ReportTemplateManagerPage'
+import UploadReportTemplatePage from './pages/UploadReportTemplatePage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isLoggedIn } = useSession()
@@ -74,6 +76,22 @@ function App() {
         element={
           <ProtectedRoute>
             <HistoryPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/report-templates"
+        element={
+          <ProtectedRoute>
+            <ReportTemplateManagerPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/upload-report-template"
+        element={
+          <ProtectedRoute>
+            <UploadReportTemplatePage />
           </ProtectedRoute>
         }
       />

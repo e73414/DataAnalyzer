@@ -1,5 +1,5 @@
 import { mcpN8nApi } from './api'
-import type { AnalysisRequest, AnalysisResult, DatasetDetail, UpdateSummaryRequest, UpdateSummaryResult, UpdateDatasetRequest, UpdateDatasetResult, UploadDatasetRequest, UploadDatasetResult, DeleteDatasetRequest, DeleteDatasetResult } from '../types'
+import type { AnalysisRequest, AnalysisResult, DatasetDetail, UpdateSummaryRequest, UpdateSummaryResult, UpdateDatasetRequest, UpdateDatasetResult, UploadDatasetRequest, UploadDatasetResult, DeleteDatasetRequest, DeleteDatasetResult, ReportTemplate } from '../types'
 
 interface N8nWebhookResponse {
   status: 'ok' | 'error'
@@ -20,6 +20,9 @@ const UPDATE_DATASET_WEBHOOK_PATH = 'webhook/update-dataset'
 const UPLOAD_DATASET_WEBHOOK_PATH = 'webhook/upload-dataset'
 const DELETE_DATASET_WEBHOOK_PATH = 'webhook/delete-dataset'
 const SEND_REPORT_WEBHOOK_PATH = 'webhook/send-report'
+const LIST_TEMPLATES_WEBHOOK_PATH = 'webhook/list-templates'
+const DELETE_TEMPLATE_WEBHOOK_PATH = 'webhook/delete-template'
+const UPLOAD_TEMPLATE_WEBHOOK_PATH = 'webhook/upload-template'
 
 interface SendReportRequest {
   emails: string[]
@@ -28,6 +31,7 @@ interface SendReportRequest {
   // When reviewed=true, this is the final send after user edits
   reviewed?: boolean
   subject?: string
+  templateId?: string
 }
 
 interface SendReportResult {
@@ -52,6 +56,7 @@ export const n8nService = {
         datasetId: request.datasetId,
         prompt: request.prompt,
         emailResponse: request.emailResponse ?? false,
+        ...(request.templateId && { templateId: request.templateId }),
       },
     })
 
@@ -198,6 +203,7 @@ export const n8nService = {
         review: request.review ?? false,
         reviewed: request.reviewed ?? false,
         subject: request.subject,
+        ...(request.templateId && { templateId: request.templateId }),
       },
     })
 
@@ -219,6 +225,64 @@ export const n8nService = {
     return {
       status: 'ok',
       message: 'Report sent successfully',
+    }
+  },
+
+  async listTemplates(email: string): Promise<ReportTemplate[]> {
+    const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
+      skill: 'n8n-webhook',
+      params: {
+        webhookPath: LIST_TEMPLATES_WEBHOOK_PATH,
+      },
+      input: {
+        email,
+      },
+    })
+
+    if (response.data.status === 'error') {
+      throw new Error(response.data.error || 'Failed to fetch templates')
+    }
+
+    const data = response.data.data as unknown as ReportTemplate[] | { data: ReportTemplate[]; items?: ReportTemplate[] }
+    if (Array.isArray(data)) return data
+    return data?.data || data?.items || []
+  },
+
+  async deleteTemplate(templateId: string, email: string): Promise<void> {
+    const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
+      skill: 'n8n-webhook',
+      params: {
+        webhookPath: DELETE_TEMPLATE_WEBHOOK_PATH,
+      },
+      input: {
+        templateId,
+        email,
+      },
+    })
+
+    if (response.data.status === 'error') {
+      throw new Error(response.data.error || 'Failed to delete template')
+    }
+  },
+
+  async uploadTemplate(data: {
+    name: string
+    description: string
+    owner_email: string
+    access: string
+    file: string
+    fileName: string
+  }): Promise<void> {
+    const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
+      skill: 'n8n-webhook',
+      params: {
+        webhookPath: UPLOAD_TEMPLATE_WEBHOOK_PATH,
+      },
+      input: data,
+    })
+
+    if (response.data.status === 'error') {
+      throw new Error(response.data.error || 'Failed to upload template')
     }
   },
 }

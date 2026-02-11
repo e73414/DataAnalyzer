@@ -112,6 +112,12 @@ export default function HistoryPage() {
     enabled: !!session?.email,
   })
 
+  const { data: userProfile } = useQuery({
+    queryKey: ['user-profile', session?.email],
+    queryFn: () => pocketbaseService.getUserProfile(session!.email),
+    enabled: !!session?.email,
+  })
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => pocketbaseService.deleteConversation(id),
     onSuccess: () => {
@@ -259,6 +265,7 @@ export default function HistoryPage() {
         emails: emails,
         content: reportContent,
         review: editBeforeSending,
+        templateId: userProfile?.template_id,
       })
 
       if (editBeforeSending) {
@@ -318,6 +325,7 @@ export default function HistoryPage() {
         content: emailContent,
         reviewed: true,
         subject: reviewSubject,
+        templateId: userProfile?.template_id,
       })
       toast.success('Email sent successfully!')
       setShowReviewModal(false)

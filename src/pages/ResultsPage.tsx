@@ -87,6 +87,12 @@ export default function ResultsPage() {
     queryFn: () => pocketbaseService.getAIModels(),
   })
 
+  const { data: userProfile } = useQuery({
+    queryKey: ['user-profile', session?.email],
+    queryFn: () => pocketbaseService.getUserProfile(session!.email),
+    enabled: !!session?.email,
+  })
+
   useEffect(() => {
     if (state?.result && conversation.length === 0) {
       setConversation([
@@ -170,6 +176,7 @@ export default function ResultsPage() {
         datasetId: datasetId,
         prompt: followUpPrompt.trim(),
         emailResponse,
+        templateId: userProfile?.template_id,
       })
 
       const trimmedPrompt = followUpPrompt.trim()
