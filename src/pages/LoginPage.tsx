@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useSession } from '../context/SessionContext'
 import { useTheme } from '../context/ThemeContext'
+import { pocketbaseService } from '../services/mcpPocketbaseService'
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -45,6 +46,7 @@ export default function LoginPage() {
   const { login, isLoggedIn } = useSession()
   const { theme, toggleTheme } = useTheme()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [loginError, setLoginError] = useState<string | null>(null)
 
   const {
     register,
@@ -64,9 +66,17 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormData) => {
     setIsSubmitting(true)
+    setLoginError(null)
     try {
+      const profile = await pocketbaseService.getUserProfile(data.email)
+      if (!profile) {
+        setLoginError('Email not found. Please contact your administrator for access.')
+        return
+      }
       login(data.email)
       navigate('/analyze')
+    } catch {
+      setLoginError('Unable to verify email. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -114,6 +124,10 @@ export default function LoginPage() {
                 <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email.message}</p>
               )}
             </div>
+
+            {loginError && (
+              <p className="text-sm text-red-600 dark:text-red-400">{loginError}</p>
+            )}
 
             <button
               type="submit"

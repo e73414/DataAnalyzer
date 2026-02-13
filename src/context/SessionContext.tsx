@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import type { Session } from '../types'
+import { pocketbaseService } from '../services/mcpPocketbaseService'
 
 const SESSION_KEY = 'data-analyzer-session'
 const SESSION_EXPIRY_HOURS = 24
@@ -10,6 +11,7 @@ interface SessionContextType {
   logout: () => void
   setAIModel: (model: string) => void
   isLoggedIn: boolean
+  isValidating: boolean
 }
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined)
@@ -41,6 +43,25 @@ function clearSession(): void {
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(() => loadSession())
+  const [isValidating, setIsValidating] = useState(() => loadSession() !== null)
+  const validatedRef = useRef(false)
+
+  // Validate existing session against PocketBase on load
+  useEffect(() => {
+    if (!session || validatedRef.current) return
+    validatedRef.current = true
+    setIsValidating(true)
+    pocketbaseService.getUserProfile(session.email).then((profile) => {
+      if (!profile) {
+        clearSession()
+        setSession(null)
+      }
+    }).catch(() => {
+      // If validation fails (network error), keep session to avoid logout on transient errors
+    }).finally(() => {
+      setIsValidating(false)
+    })
+  }, [session])
 
   const login = useCallback((email: string, model?: string) => {
     const newSession: Session = {
@@ -85,6 +106,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         logout,
         setAIModel,
         isLoggedIn: session !== null,
+        isValidating,
       }}
     >
       {children}

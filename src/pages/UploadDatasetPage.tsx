@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { n8nService } from '../services/mcpN8nService'
@@ -7,6 +7,7 @@ import Navigation from '../components/Navigation'
 
 export default function UploadDatasetPage() {
   const { session } = useSession()
+  const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [datasetName, setDatasetName] = useState('')
@@ -38,6 +39,7 @@ export default function UploadDatasetPage() {
       })
     },
     onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['datasets'] })
       toast.success(`Dataset "${result.datasetName}" uploaded successfully! ${result.rowsInserted} rows inserted.`)
       setDatasetName('')
       setDescription('')

@@ -288,18 +288,12 @@ export default function DatasetPromptPage() {
                     {isAnalyzing ? (
                       <span className="flex items-center gap-2">
                         <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
-                        Analyzing...
+                        {getCurrentPhrase()} for {elapsedSeconds} sec{elapsedSeconds !== 1 ? 's' : ''}...
                       </span>
                     ) : (
                       'Analyze'
                     )}
                   </button>
-
-                  {isAnalyzing && (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {getCurrentPhrase()} for {elapsedSeconds} sec{elapsedSeconds !== 1 ? 's' : ''}...
-                    </p>
-                  )}
                 </div>
 
                 {/* Email Response Checkbox - Right Justified */}

@@ -246,38 +246,11 @@ export default function ResultsPage() {
         <div className="card flex-1 flex flex-col overflow-hidden">
           {/* Dataset Header */}
           <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex-shrink-0">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Conversation</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Dataset: <span className="font-medium text-gray-900 dark:text-gray-200">{datasetName}</span>
-                </p>
-              </div>
-              <button
-                onClick={handleSaveAll}
-                disabled={isSaving || hasSaved || conversation.length === 0}
-                className={`px-4 py-2 text-sm font-medium rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors duration-200 ${
-                  hasSaved
-                    ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 cursor-default'
-                    : 'bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-blue-500'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                {isSaving ? (
-                  <span className="flex items-center gap-2">
-                    <span className="inline-block animate-spin rounded-full h-3 w-3 border-2 border-gray-500 dark:border-gray-400 border-t-transparent"></span>
-                    Saving...
-                  </span>
-                ) : hasSaved ? (
-                  <span className="flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Saved
-                  </span>
-                ) : (
-                  'Save Conversation'
-                )}
-              </button>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Conversation</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Dataset: <span className="font-medium text-gray-900 dark:text-gray-200">{datasetName}</span>
+              </p>
             </div>
           </div>
 
@@ -294,7 +267,7 @@ export default function ResultsPage() {
 
                 {/* AI Response */}
                 <div className="flex justify-start">
-                  <div className="bg-gray-100 dark:bg-gray-700/50 rounded-2xl rounded-tl-md px-4 py-3 max-w-[90%] shadow-sm">
+                  <div className="bg-gray-100 dark:bg-gray-700/50 rounded-2xl rounded-tl-md px-4 py-3 w-full shadow-sm">
                     <div
                       className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 [&_*]:text-gray-800 dark:[&_*]:text-gray-200 [&_*]:!bg-transparent"
                       dangerouslySetInnerHTML={{ __html: item.response }}
@@ -314,6 +287,36 @@ export default function ResultsPage() {
 
                 {index < conversation.length - 1 && (
                   <hr className="border-gray-200 dark:border-gray-700" />
+                )}
+
+                {index === conversation.length - 1 && (
+                  <div className="flex justify-end mt-1">
+                    <button
+                      onClick={handleSaveAll}
+                      disabled={isSaving || hasSaved}
+                      className={`px-3 py-1 text-xs rounded border transition-colors duration-200 ${
+                        hasSaved
+                          ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-600 dark:text-green-400'
+                          : 'bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-700 dark:hover:text-gray-300'
+                      } disabled:cursor-not-allowed`}
+                    >
+                      {isSaving ? (
+                        <span className="flex items-center gap-1">
+                          <span className="inline-block animate-spin rounded-full h-2.5 w-2.5 border border-gray-400 border-t-transparent"></span>
+                          saving...
+                        </span>
+                      ) : hasSaved ? (
+                        <span className="flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          saved
+                        </span>
+                      ) : (
+                        'save conversation'
+                      )}
+                    </button>
+                  </div>
                 )}
               </div>
             ))}
