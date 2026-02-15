@@ -216,11 +216,12 @@ export default function ResultsPage() {
 
     setIsSaving(true)
     try {
-      const conversationData = conversation.map((item) => ({
-        prompt: item.prompt,
-        output: item.response,
-        processUsed: item.processUsed,
-      }))
+      const lastItem = conversation[conversation.length - 1]
+      const conversationData = [{
+        prompt: lastItem.prompt,
+        output: lastItem.response,
+        processUsed: lastItem.processUsed,
+      }]
 
       await pocketbaseService.saveAnalysisResult({
         datasetId,
