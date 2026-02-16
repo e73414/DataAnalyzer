@@ -1,70 +1,11 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import ReactQuill, { Quill } from 'react-quill-new'
-import 'react-quill-new/dist/quill.snow.css'
-import QuillBetterTable from 'quill-better-table'
-import 'quill-better-table/dist/quill-better-table.css'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
-import { convertToEmailHtml } from '../utils/emailHtmlConverter'
 import type { ConversationHistory } from '../types'
-
-// Register quill-better-table module
-Quill.register({
-  'modules/better-table': QuillBetterTable,
-}, true)
-
-// Quill editor toolbar configuration
-const quillModules = {
-  toolbar: [
-    [{ header: [1, 2, 3, false] }],
-    ['bold', 'italic', 'underline', 'strike'],
-    [{ color: [] }, { background: [] }],
-    [{ list: 'ordered' }, { list: 'bullet' }],
-    [{ indent: '-1' }, { indent: '+1' }],
-    ['blockquote', 'code-block'],
-    ['link', 'image'],
-    ['clean'],
-  ],
-  table: false,
-  'better-table': {
-    operationMenu: {
-      items: {
-        unmergeCells: {
-          text: 'Unmerge cells',
-        },
-      },
-    },
-  },
-  keyboard: {
-    bindings: QuillBetterTable.keyboardBindings,
-  },
-}
-
-const quillFormats = [
-  'header',
-  'bold',
-  'italic',
-  'underline',
-  'strike',
-  'color',
-  'background',
-  'list',
-  'indent',
-  'blockquote',
-  'code-block',
-  'link',
-  'image',
-  'table',
-  'table-row',
-  'table-cell',
-  'table-cell-line',
-  'table-col',
-  'table-col-group',
-]
 
 type ViewMode = 'by-date' | 'by-dataset'
 
@@ -82,6 +23,7 @@ export default function HistoryPage() {
   const [recipientEmails, setRecipientEmails] = useState('')
   const [isSendingReport, setIsSendingReport] = useState(false)
   const [editBeforeSending, setEditBeforeSending] = useState(false)
+  const [reportSubject, setReportSubject] = useState('')
 
   // Review modal state
   const [showReviewModal, setShowReviewModal] = useState(false)
@@ -89,18 +31,22 @@ export default function HistoryPage() {
   const [reviewEmails, setReviewEmails] = useState('')
   const [reviewContent, setReviewContent] = useState('')
   const [isSendingEmail, setIsSendingEmail] = useState(false)
-  const quillRef = useRef<ReactQuill>(null)
+  const [showRawHtml, setShowRawHtml] = useState(false)
+  const [iframeKey, setIframeKey] = useState(0)
+  const editorRef = useRef<HTMLIFrameElement>(null)
+  const contentRef = useRef('')
 
-  // Insert table into Quill editor
-  const insertTable = () => {
-    const quill = quillRef.current?.getEditor()
-    if (quill) {
-      const tableModule = quill.getModule('better-table') as { insertTable?: (rows: number, cols: number) => void } | null
-      if (tableModule?.insertTable) {
-        tableModule.insertTable(3, 3) // Insert a 3x3 table
-      }
-    }
-  }
+  // Set up contentEditable on iframe body; sync edits to ref (not state) to avoid re-renders
+  const handleEditorLoad = useCallback(() => {
+    const iframe = editorRef.current
+    if (!iframe?.contentDocument) return
+    const doc = iframe.contentDocument
+    doc.body.setAttribute('contenteditable', 'true')
+    doc.body.style.outline = 'none'
+    doc.body.addEventListener('input', () => {
+      contentRef.current = '<!DOCTYPE html>\n' + doc.documentElement.outerHTML
+    })
+  }, [])
 
   const {
     data: conversations,
@@ -265,12 +211,13 @@ export default function HistoryPage() {
         emails: emails,
         content: reportContent,
         review: editBeforeSending,
+        ...(reportSubject.trim() && { subject: reportSubject.trim() }),
         templateId: userProfile?.template_id,
       })
 
       if (editBeforeSending) {
-        // Open review modal with the returned data (use defaults if missing)
-        setReviewSubject(result.subject ?? 'Data Analysis Report')
+        // User-provided subject takes priority, then n8n response, then default
+        setReviewSubject(reportSubject.trim() || result.subject || 'Data Analysis Report')
         // Handle emails as either string or array
         const resultEmails = result.emails
           ? Array.isArray(result.emails)
@@ -278,12 +225,16 @@ export default function HistoryPage() {
             : String(result.emails)
           : emails.join(', ')
         setReviewEmails(resultEmails)
-        setReviewContent(result.content ?? reportContent)
+        const htmlContent = result.content ?? reportContent
+        contentRef.current = htmlContent
+        setReviewContent(htmlContent)
+        setIframeKey((k) => k + 1)
         setShowReviewModal(true)
       } else {
         toast.success('Report sent successfully!')
         setSelectedConversations(new Set())
         setRecipientEmails('')
+        setReportSubject('')
         setEditBeforeSending(false)
       }
     } catch (error) {
@@ -310,19 +261,18 @@ export default function HistoryPage() {
       return
     }
 
-    if (!reviewContent.trim()) {
+    // Use latest content — ref captures contentEditable edits that haven't synced to state
+    const finalContent = contentRef.current || reviewContent
+    if (!finalContent.trim()) {
       toast.error('Please enter content')
       return
     }
 
     setIsSendingEmail(true)
     try {
-      // Convert Quill HTML to email-friendly HTML with inline styles
-      const emailContent = convertToEmailHtml(reviewContent)
-
       await n8nService.sendReport({
         emails: emails,
-        content: emailContent,
+        content: finalContent,
         reviewed: true,
         subject: reviewSubject,
         templateId: userProfile?.template_id,
@@ -347,6 +297,8 @@ export default function HistoryPage() {
     setReviewSubject('')
     setReviewEmails('')
     setReviewContent('')
+    contentRef.current = ''
+    setShowRawHtml(false)
   }
 
   const formatDate = (dateStr: string) => {
@@ -698,6 +650,23 @@ export default function HistoryPage() {
                 </p>
               </div>
 
+              <div>
+                <label
+                  htmlFor="reportSubject"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Subject <span className="font-normal text-gray-400 dark:text-gray-500">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  id="reportSubject"
+                  value={reportSubject}
+                  onChange={(e) => setReportSubject(e.target.value)}
+                  placeholder="Custom email subject"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+
               <div className="flex flex-wrap items-center gap-4">
                 <button
                   onClick={handleSendReport}
@@ -733,6 +702,7 @@ export default function HistoryPage() {
                   onClick={() => {
                     setSelectedConversations(new Set())
                     setRecipientEmails('')
+                    setReportSubject('')
                     setEditBeforeSending(false)
                   }}
                   className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white transition-colors"
@@ -800,35 +770,46 @@ export default function HistoryPage() {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label
-                    htmlFor="reviewContent"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    Content
-                  </label>
-                  <button
-                    type="button"
-                    onClick={insertTable}
-                    className="px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded border border-gray-300 dark:border-gray-600 transition-colors flex items-center gap-1"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M10 3v18M14 3v18" />
-                    </svg>
-                    Insert Table
-                  </button>
-                </div>
-                <div className="rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-300 [&_.ql-toolbar]:dark:border-gray-600 [&_.ql-toolbar]:bg-gray-50 [&_.ql-toolbar]:dark:bg-gray-700 [&_.ql-container]:border-0 [&_.ql-container]:bg-white [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:bg-white [&_.ql-editor]:text-gray-900 [&_.ql-picker-label]:text-gray-700 [&_.ql-picker-label]:dark:text-gray-300 [&_.ql-stroke]:stroke-gray-700 [&_.ql-stroke]:dark:stroke-gray-300 [&_.ql-fill]:fill-gray-700 [&_.ql-fill]:dark:fill-gray-300 [&_.ql-picker-options]:dark:bg-gray-700 [&_.ql-picker-item]:dark:text-gray-300">
-                  <ReactQuill
-                    ref={quillRef}
-                    theme="snow"
-                    value={reviewContent}
-                    onChange={setReviewContent}
-                    modules={quillModules}
-                    formats={quillFormats}
-                    placeholder="Compose your report content..."
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Content
+                </label>
+                <div className="rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+                  <iframe
+                    key={iframeKey}
+                    ref={editorRef}
+                    srcDoc={reviewContent}
+                    onLoad={handleEditorLoad}
+                    title="Edit Report"
+                    className="w-full min-h-[400px] bg-white"
                   />
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!showRawHtml) {
+                      // Opening textarea — sync latest contentEditable edits to state
+                      setReviewContent(contentRef.current || reviewContent)
+                    } else {
+                      // Closing textarea — refresh iframe with textarea edits
+                      contentRef.current = reviewContent
+                      setIframeKey((k) => k + 1)
+                    }
+                    setShowRawHtml((v) => !v)
+                  }}
+                  className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {showRawHtml ? 'Hide HTML' : 'View / Edit HTML'}
+                </button>
+                {showRawHtml && (
+                  <textarea
+                    value={reviewContent}
+                    onChange={(e) => {
+                      setReviewContent(e.target.value)
+                      contentRef.current = e.target.value
+                    }}
+                    className="mt-2 w-full min-h-[200px] px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                )}
               </div>
             </div>
 

@@ -61,6 +61,7 @@ export interface AnalysisRequest {
   datasetId: string
   prompt: string
   emailResponse?: boolean
+  emailSubject?: string
   templateId?: string
 }
 

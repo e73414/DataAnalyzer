@@ -55,6 +55,7 @@ export default function DatasetPromptPage() {
   const [selectedModelId, setSelectedModelId] = useState(session?.aiModel || '')
   const [prompt, setPrompt] = useState('')
   const [emailResponse, setEmailResponse] = useState(false)
+  const [emailSubject, setEmailSubject] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [shuffledPhrases, setShuffledPhrases] = useState<string[]>([])
@@ -150,6 +151,7 @@ export default function DatasetPromptPage() {
         datasetId: selectedDatasetId,
         prompt: prompt.trim(),
         emailResponse,
+        ...(emailSubject.trim() && { emailSubject: emailSubject.trim() }),
         templateId: userProfile?.template_id,
       })
 
@@ -311,6 +313,22 @@ export default function DatasetPromptPage() {
                   </label>
                 </div>
               </div>
+              {emailResponse && (
+                <div className="flex items-center gap-2">
+                  <label htmlFor="emailSubject" className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                    Subject:
+                  </label>
+                  <input
+                    id="emailSubject"
+                    type="text"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    disabled={isAnalyzing}
+                    placeholder="(optional)"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              )}
             </form>
           )}
         </div>

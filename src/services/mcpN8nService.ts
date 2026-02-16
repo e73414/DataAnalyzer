@@ -56,6 +56,7 @@ export const n8nService = {
         datasetId: request.datasetId,
         prompt: request.prompt,
         emailResponse: request.emailResponse ?? false,
+        ...(request.emailSubject && { emailSubject: request.emailSubject }),
         ...(request.templateId && { templateId: request.templateId }),
       },
     })
@@ -192,7 +193,7 @@ export const n8nService = {
   },
 
   async sendReport(request: SendReportRequest): Promise<SendReportResult> {
-    const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
+    const response = await mcpN8nApi.post('/mcp/execute', {
       skill: 'n8n-webhook',
       params: {
         webhookPath: SEND_REPORT_WEBHOOK_PATH,
@@ -207,18 +208,62 @@ export const n8nService = {
       },
     })
 
-    if (response.data.status === 'error') {
-      throw new Error(response.data.error || 'Failed to send report')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fullData = response.data as any
+
+    if (fullData?.status === 'error') {
+      throw new Error(fullData?.error || 'Failed to send report')
     }
 
-    // If review was requested, return the editable fields
-    if (request.review && response.data.data) {
-      const data = response.data.data as { subject?: string; emails?: string[]; content?: string }
+    // If review was requested, extract cleanHtml/subject/emails from the n8n response.
+    // MCP adapter wraps as { status, code, data: <n8n_response> }.
+    // n8n returns [{ cleanHtml, subject, emails }].
+    // data may arrive as a JSON string if content-type wasn't application/json.
+    if (request.review) {
+      // Unwrap the MCP adapter's data field
+      let raw = fullData?.data
+
+      // If data is a JSON string, parse it
+      if (typeof raw === 'string') {
+        try { raw = JSON.parse(raw) } catch { /* keep as-is */ }
+      }
+
+      // Find the source object containing cleanHtml/subject/emails
+      const findSrc = (obj: any): any => {
+        if (!obj) return null
+        // Direct match: object has cleanHtml or subject
+        if (obj.cleanHtml || obj.subject) return obj
+        // Nested in output
+        if (obj.output?.cleanHtml || obj.output?.subject) return obj.output
+        return null
+      }
+
+      let src: any = null
+      if (Array.isArray(raw)) {
+        src = findSrc(raw[0])
+      } else if (typeof raw === 'object' && raw !== null) {
+        src = findSrc(raw)
+        // Check if raw.data contains the actual response (double-wrapped)
+        if (!src && raw.data) {
+          const inner = typeof raw.data === 'string' ? (() => { try { return JSON.parse(raw.data) } catch { return raw.data } })() : raw.data
+          if (Array.isArray(inner)) {
+            src = findSrc(inner[0])
+          } else {
+            src = findSrc(inner)
+          }
+        }
+      }
+
+      const subject = src?.subject as string | undefined
+      // Try all possible field names for HTML content
+      const content = (src?.cleanHtml ?? src?.cleanhtml ?? src?.html ?? src?.htmlContent ?? src?.body ?? src?.content ?? src?.message) as string | undefined
+      const emails = src?.emails as string[] | string | undefined
+
       return {
         status: 'ok',
-        subject: data.subject,
-        emails: data.emails,
-        content: data.content,
+        subject,
+        emails,
+        content,
       }
     }
 

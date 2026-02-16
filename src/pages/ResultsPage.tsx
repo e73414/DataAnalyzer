@@ -70,6 +70,7 @@ export default function ResultsPage() {
   const [followUpPrompt, setFollowUpPrompt] = useState('')
   const [selectedModelId, setSelectedModelId] = useState(session?.aiModel || '')
   const [emailResponse, setEmailResponse] = useState(false)
+  const [emailSubject, setEmailSubject] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [hasSaved, setHasSaved] = useState(false)
@@ -176,6 +177,7 @@ export default function ResultsPage() {
         datasetId: datasetId,
         prompt: followUpPrompt.trim(),
         emailResponse,
+        ...(emailSubject.trim() && { emailSubject: emailSubject.trim() }),
         templateId: userProfile?.template_id,
       })
 
@@ -396,6 +398,22 @@ export default function ResultsPage() {
                 </label>
               </div>
             </div>
+            {emailResponse && (
+              <div className="mt-2 flex items-center gap-2">
+                <label htmlFor="emailSubjectFollowUp" className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                  Subject:
+                </label>
+                <input
+                  id="emailSubjectFollowUp"
+                  type="text"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  disabled={isAnalyzing || isSaving}
+                  placeholder="(optional)"
+                  className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            )}
 
             {hasSaved && !isAnalyzing && (
               <p className="text-sm text-green-600 dark:text-green-400 mt-2">Conversation saved. You can continue asking questions.</p>
