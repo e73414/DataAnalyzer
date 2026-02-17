@@ -47,6 +47,7 @@ interface PocketbaseConversationRecord {
   ai_model: string
   dataset_id: string
   dataset_name: string
+  duration_seconds?: number
   created: string
   created_at: string
 }
