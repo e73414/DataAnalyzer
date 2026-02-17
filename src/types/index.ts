@@ -62,6 +62,7 @@ export interface AnalysisRequest {
   prompt: string
   emailResponse?: boolean
   emailSubject?: string
+  returnSteps?: boolean
   templateId?: string
 }
 
@@ -126,6 +127,7 @@ export interface ConversationHistory {
   ai_model: string
   dataset_id: string
   dataset_name: string
+  duration_seconds?: number
   created: string // ISO date string from Pocketbase
 }
 

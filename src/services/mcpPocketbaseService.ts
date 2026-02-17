@@ -210,6 +210,7 @@ export const pocketbaseService = {
     aiModel: string
     datasetId: string
     datasetName: string
+    durationSeconds?: number
   }): Promise<ConversationHistory> {
     const now = new Date().toISOString()
     const response = await mcpPocketbaseApi.post<CreateRecordResponse>('/mcp/execute', {
@@ -223,6 +224,7 @@ export const pocketbaseService = {
           ai_model: data.aiModel,
           dataset_id: data.datasetId,
           dataset_name: data.datasetName,
+          ...(data.durationSeconds != null && { duration_seconds: data.durationSeconds }),
           created_at: now,
         },
       },
@@ -237,6 +239,7 @@ export const pocketbaseService = {
       ai_model: record.ai_model,
       dataset_id: record.dataset_id,
       dataset_name: record.dataset_name,
+      duration_seconds: record.duration_seconds,
       created: record.created_at || record.created || now,
     }
   },
@@ -261,6 +264,7 @@ export const pocketbaseService = {
       ai_model: record.ai_model,
       dataset_id: record.dataset_id,
       dataset_name: record.dataset_name,
+      duration_seconds: record.duration_seconds,
       created: record.created_at || record.created || new Date().toISOString(),
     }))
   },

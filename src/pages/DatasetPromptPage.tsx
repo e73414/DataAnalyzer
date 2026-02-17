@@ -36,6 +36,46 @@ const WITTY_PHRASES = [
   'Buying fartcoin',
   'Lowering expectations',
   'Brushing teeth',
+  'Singing Let it go',
+  'Moonwalking',
+  'Driving without hands on the wheel',
+  'Running with scissors',
+  'Looking for Inspector Gadget',
+  'Looking for Satoshi',
+  'Invading Vatican',
+  'Skiing in Hawaii',
+  'Crawling Home',
+  'Pretending to pray',
+  'Googling the answer',
+  'Asking ChatGPT for help',
+  'Bribing the server hamsters',
+  'Counting backwards from infinity',
+  'Arguing with the algorithm',
+  'Negotiating with cloud servers',
+  'Stealing WiFi from NASA',
+  'Teaching a goldfish calculus',
+  'Arm wrestling a neural network',
+  'Filibustering the database',
+  'Outsourcing to an intern',
+  'Feeding the squirrels',
+  'Sharpening the pixels',
+  'Reticulating splines',
+  'Calibrating the flux capacitor',
+  'Whispering to the data gods',
+  'Herding cats',
+  'Overthinking everything',
+  'Blaming the previous developer',
+  'Staring into the void',
+  'Rage quitting and coming back',
+  'Trash talking Siri',
+  'Doing the robot dance',
+  'Filing a complaint with the cloud',
+  'Hacking the mainframe badly',
+  'Speed dating the datasets',
+  'Ghosting the firewall',
+  'Panic Googling',
+  'Asking for the manager',
+  'Judging your prompts silently',
 ]
 
 // Fisher-Yates shuffle algorithm
@@ -54,6 +94,7 @@ export default function DatasetPromptPage() {
   const [selectedDatasetId, setSelectedDatasetId] = useState('')
   const [selectedModelId, setSelectedModelId] = useState(session?.aiModel || '')
   const [prompt, setPrompt] = useState('')
+  const [captureProcess, setCaptureProcess] = useState(false)
   const [emailResponse, setEmailResponse] = useState(false)
   const [emailSubject, setEmailSubject] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -144,6 +185,7 @@ export default function DatasetPromptPage() {
     if (!session) return
 
     setIsAnalyzing(true)
+    const startTime = Date.now()
     try {
       const result: AnalysisResult = await n8nService.runAnalysis({
         email: session.email,
@@ -152,10 +194,12 @@ export default function DatasetPromptPage() {
         prompt: prompt.trim(),
         emailResponse,
         ...(emailSubject.trim() && { emailSubject: emailSubject.trim() }),
+        returnSteps: captureProcess,
         templateId: userProfile?.template_id,
       })
 
       const selectedDataset = datasets?.find((d) => d.id === selectedDatasetId)
+      const durationSeconds = Math.round((Date.now() - startTime) / 1000)
 
       navigate('/results', {
         state: {
@@ -163,6 +207,7 @@ export default function DatasetPromptPage() {
           datasetId: selectedDatasetId,
           datasetName: selectedDataset?.name || 'Unknown Dataset',
           prompt: prompt.trim(),
+          durationSeconds,
         },
       })
     } catch (error) {
@@ -290,7 +335,7 @@ export default function DatasetPromptPage() {
                     {isAnalyzing ? (
                       <span className="flex items-center gap-2">
                         <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
-                        {getCurrentPhrase()} for {elapsedSeconds} sec{elapsedSeconds !== 1 ? 's' : ''}...
+                        Analyzing...
                       </span>
                     ) : (
                       'Analyze'
@@ -298,19 +343,34 @@ export default function DatasetPromptPage() {
                   </button>
                 </div>
 
-                {/* Email Response Checkbox - Right Justified */}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="emailResponse"
-                    checked={emailResponse}
-                    onChange={(e) => setEmailResponse(e.target.checked)}
-                    disabled={isAnalyzing}
-                    className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:checked:bg-blue-600"
-                  />
-                  <label htmlFor="emailResponse" className="text-sm text-gray-700 dark:text-gray-300">
-                    Email the response
-                  </label>
+                {/* Checkboxes - Right Justified */}
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="captureProcess"
+                      checked={captureProcess}
+                      onChange={(e) => setCaptureProcess(e.target.checked)}
+                      disabled={isAnalyzing}
+                      className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:checked:bg-blue-600"
+                    />
+                    <label htmlFor="captureProcess" className="text-sm text-gray-700 dark:text-gray-300">
+                      Capture Process
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="emailResponse"
+                      checked={emailResponse}
+                      onChange={(e) => setEmailResponse(e.target.checked)}
+                      disabled={isAnalyzing}
+                      className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:checked:bg-blue-600"
+                    />
+                    <label htmlFor="emailResponse" className="text-sm text-gray-700 dark:text-gray-300">
+                      Email the response
+                    </label>
+                  </div>
                 </div>
               </div>
               {emailResponse && (
@@ -328,6 +388,11 @@ export default function DatasetPromptPage() {
                     className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
+              )}
+              {isAnalyzing && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                  {getCurrentPhrase()} for {elapsedSeconds} sec{elapsedSeconds !== 1 ? 's' : ''}...
+                </p>
               )}
             </form>
           )}

@@ -57,6 +57,7 @@ export const n8nService = {
         prompt: request.prompt,
         emailResponse: request.emailResponse ?? false,
         ...(request.emailSubject && { emailSubject: request.emailSubject }),
+        ...(request.returnSteps && { returnSteps: true }),
         ...(request.templateId && { templateId: request.templateId }),
       },
     })

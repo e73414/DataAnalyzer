@@ -383,6 +383,12 @@ export default function HistoryPage() {
                 <span>{formatTime(conv.created)}</span>
                 <span>•</span>
                 <span>{conv.ai_model}</span>
+                {conv.duration_seconds != null && (
+                  <>
+                    <span>•</span>
+                    <span>{conv.duration_seconds} sec{conv.duration_seconds !== 1 ? 's' : ''}</span>
+                  </>
+                )}
                 {viewMode === 'by-date' && (
                   <>
                     <span>•</span>
@@ -430,6 +436,12 @@ export default function HistoryPage() {
                   <span className="text-gray-500 dark:text-gray-400">AI Model: </span>
                   <span className="font-medium text-gray-900 dark:text-gray-100">{conv.ai_model}</span>
                 </div>
+                {conv.duration_seconds != null && (
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">Response time: </span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{conv.duration_seconds} sec{conv.duration_seconds !== 1 ? 's' : ''}</span>
+                  </div>
+                )}
                 <div>
                   <span className="text-gray-500 dark:text-gray-400">Dataset: </span>
                   <span className="font-medium text-blue-600 dark:text-blue-400">{conv.dataset_name}</span>

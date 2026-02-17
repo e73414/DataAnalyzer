@@ -36,6 +36,46 @@ const WITTY_PHRASES = [
   'Buying fartcoin',
   'Lowering expectations',
   'Brushing teeth',
+  'Singing Let it go',
+  'Moonwalking',
+  'Driving without hands on the wheel',
+  'Running with scissors',
+  'Looking for Inspector Gadget',
+  'Looking for Satoshi',
+  'Invading Vatican',
+  'Skiing in Hawaii',
+  'Crawling Home',
+  'Pretending to pray',
+  'Googling the answer',
+  'Asking ChatGPT for help',
+  'Bribing the server hamsters',
+  'Counting backwards from infinity',
+  'Arguing with the algorithm',
+  'Negotiating with cloud servers',
+  'Stealing WiFi from NASA',
+  'Teaching a goldfish calculus',
+  'Arm wrestling a neural network',
+  'Filibustering the database',
+  'Outsourcing to an intern',
+  'Feeding the squirrels',
+  'Sharpening the pixels',
+  'Reticulating splines',
+  'Calibrating the flux capacitor',
+  'Whispering to the data gods',
+  'Herding cats',
+  'Overthinking everything',
+  'Blaming the previous developer',
+  'Staring into the void',
+  'Rage quitting and coming back',
+  'Trash talking Siri',
+  'Doing the robot dance',
+  'Filing a complaint with the cloud',
+  'Hacking the mainframe badly',
+  'Speed dating the datasets',
+  'Ghosting the firewall',
+  'Panic Googling',
+  'Asking for the manager',
+  'Judging your prompts silently',
 ]
 
 // Fisher-Yates shuffle algorithm
@@ -52,6 +92,7 @@ interface ConversationItem {
   prompt: string
   response: string
   processUsed?: string
+  durationSeconds?: number
   timestamp: Date
 }
 
@@ -60,6 +101,7 @@ interface LocationState {
   datasetId: string
   datasetName: string
   prompt: string
+  durationSeconds?: number
 }
 
 export default function ResultsPage() {
@@ -69,6 +111,7 @@ export default function ResultsPage() {
   const [conversation, setConversation] = useState<ConversationItem[]>([])
   const [followUpPrompt, setFollowUpPrompt] = useState('')
   const [selectedModelId, setSelectedModelId] = useState(session?.aiModel || '')
+  const [captureProcess, setCaptureProcess] = useState(false)
   const [emailResponse, setEmailResponse] = useState(false)
   const [emailSubject, setEmailSubject] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -101,6 +144,7 @@ export default function ResultsPage() {
           prompt: state.prompt,
           response: state.result.result,
           processUsed: state.result.processUsed,
+          durationSeconds: state.durationSeconds,
           timestamp: new Date(),
         },
       ])
@@ -116,6 +160,7 @@ export default function ResultsPage() {
           aiModel: session.aiModel,
           datasetId: state.datasetId,
           datasetName: state.datasetName,
+          durationSeconds: state.durationSeconds,
         }).catch((err) => {
           console.error('Failed to save conversation to history:', err)
         })
@@ -154,6 +199,9 @@ export default function ResultsPage() {
     return shuffledPhrases[phraseIndex]
   }, [elapsedSeconds, shuffledPhrases])
 
+  const hasProcessContent = (processUsed?: string) =>
+    !!processUsed && processUsed.trim() !== '' && processUsed.trim() !== 'No process steps recorded.'
+
   if (!state?.result && conversation.length === 0) {
     navigate('/analyze', { replace: true })
     return null
@@ -170,6 +218,7 @@ export default function ResultsPage() {
     if (!followUpPrompt.trim() || !session) return
 
     setIsAnalyzing(true)
+    const startTime = Date.now()
     try {
       const result = await n8nService.runAnalysis({
         email: session.email,
@@ -178,16 +227,19 @@ export default function ResultsPage() {
         prompt: followUpPrompt.trim(),
         emailResponse,
         ...(emailSubject.trim() && { emailSubject: emailSubject.trim() }),
+        returnSteps: captureProcess,
         templateId: userProfile?.template_id,
       })
 
       const trimmedPrompt = followUpPrompt.trim()
+      const duration = Math.round((Date.now() - startTime) / 1000)
       setConversation((prev) => [
         ...prev,
         {
           prompt: trimmedPrompt,
           response: result.result,
           processUsed: result.processUsed,
+          durationSeconds: duration,
           timestamp: new Date(),
         },
       ])
@@ -202,6 +254,7 @@ export default function ResultsPage() {
         aiModel: selectedModelId || session.aiModel,
         datasetId: datasetId,
         datasetName: datasetName,
+        durationSeconds: duration,
       }).catch((err) => {
         console.error('Failed to save conversation to history:', err)
       })
@@ -275,8 +328,13 @@ export default function ResultsPage() {
                       className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 [&_*]:text-gray-800 dark:[&_*]:text-gray-200 [&_*]:!bg-transparent"
                       dangerouslySetInnerHTML={{ __html: item.response }}
                     />
-                    {item.processUsed && (
-                      <details className="mt-3 text-xs">
+                    {item.durationSeconds != null && (
+                      <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                        Response time: {item.durationSeconds} sec{item.durationSeconds !== 1 ? 's' : ''}
+                      </p>
+                    )}
+                    {hasProcessContent(item.processUsed) && (
+                      <details className={`${item.durationSeconds != null ? 'mt-1' : 'mt-3'} text-xs`}>
                         <summary className="cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
                           View process used
                         </summary>
@@ -292,7 +350,7 @@ export default function ResultsPage() {
                   <hr className="border-gray-200 dark:border-gray-700" />
                 )}
 
-                {index === conversation.length - 1 && (
+                {index === conversation.length - 1 && hasProcessContent(item.processUsed) && (
                   <div className="flex justify-end mt-1">
                     <button
                       onClick={handleSaveAll}
@@ -376,26 +434,36 @@ export default function ResultsPage() {
                   </select>
                 </div>
 
-                {isAnalyzing && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {getCurrentPhrase()} for {elapsedSeconds} sec{elapsedSeconds !== 1 ? 's' : ''}...
-                  </p>
-                )}
               </div>
 
-              {/* Email Response Checkbox - Right Justified */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="emailResponseFollowUp"
-                  checked={emailResponse}
-                  onChange={(e) => setEmailResponse(e.target.checked)}
-                  disabled={isAnalyzing || isSaving}
-                  className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:checked:bg-blue-600"
-                />
-                <label htmlFor="emailResponseFollowUp" className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                  Email the response
-                </label>
+              {/* Checkboxes - Right Justified */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="captureProcessFollowUp"
+                    checked={captureProcess}
+                    onChange={(e) => setCaptureProcess(e.target.checked)}
+                    disabled={isAnalyzing || isSaving}
+                    className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:checked:bg-blue-600"
+                  />
+                  <label htmlFor="captureProcessFollowUp" className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                    Capture Process
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="emailResponseFollowUp"
+                    checked={emailResponse}
+                    onChange={(e) => setEmailResponse(e.target.checked)}
+                    disabled={isAnalyzing || isSaving}
+                    className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:checked:bg-blue-600"
+                  />
+                  <label htmlFor="emailResponseFollowUp" className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                    Email the response
+                  </label>
+                </div>
               </div>
             </div>
             {emailResponse && (
@@ -413,6 +481,12 @@ export default function ResultsPage() {
                   className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
+            )}
+
+            {isAnalyzing && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 text-center">
+                {getCurrentPhrase()} for {elapsedSeconds} sec{elapsedSeconds !== 1 ? 's' : ''}...
+              </p>
             )}
 
             {hasSaved && !isAnalyzing && (
