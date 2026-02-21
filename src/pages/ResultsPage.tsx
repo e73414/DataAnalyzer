@@ -119,6 +119,7 @@ export default function ResultsPage() {
   const [hasSaved, setHasSaved] = useState(false)
   const [datasetId, setDatasetId] = useState('')
   const [datasetName, setDatasetName] = useState('')
+  const [showPreview, setShowPreview] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [shuffledPhrases, setShuffledPhrases] = useState<string[]>([])
   const conversationEndRef = useRef<HTMLDivElement>(null)
@@ -135,6 +136,18 @@ export default function ResultsPage() {
     queryKey: ['user-profile', session?.email],
     queryFn: () => pocketbaseService.getUserProfile(session!.email),
     enabled: !!session?.email,
+  })
+
+  const { data: datasetDetail } = useQuery({
+    queryKey: ['dataset-detail', datasetId],
+    queryFn: () => n8nService.getDatasetDetail(datasetId, session!.email),
+    enabled: !!datasetId && !!session?.email && showPreview,
+  })
+
+  const { data: datasetPreview, isLoading: isLoadingPreview } = useQuery({
+    queryKey: ['dataset-preview', datasetId],
+    queryFn: () => n8nService.getDatasetPreview(datasetId, session!.email, 5),
+    enabled: !!datasetId && !!session?.email && showPreview,
   })
 
   useEffect(() => {
@@ -306,8 +319,68 @@ export default function ResultsPage() {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Conversation</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Dataset: <span className="font-medium text-gray-900 dark:text-gray-200">{datasetName}</span>
+                <button
+                  onClick={() => setShowPreview(!showPreview)}
+                  className="ml-2 text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {showPreview ? 'Hide Preview' : 'View Data'}
+                </button>
               </p>
             </div>
+            {showPreview && (
+              <div className="mt-2 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                {isLoadingPreview ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+                    <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Loading preview...</span>
+                  </div>
+                ) : datasetPreview && datasetPreview.columns.length > 0 ? (() => {
+                  const columnMapping = (() => {
+                    if (!datasetDetail?.column_mapping) return {} as Record<string, string>
+                    if (typeof datasetDetail.column_mapping === 'string') {
+                      try { return JSON.parse(datasetDetail.column_mapping) as Record<string, string> } catch { return {} as Record<string, string> }
+                    }
+                    return datasetDetail.column_mapping
+                  })()
+                  const dbToOriginal: Record<string, string> = {}
+                  Object.entries(columnMapping).forEach(([originalName, dbCol]) => {
+                    dbToOriginal[dbCol] = originalName
+                  })
+                  const displayColumns = datasetPreview.columns.filter(col => dbToOriginal[col])
+
+                  return displayColumns.length > 0 ? (
+                    <div className="overflow-x-auto max-h-48">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0">
+                          <tr>
+                            {displayColumns.map((col) => (
+                              <th key={col} className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
+                                {dbToOriginal[col]}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                          {datasetPreview.rows.map((row, rowIdx) => (
+                            <tr key={rowIdx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                              {displayColumns.map((col) => (
+                                <td key={col} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 whitespace-nowrap max-w-[200px] truncate">
+                                  {row[col] != null ? String(row[col]) : ''}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400 dark:text-gray-500 py-3 text-center">No preview available</p>
+                  )
+                })() : (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 py-3 text-center">No preview available</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Scrollable Conversation History */}

@@ -77,6 +77,11 @@ export interface AnalysisResult {
   }
 }
 
+export interface DatasetPreview {
+  columns: string[]
+  rows: Record<string, unknown>[]
+}
+
 export interface McpResponse<T> {
   status: 'ok' | 'error'
   data?: T

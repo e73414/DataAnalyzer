@@ -127,6 +127,21 @@ export default function DatasetPromptPage() {
     enabled: !!session?.email,
   })
 
+  const { data: datasetDetail } = useQuery({
+    queryKey: ['dataset-detail', selectedDatasetId],
+    queryFn: () => n8nService.getDatasetDetail(selectedDatasetId, session!.email),
+    enabled: !!selectedDatasetId && !!session?.email,
+  })
+
+  const {
+    data: datasetPreview,
+    isLoading: isLoadingPreview,
+  } = useQuery({
+    queryKey: ['dataset-preview', selectedDatasetId],
+    queryFn: () => n8nService.getDatasetPreview(selectedDatasetId, session!.email, 5),
+    enabled: !!selectedDatasetId && !!session?.email,
+  })
+
   useEffect(() => {
     if (aiModels && aiModels.length > 0 && !selectedModelId) {
       const defaultModel = aiModels[0].id
@@ -307,6 +322,62 @@ export default function DatasetPromptPage() {
                   ))}
                 </select>
               </div>
+
+              {/* Dataset Preview */}
+              {selectedDatasetId && (
+                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  {isLoadingPreview ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+                      <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Loading preview...</span>
+                    </div>
+                  ) : datasetPreview && datasetPreview.columns.length > 0 ? (() => {
+                    // Build reverse mapping: db_column -> original_name
+                    const columnMapping = (() => {
+                      if (!datasetDetail?.column_mapping) return {} as Record<string, string>
+                      if (typeof datasetDetail.column_mapping === 'string') {
+                        try { return JSON.parse(datasetDetail.column_mapping) as Record<string, string> } catch { return {} as Record<string, string> }
+                      }
+                      return datasetDetail.column_mapping
+                    })()
+                    // columnMapping: { "Original Name": "db_col", ... }
+                    const dbToOriginal: Record<string, string> = {}
+                    Object.entries(columnMapping).forEach(([originalName, dbCol]) => {
+                      dbToOriginal[dbCol] = originalName
+                    })
+                    // Filter to only columns that have a mapping (skip dataset_id, id, etc.)
+                    const displayColumns = datasetPreview.columns.filter(col => dbToOriginal[col])
+
+                    return (
+                    <div className="overflow-x-auto max-h-48">
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0">
+                          <tr>
+                            {displayColumns.map((col) => (
+                              <th key={col} className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
+                                {dbToOriginal[col]}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                          {datasetPreview.rows.map((row, rowIdx) => (
+                            <tr key={rowIdx} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                              {displayColumns.map((col) => (
+                                <td key={col} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 whitespace-nowrap max-w-[200px] truncate">
+                                  {row[col] != null ? String(row[col]) : ''}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )})() : selectedDatasetId && !isLoadingPreview ? (
+                    <p className="text-xs text-gray-400 dark:text-gray-500 py-3 text-center">No preview available</p>
+                  ) : null}
+                </div>
+              )}
 
               {/* Prompt Input */}
               <div>

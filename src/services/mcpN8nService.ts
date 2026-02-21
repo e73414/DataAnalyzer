@@ -1,5 +1,5 @@
 import { mcpN8nApi } from './api'
-import type { AnalysisRequest, AnalysisResult, DatasetDetail, UpdateSummaryRequest, UpdateSummaryResult, UpdateDatasetRequest, UpdateDatasetResult, UploadDatasetRequest, UploadDatasetResult, DeleteDatasetRequest, DeleteDatasetResult, ReportTemplate } from '../types'
+import type { AnalysisRequest, AnalysisResult, DatasetDetail, DatasetPreview, UpdateSummaryRequest, UpdateSummaryResult, UpdateDatasetRequest, UpdateDatasetResult, UploadDatasetRequest, UploadDatasetResult, DeleteDatasetRequest, DeleteDatasetResult, ReportTemplate } from '../types'
 
 interface N8nWebhookResponse {
   status: 'ok' | 'error'
@@ -23,6 +23,7 @@ const SEND_REPORT_WEBHOOK_PATH = 'webhook/send-report'
 const LIST_TEMPLATES_WEBHOOK_PATH = 'webhook/list-templates'
 const DELETE_TEMPLATE_WEBHOOK_PATH = 'webhook/delete-template'
 const UPLOAD_TEMPLATE_WEBHOOK_PATH = 'webhook/upload-template'
+const GET_DATASET_PREVIEW_WEBHOOK_PATH = 'webhook/get-dataset-preview'
 
 interface SendReportRequest {
   emails: string[]
@@ -91,6 +92,26 @@ export const n8nService = {
     }
 
     return response.data.data as unknown as DatasetDetail
+  },
+
+  async getDatasetPreview(datasetId: string, email: string, limit: number = 5): Promise<DatasetPreview> {
+    const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
+      skill: 'n8n-webhook',
+      params: {
+        webhookPath: GET_DATASET_PREVIEW_WEBHOOK_PATH,
+      },
+      input: {
+        datasetId,
+        email,
+        limit,
+      },
+    })
+
+    if (response.data.status === 'error' || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch dataset preview')
+    }
+
+    return response.data.data as unknown as DatasetPreview
   },
 
   async updateSummary(request: UpdateSummaryRequest): Promise<UpdateSummaryResult> {
