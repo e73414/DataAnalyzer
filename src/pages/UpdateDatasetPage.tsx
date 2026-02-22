@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
@@ -11,6 +11,7 @@ export default function UpdateDatasetPage() {
   const [selectedDatasetId, setSelectedDatasetId] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [csvPreview, setCsvPreview] = useState<string[]>([])
+  const [datasetDesc, setDatasetDesc] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const {
@@ -22,6 +23,16 @@ export default function UpdateDatasetPage() {
     queryFn: () => pocketbaseService.getDatasetsByEmail(session!.email),
     enabled: !!session?.email,
   })
+
+  const { data: datasetDetail } = useQuery({
+    queryKey: ['dataset-detail', selectedDatasetId],
+    queryFn: () => n8nService.getDatasetDetail(selectedDatasetId, session!.email),
+    enabled: !!selectedDatasetId && !!session?.email,
+  })
+
+  useEffect(() => {
+    setDatasetDesc(datasetDetail?.dataset_desc || '')
+  }, [datasetDetail])
 
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -36,6 +47,7 @@ export default function UpdateDatasetPage() {
         email: session.email,
         csvData: fileContent,
         fileName: selectedFile.name,
+        datasetDesc: datasetDesc.trim() || undefined,
       })
     },
     onSuccess: (result) => {
@@ -159,6 +171,22 @@ export default function UpdateDatasetPage() {
                     <strong>Warning:</strong> Uploading a new CSV will replace all existing data in "{selectedDataset.name}".
                     This action cannot be undone.
                   </p>
+                </div>
+              )}
+
+              {selectedDatasetId && (
+                <div>
+                  <label htmlFor="datasetDesc" className="label">
+                    Explain the Data for AI (use Edit Summary to modify)
+                  </label>
+                  <textarea
+                    id="datasetDesc"
+                    value={datasetDesc}
+                    readOnly
+                    rows={3}
+                    className="input-field resize-y bg-gray-50 dark:bg-gray-700/50 cursor-not-allowed"
+                    placeholder="No description set"
+                  />
                 </div>
               )}
 

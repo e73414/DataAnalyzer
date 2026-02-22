@@ -23,12 +23,14 @@ export interface Dataset {
 export interface DatasetDetail extends Dataset {
   summary?: string
   column_mapping?: Record<string, string> | string
+  dataset_desc?: string
 }
 
 export interface UpdateSummaryRequest {
   datasetId: string
   summary: string
   email: string
+  datasetDesc?: string
 }
 
 export interface UpdateSummaryResult {
@@ -41,6 +43,7 @@ export interface UpdateDatasetRequest {
   email: string
   csvData: string // Base64 encoded CSV content
   fileName: string
+  datasetDesc?: string
 }
 
 export interface UpdateDatasetResult {
@@ -94,6 +97,7 @@ export interface UploadDatasetRequest {
   description: string
   email: string
   csvData: string // Base64 encoded CSV content
+  datasetDesc?: string
 }
 
 export interface UploadDatasetResult {

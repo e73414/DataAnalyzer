@@ -12,6 +12,7 @@ export default function EditSummaryPage() {
   const { session } = useSession()
   const [selectedDatasetId, setSelectedDatasetId] = useState('')
   const [editedSummary, setEditedSummary] = useState('')
+  const [datasetDesc, setDatasetDesc] = useState('')
   const [hasChanges, setHasChanges] = useState(false)
 
   const {
@@ -35,11 +36,12 @@ export default function EditSummaryPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: (summary: string) =>
+    mutationFn: (data: { summary: string; datasetDesc: string }) =>
       n8nService.updateSummary({
         datasetId: selectedDatasetId,
-        summary,
+        summary: data.summary,
         email: session!.email,
+        datasetDesc: data.datasetDesc,
       }),
     onSuccess: () => {
       toast.success('Summary updated successfully')
@@ -52,8 +54,9 @@ export default function EditSummaryPage() {
   })
 
   useEffect(() => {
-    if (datasetDetail?.summary) {
-      setEditedSummary(datasetDetail.summary)
+    if (datasetDetail) {
+      setEditedSummary(datasetDetail.summary || '')
+      setDatasetDesc(datasetDetail.dataset_desc || '')
       setHasChanges(false)
     }
   }, [datasetDetail])
@@ -66,12 +69,18 @@ export default function EditSummaryPage() {
     }
     setSelectedDatasetId(datasetId)
     setEditedSummary('')
+    setDatasetDesc('')
     setHasChanges(false)
   }
 
   const handleSummaryChange = (value: string) => {
     setEditedSummary(value)
-    setHasChanges(value !== (datasetDetail?.summary || ''))
+    setHasChanges(value !== (datasetDetail?.summary || '') || datasetDesc !== (datasetDetail?.dataset_desc || ''))
+  }
+
+  const handleDatasetDescChange = (value: string) => {
+    setDatasetDesc(value)
+    setHasChanges(editedSummary !== (datasetDetail?.summary || '') || value !== (datasetDetail?.dataset_desc || ''))
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -80,7 +89,7 @@ export default function EditSummaryPage() {
       toast.error('Summary cannot be empty')
       return
     }
-    updateMutation.mutate(editedSummary)
+    updateMutation.mutate({ summary: editedSummary, datasetDesc: datasetDesc.trim() })
   }
 
   const formatColumnMapping = (mapping: DatasetDetail['column_mapping']): string => {
@@ -173,6 +182,21 @@ export default function EditSummaryPage() {
                       </div>
 
                       <div>
+                        <label htmlFor="datasetDesc" className="label">
+                          Explain the Data for AI
+                        </label>
+                        <textarea
+                          id="datasetDesc"
+                          value={datasetDesc}
+                          onChange={(e) => handleDatasetDescChange(e.target.value)}
+                          rows={3}
+                          className="input-field resize-y"
+                          placeholder="Provide context about your data to help AI understand it better (e.g., what the columns represent, time periods, business context...)"
+                          disabled={updateMutation.isPending}
+                        />
+                      </div>
+
+                      <div>
                         <label htmlFor="summary" className="label">
                           Summary
                           {hasChanges && (
@@ -210,6 +234,7 @@ export default function EditSummaryPage() {
                           type="button"
                           onClick={() => {
                             setEditedSummary(datasetDetail.summary || '')
+                            setDatasetDesc(datasetDetail.dataset_desc || '')
                             setHasChanges(false)
                           }}
                           disabled={updateMutation.isPending || !hasChanges}

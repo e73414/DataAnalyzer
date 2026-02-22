@@ -124,6 +124,7 @@ export const n8nService = {
         datasetId: request.datasetId,
         summary: request.summary,
         email: request.email,
+        ...(request.datasetDesc != null && { dataset_desc: request.datasetDesc }),
       },
     })
 
@@ -148,6 +149,7 @@ export const n8nService = {
         email: request.email,
         csvData: request.csvData,
         fileName: request.fileName,
+        ...(request.datasetDesc != null && { dataset_desc: request.datasetDesc }),
       },
     })
 
@@ -173,6 +175,7 @@ export const n8nService = {
         description: request.description,
         email: request.email,
         csvData: request.csvData,
+        ...(request.datasetDesc && { dataset_desc: request.datasetDesc }),
       },
     })
 

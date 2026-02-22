@@ -12,6 +12,7 @@ export default function UploadDatasetPage() {
 
   const [datasetName, setDatasetName] = useState('')
   const [description, setDescription] = useState('')
+  const [datasetDesc, setDatasetDesc] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [csvPreview, setCsvPreview] = useState<string[]>([])
 
@@ -36,6 +37,7 @@ export default function UploadDatasetPage() {
         description,
         email: session.email,
         csvData,
+        ...(datasetDesc.trim() && { datasetDesc: datasetDesc.trim() }),
       })
     },
     onSuccess: (result) => {
@@ -43,6 +45,7 @@ export default function UploadDatasetPage() {
       toast.success(`Dataset "${result.datasetName}" uploaded successfully! ${result.rowsInserted} rows inserted.`)
       setDatasetName('')
       setDescription('')
+      setDatasetDesc('')
       setSelectedFile(null)
       setCsvPreview([])
       if (fileInputRef.current) {
@@ -130,8 +133,23 @@ export default function UploadDatasetPage() {
             </div>
 
             <div>
+              <label htmlFor="datasetDesc" className="label">
+                Explain the Data for AI
+              </label>
+              <textarea
+                id="datasetDesc"
+                value={datasetDesc}
+                onChange={(e) => setDatasetDesc(e.target.value)}
+                rows={3}
+                className="input-field resize-y"
+                placeholder="Provide context about your data to help AI understand it better (e.g., what the columns represent, time periods, business context...)"
+                disabled={uploadMutation.isPending}
+              />
+            </div>
+
+            <div>
               <label htmlFor="description" className="label">
-                Description (Optional)
+                Instruct AI How to Build Query
               </label>
               <textarea
                 id="description"
