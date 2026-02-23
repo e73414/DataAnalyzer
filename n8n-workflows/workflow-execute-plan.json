@@ -298,7 +298,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=INSERT INTO n8n_data.report_step_results (report_id, plan_id, step_number, purpose, dataset_id, step_result, status) VALUES ('{{ $('Combine Step Results').first().json.report_id }}', '', 0, 'Final Consolidated Report', '', '{{ $json.output ? (typeof $json.output === \"object\" ? ($json.output.content || JSON.stringify($json.output)) : String($json.output)).replace(/'/g, \"''\") : \"No report\" }}', 'final_report')",
+        "query": "=INSERT INTO n8n_data.report_step_results (report_id, plan_id, step_number, purpose, dataset_id, step_result, status) VALUES ('{{ $('Combine Step Results').first().json.report_id }}', '', 0, 'Final Consolidated Report', '', '{{ (() => { const out = $json.output; if (!out) return 'No report'; let text = ''; if (typeof out === 'object') { text = out.content || out.text || out.html || JSON.stringify(out); } else { text = String(out); try { const p = JSON.parse(text); if (p && typeof p === 'object' && p.content) text = p.content; } catch(e) {} } return text.replace(/'/g, \"''\"); })() }}', 'final_report')",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",

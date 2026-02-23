@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
@@ -16,6 +17,7 @@ interface GroupedConversations {
 export default function HistoryPage() {
   const { session } = useSession()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [viewMode, setViewMode] = useState<ViewMode>('by-date')
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [expandedConversation, setExpandedConversation] = useState<string | null>(null)
@@ -76,11 +78,32 @@ export default function HistoryPage() {
   })
 
   // Helper to extract date from Pocketbase datetime (handles both "2024-01-15 10:30:00" and "2024-01-15T10:30:00" formats)
+  const userTimezone = userProfile?.user_timezone
+
+  // Parse a PocketBase datetime string into a Date, ensuring UTC interpretation
+  const parseCreatedDate = (created: string): Date | null => {
+    if (!created) return null
+    let isoDate = created.includes('T') ? created : created.replace(' ', 'T')
+    // Ensure UTC: append Z if no timezone indicator present
+    if (!/[Zz+\-]\d{0,4}$/.test(isoDate)) {
+      isoDate += 'Z'
+    }
+    const date = new Date(isoDate)
+    return isNaN(date.getTime()) ? null : date
+  }
+
   const getDateFromCreated = (created: string): string => {
-    if (!created) return 'Unknown Date'
-    // Pocketbase uses space-separated format, but also handle ISO format
-    const parts = created.split(/[T\s]/)
-    return parts[0] || 'Unknown Date'
+    const date = parseCreatedDate(created)
+    if (!date) return 'Unknown Date'
+    // Use sv-SE locale for YYYY-MM-DD format in the user's timezone
+    if (userTimezone) {
+      return date.toLocaleDateString('sv-SE', { timeZone: userTimezone })
+    }
+    // Fallback to local browser timezone
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
   }
 
   // Group conversations by date
@@ -304,16 +327,16 @@ export default function HistoryPage() {
   const formatDate = (dateStr: string) => {
     if (!dateStr || dateStr === 'Unknown Date') return dateStr
     try {
-      // Handle Pocketbase format "2024-01-15 10:30:00.000Z" by replacing space with T
-      const isoDate = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T')
-      const date = new Date(isoDate)
-      if (isNaN(date.getTime())) return dateStr
-      return date.toLocaleDateString('en-US', {
+      const date = parseCreatedDate(dateStr)
+      if (!date) return dateStr
+      const opts: Intl.DateTimeFormatOptions = {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
         day: 'numeric',
-      })
+        ...(userTimezone && { timeZone: userTimezone }),
+      }
+      return date.toLocaleDateString('en-US', opts)
     } catch {
       return dateStr
     }
@@ -322,22 +345,42 @@ export default function HistoryPage() {
   const formatTime = (dateStr: string) => {
     if (!dateStr) return ''
     try {
-      // Handle Pocketbase format
-      const isoDate = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T')
-      const date = new Date(isoDate)
-      if (isNaN(date.getTime())) return ''
-      return date.toLocaleTimeString('en-US', {
+      const date = parseCreatedDate(dateStr)
+      if (!date) return ''
+      const opts: Intl.DateTimeFormatOptions = {
         hour: '2-digit',
         minute: '2-digit',
-      })
+        ...(userTimezone && { timeZone: userTimezone }),
+      }
+      return date.toLocaleTimeString('en-US', opts)
     } catch {
       return ''
     }
   }
 
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false)
+
   const handleDeleteConversation = (id: string) => {
     if (window.confirm('Are you sure you want to delete this conversation?')) {
       deleteMutation.mutate(id)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    const count = selectedConversations.size
+    if (count === 0) return
+    if (!window.confirm(`Are you sure you want to delete ${count} conversation${count !== 1 ? 's' : ''}?`)) return
+    setIsDeletingBulk(true)
+    try {
+      const ids = Array.from(selectedConversations)
+      await Promise.all(ids.map(id => pocketbaseService.deleteConversation(id)))
+      setSelectedConversations(new Set())
+      queryClient.invalidateQueries({ queryKey: ['conversation-history'] })
+      toast.success(`Deleted ${count} conversation${count !== 1 ? 's' : ''}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete some conversations')
+    } finally {
+      setIsDeletingBulk(false)
     }
   }
 
@@ -432,6 +475,32 @@ export default function HistoryPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
+              {promptType === 'Execute Plan' && conv.report_plan && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const { displayPrompt: userPrompt } = parsePromptType(conv.prompt)
+                    navigate('/plan-report', {
+                      state: {
+                        prompt: userPrompt,
+                        reportPlan: conv.report_plan,
+                        report: conv.response,
+                        reportId: conv.report_id,
+                        datasetId: conv.dataset_id,
+                        datasetName: conv.dataset_name,
+                        aiModel: conv.ai_model,
+                        savedRecordId: conv.id,
+                      },
+                    })
+                  }}
+                  className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  title="Load in Plan Report"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation()
@@ -611,9 +680,24 @@ export default function HistoryPage() {
                 Conversation History
               </h2>
               {selectedConversations.size > 0 && (
-                <span className="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full">
-                  {selectedConversations.size} selected
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full">
+                    {selectedConversations.size} selected
+                  </span>
+                  <button
+                    onClick={handleBulkDelete}
+                    disabled={isDeletingBulk}
+                    className="px-2 py-1 text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-full hover:bg-red-200 dark:hover:bg-red-900/70 transition-colors disabled:opacity-50"
+                  >
+                    {isDeletingBulk ? 'Deleting...' : 'Delete Selected'}
+                  </button>
+                  <button
+                    onClick={() => setSelectedConversations(new Set())}
+                    className="px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                  >
+                    Clear
+                  </button>
+                </div>
               )}
             </div>
 

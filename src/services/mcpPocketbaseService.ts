@@ -79,6 +79,7 @@ interface PocketbaseUserProfileRecord {
   id: string
   user_email: string
   template_id: string
+  user_timezone?: string
 }
 
 interface ListUserProfileResponse {
@@ -105,6 +106,7 @@ export const pocketbaseService = {
       id: record.id,
       user_email: record.user_email,
       template_id: record.template_id,
+      user_timezone: record.user_timezone,
     }
   },
 
@@ -217,6 +219,7 @@ export const pocketbaseService = {
     reportPlan?: string
     reportId?: string
   }): Promise<ConversationHistory> {
+    // Always store UTC — timezone conversion happens at display time
     const now = new Date().toISOString()
     const response = await mcpPocketbaseApi.post<CreateRecordResponse>('/mcp/execute', {
       skill: 'pb-create-record',
@@ -278,6 +281,21 @@ export const pocketbaseService = {
       report_id: record.report_id,
       created: record.created_at || record.created || new Date().toISOString(),
     }))
+  },
+
+  // Update a conversation record (e.g. edited report HTML)
+  async updateConversation(id: string, data: { response?: string; prompt?: string }): Promise<void> {
+    const response = await mcpPocketbaseApi.post<UpdateRecordResponse>('/mcp/execute', {
+      skill: 'pb-update-record',
+      params: {
+        collection: 'conversation_history',
+        id,
+        data,
+      },
+    })
+    if (response.data.status === 'error') {
+      throw new Error('Failed to update conversation')
+    }
   },
 
   // Delete a conversation by ID

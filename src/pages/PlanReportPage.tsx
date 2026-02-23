@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
@@ -7,14 +8,27 @@ import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
 import type { ReportPlan, ReportPlanStep, CheckReportProgressResult } from '../types'
 
+interface LoadedPlanState {
+  prompt: string
+  reportPlan: string
+  report: string
+  reportId?: string
+  datasetId: string
+  datasetName: string
+  aiModel: string
+  savedRecordId: string
+}
+
 export default function PlanReportPage() {
   const { session, setAIModel } = useSession()
-  const [prompt, setPrompt] = useState('')
+  const location = useLocation()
+  const loadedState = location.state as LoadedPlanState | null
+  const [prompt, setPrompt] = useState(loadedState?.prompt || '')
   const [selectedDatasetIds, setSelectedDatasetIds] = useState<Set<string>>(new Set())
   const [selectedModelId, setSelectedModelId] = useState(session?.aiModel || '')
   const [plan, setPlan] = useState<ReportPlan | null>(null)
   const [report, setReport] = useState('')
-  const [reportId, setReportId] = useState('')
+  const [reportId, setReportId] = useState(loadedState?.reportId || '')
   const [showJson, setShowJson] = useState(false)
   const [showRawReport, setShowRawReport] = useState(false)
   const [jsonText, setJsonText] = useState('')
@@ -23,6 +37,11 @@ export default function PlanReportPage() {
   const [executionProgress, setExecutionProgress] = useState<CheckReportProgressResult | null>(null)
   const [isSavingReport, setIsSavingReport] = useState(false)
   const [reportSaved, setReportSaved] = useState(false)
+  const [savedRecordId, setSavedRecordId] = useState<string | null>(loadedState?.savedRecordId || null)
+  const [isEditingReport, setIsEditingReport] = useState(false)
+  const [iframeKey, setIframeKey] = useState(0)
+  const editorRef = useRef<HTMLIFrameElement>(null)
+  const editorContentRef = useRef('')
   const planRef = useRef<HTMLDivElement>(null)
   const reportRef = useRef<HTMLDivElement>(null)
   const progressRef = useRef<HTMLDivElement>(null)
@@ -67,10 +86,116 @@ export default function PlanReportPage() {
     }
   }, [])
 
+  // Load state from History page navigation
+  const loadedRef = useRef(false)
+  useEffect(() => {
+    if (loadedRef.current || !loadedState) return
+    loadedRef.current = true
+
+    // Parse and set the plan
+    if (loadedState.reportPlan) {
+      try {
+        let raw = loadedState.reportPlan
+        // Handle double-stringified JSON
+        if (typeof raw === 'string' && raw.startsWith('"')) {
+          try { raw = JSON.parse(raw) as string } catch { /* use as-is */ }
+        }
+        const parsed = (typeof raw === 'string' ? JSON.parse(raw) : raw) as ReportPlan
+        if (parsed && Array.isArray(parsed.steps)) {
+          setPlan(parsed)
+        } else {
+          console.warn('Loaded report_plan has no steps array:', parsed)
+          toast.error('Report plan format not recognized')
+        }
+      } catch (err) {
+        console.error('Failed to parse report plan:', err, loadedState.reportPlan)
+        toast.error('Failed to parse saved report plan')
+      }
+    }
+
+    // Set the report (run through extractReportHtml later, but it may not be defined yet)
+    if (loadedState.report) {
+      const raw = loadedState.report.trim()
+      if (raw.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(raw)
+          setReport(parsed.content || raw)
+        } catch {
+          setReport(raw)
+        }
+      } else {
+        setReport(raw)
+      }
+    }
+
+    // Select the dataset
+    if (loadedState.datasetId) {
+      setSelectedDatasetIds(new Set([loadedState.datasetId]))
+    }
+
+    // Set the AI model
+    if (loadedState.aiModel) {
+      setSelectedModelId(loadedState.aiModel)
+      setAIModel(loadedState.aiModel)
+    }
+
+    // Mark as already saved (since it came from history)
+    setReportSaved(true)
+
+    // Clear the location state so refreshing doesn't re-load
+    window.history.replaceState({}, '')
+
+    toast.success('Plan and report loaded from history')
+  }, [loadedState, setAIModel])
+
   const handleModelChange = (modelId: string) => {
     setSelectedModelId(modelId)
     setAIModel(modelId)
   }
+
+  // Write content into iframe and enable editing via designMode
+  // Uses programmatic doc.write instead of srcDoc to avoid designMode conflicts
+  const initEditor = useCallback((htmlContent: string) => {
+    const iframe = editorRef.current
+    if (!iframe?.contentWindow) return
+    const doc = iframe.contentWindow.document
+    doc.open()
+    doc.write(htmlContent)
+    doc.close()
+    doc.designMode = 'on'
+    doc.body.addEventListener('input', () => {
+      editorContentRef.current = doc.body.innerHTML
+      setReportSaved(false)
+    })
+  }, [])
+
+  // Get current report content (from editor if editing, otherwise from state)
+  const getCurrentReportContent = useCallback((): string => {
+    if (isEditingReport && editorContentRef.current) {
+      return editorContentRef.current
+    }
+    return report
+  }, [isEditingReport, report])
+
+  // Toggle edit mode
+  const handleToggleEdit = useCallback(() => {
+    if (isEditingReport) {
+      // Leaving edit mode — apply edits back to report state
+      const edited = editorContentRef.current
+      if (edited) {
+        setReport(edited)
+        setReportSaved(false)
+      }
+      setIsEditingReport(false)
+    } else {
+      // Entering edit mode — show iframe then write content into it
+      editorContentRef.current = report
+      setIsEditingReport(true)
+      setIframeKey(k => k + 1)
+      // Wait for iframe to mount, then write content
+      setTimeout(() => initEditor(report), 50)
+    }
+  }, [isEditingReport, report, initEditor])
 
   // --- Plan mutation helpers ---
   const updateStep = (stepIndex: number, field: keyof ReportPlanStep, value: unknown) => {
@@ -88,6 +213,49 @@ export default function PlanReportPage() {
       const steps = [...prev.steps]
       const qs = { ...steps[stepIndex].query_strategy }
       qs.filters = { ...qs.filters, [filterKey]: value }
+      steps[stepIndex] = { ...steps[stepIndex], query_strategy: qs }
+      return { ...prev, steps }
+    })
+  }
+
+  const deleteFilter = (stepIndex: number, filterKey: string) => {
+    setPlan((prev) => {
+      if (!prev) return prev
+      const steps = [...prev.steps]
+      const qs = { ...steps[stepIndex].query_strategy }
+      const { [filterKey]: _, ...rest } = qs.filters
+      qs.filters = rest
+      steps[stepIndex] = { ...steps[stepIndex], query_strategy: qs }
+      return { ...prev, steps }
+    })
+  }
+
+  const addFilter = (stepIndex: number) => {
+    setPlan((prev) => {
+      if (!prev) return prev
+      const steps = [...prev.steps]
+      const qs = { ...steps[stepIndex].query_strategy }
+      // Find a unique key name
+      let keyName = 'new_filter'
+      let counter = 1
+      while (keyName in qs.filters) {
+        keyName = `new_filter_${counter++}`
+      }
+      qs.filters = { ...qs.filters, [keyName]: '' }
+      steps[stepIndex] = { ...steps[stepIndex], query_strategy: qs }
+      return { ...prev, steps }
+    })
+  }
+
+  const renameFilterKey = (stepIndex: number, oldKey: string, newKey: string) => {
+    if (!newKey.trim() || oldKey === newKey) return
+    setPlan((prev) => {
+      if (!prev) return prev
+      const steps = [...prev.steps]
+      const qs = { ...steps[stepIndex].query_strategy }
+      const value = qs.filters[oldKey]
+      const { [oldKey]: _, ...rest } = qs.filters
+      qs.filters = { ...rest, [newKey.trim()]: value }
       steps[stepIndex] = { ...steps[stepIndex], query_strategy: qs }
       return { ...prev, steps }
     })
@@ -139,13 +307,40 @@ export default function PlanReportPage() {
     toast('Execution stopped', { icon: '\u23F9' })
   }, [stopPolling])
 
+  // Extract HTML content from final_report — may be raw HTML, JSON { subject, content }, or other
+  const extractReportHtml = (raw: string | null): string => {
+    if (!raw) return ''
+    const trimmed = raw.trim()
+    // Try parsing as JSON to extract .content field (Formatter outputs { subject, content })
+    if (trimmed.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (parsed.content) return parsed.content
+        // If parsed but no content field and it's just {}, return empty
+        if (Object.keys(parsed).length === 0) return ''
+        // Has other fields but no content — stringify for display
+        return raw
+      } catch {
+        // Not valid JSON — treat as raw HTML
+      }
+    }
+    return raw
+  }
+
   const handleExecutionComplete = useCallback((progress: CheckReportProgressResult) => {
     stopPolling()
     setIsExecuting(false)
-    const finalReport = progress.final_report || ''
+    const finalReport = extractReportHtml(progress.final_report)
     setReport(finalReport)
     setReportSaved(false)
-    toast.success('Report generated successfully')
+    setSavedRecordId(null)
+    setIsEditingReport(false)
+    editorContentRef.current = ''
+    if (finalReport) {
+      toast.success('Report generated successfully')
+    } else {
+      toast.error('Report completed but content was empty — the formatter may have returned invalid output')
+    }
     setTimeout(() => {
       reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 100)
@@ -156,27 +351,40 @@ export default function PlanReportPage() {
       toast.error('No active session')
       return
     }
-    if (!report) {
+    const content = getCurrentReportContent()
+    if (!content) {
       toast.error('No report to save')
       return
     }
+    // Sync editor content to report state
+    if (isEditingReport && editorContentRef.current) {
+      setReport(editorContentRef.current)
+    }
     setIsSavingReport(true)
     try {
-      const planJson = plan ? JSON.stringify(plan) : ''
-      const selectedNames = (datasets ?? []).filter(d => selectedDatasetIds.has(d.id)).map(d => d.name).join(', ')
-      await pocketbaseService.saveConversation({
-        email: session.email,
-        prompt: `[Execute Plan] ${plan?.plan_id || 'unknown'}`,
-        response: report,
-        aiModel: selectedModelId,
-        datasetId: Array.from(selectedDatasetIds).join(',') || 'all',
-        datasetName: selectedNames || 'All Datasets',
-        durationSeconds: Math.round((Date.now() - executeStartTime.current) / 1000),
-        reportPlan: planJson,
-        reportId,
-      })
+      if (savedRecordId) {
+        // Update existing record
+        await pocketbaseService.updateConversation(savedRecordId, { response: content })
+        toast.success('Report updated')
+      } else {
+        // Create new record
+        const planJson = plan ? JSON.stringify(plan) : ''
+        const selectedNames = (datasets ?? []).filter(d => selectedDatasetIds.has(d.id)).map(d => d.name).join(', ')
+        const saved = await pocketbaseService.saveConversation({
+          email: session.email,
+          prompt: `[Execute Plan] ${plan?.plan_id || 'unknown'}`,
+          response: content,
+          aiModel: selectedModelId,
+          datasetId: Array.from(selectedDatasetIds).join(',') || 'all',
+          datasetName: selectedNames || 'All Datasets',
+          durationSeconds: Math.round((Date.now() - executeStartTime.current) / 1000),
+          reportPlan: planJson,
+          reportId,
+        })
+        setSavedRecordId(saved.id)
+        toast.success('Report saved to history')
+      }
       setReportSaved(true)
-      toast.success('Report saved to history')
     } catch (err) {
       console.error('Failed to save report:', err)
       toast.error(`Failed to save report: ${err instanceof Error ? err.message : 'Unknown error'}`)
@@ -251,6 +459,9 @@ export default function PlanReportPage() {
       setReport('')
       setReportId('')
       setReportSaved(false)
+      setSavedRecordId(null)
+      setIsEditingReport(false)
+      editorContentRef.current = ''
       setShowJson(false)
       setExecutionProgress(null)
       toast.success('Report plan generated')
@@ -591,16 +802,33 @@ export default function PlanReportPage() {
                           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Query Strategy</p>
 
                           {/* Filters */}
-                          {Object.keys(step.query_strategy.filters).length > 0 && (
-                            <div className="space-y-1">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
                               <p className="text-xs text-gray-400 dark:text-gray-500">Filters:</p>
+                              {!isWorking && (
+                                <button
+                                  onClick={() => addFilter(idx)}
+                                  className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
+                                  title="Add filter"
+                                >
+                                  + Add
+                                </button>
+                              )}
+                            </div>
+                            {Object.keys(step.query_strategy.filters).length > 0 ? (
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                                 {Object.entries(step.query_strategy.filters).map(([key, val]) => {
                                   const displayVal = renderFilterValue(val)
-                                  if (!displayVal) return null
                                   return (
                                     <div key={key} className="flex items-center gap-1 text-xs">
-                                      <span className="text-gray-600 dark:text-gray-400 font-mono">{key}:</span>
+                                      <input
+                                        type="text"
+                                        defaultValue={key}
+                                        onBlur={(e) => renameFilterKey(idx, key, e.target.value)}
+                                        className="w-24 flex-shrink-0 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded px-1.5 py-0.5 text-xs font-mono text-gray-600 dark:text-gray-400 focus:ring-1 focus:ring-blue-500"
+                                        disabled={isWorking}
+                                      />
+                                      <span className="text-gray-400">:</span>
                                       <input
                                         type="text"
                                         value={displayVal}
@@ -613,12 +841,23 @@ export default function PlanReportPage() {
                                         className="flex-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5 text-xs text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
                                         disabled={isWorking}
                                       />
+                                      {!isWorking && (
+                                        <button
+                                          onClick={() => deleteFilter(idx, key)}
+                                          className="flex-shrink-0 text-red-400 hover:text-red-600 dark:text-red-500 dark:hover:text-red-400 p-0.5"
+                                          title={`Remove filter "${key}"`}
+                                        >
+                                          &#10005;
+                                        </button>
+                                      )}
                                     </div>
                                   )
                                 })}
                               </div>
-                            </div>
-                          )}
+                            ) : (
+                              <p className="text-xs text-gray-300 dark:text-gray-600 italic">No filters</p>
+                            )}
+                          </div>
 
                           {/* Columns */}
                           <div>
@@ -645,18 +884,17 @@ export default function PlanReportPage() {
                           </div>
 
                           {/* Join on */}
-                          {step.query_strategy.join_on && (
-                            <div>
-                              <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Join on:</p>
-                              <input
-                                type="text"
-                                value={step.query_strategy.join_on}
-                                onChange={(e) => updateQueryField(idx, 'join_on', e.target.value)}
-                                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-mono text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
-                                disabled={isWorking}
-                              />
-                            </div>
-                          )}
+                          <div>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Join on:</p>
+                            <input
+                              type="text"
+                              value={step.query_strategy.join_on || ''}
+                              onChange={(e) => updateQueryField(idx, 'join_on', e.target.value)}
+                              placeholder="e.g. dataset_id or column_name"
+                              className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-mono text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
+                              disabled={isWorking}
+                            />
+                          </div>
                         </div>
 
                         {/* Expected output */}
@@ -828,11 +1066,24 @@ export default function PlanReportPage() {
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => setShowRawReport(!showRawReport)}
+                    onClick={() => { setShowRawReport(!showRawReport); if (isEditingReport) handleToggleEdit() }}
                     className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                   >
                     {showRawReport ? 'View Report' : 'View Source'}
                   </button>
+                  {!showRawReport && (
+                    <button
+                      type="button"
+                      onClick={handleToggleEdit}
+                      className={`text-sm font-medium ${
+                        isEditingReport
+                          ? 'text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300'
+                          : 'text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300'
+                      }`}
+                    >
+                      {isEditingReport ? 'Done Editing' : 'Edit Report'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={handleSaveReport}
@@ -852,6 +1103,8 @@ export default function PlanReportPage() {
                       <span className="flex items-center gap-1">
                         <span>&#10003;</span> Saved
                       </span>
+                    ) : savedRecordId ? (
+                      'Update Report'
                     ) : (
                       'Save Report'
                     )}
@@ -862,10 +1115,23 @@ export default function PlanReportPage() {
               {showRawReport ? (
                 <textarea
                   value={report}
-                  onChange={(e) => setReport(e.target.value)}
+                  onChange={(e) => { setReport(e.target.value); setReportSaved(false) }}
                   rows={20}
                   className="input-field resize-y font-mono text-sm"
                 />
+              ) : isEditingReport ? (
+                <div className="border border-amber-300 dark:border-amber-700 rounded-lg overflow-hidden">
+                  <div className="bg-amber-50 dark:bg-amber-900/20 px-4 py-1.5 text-xs text-amber-700 dark:text-amber-300 font-medium">
+                    Editing — click in the report to make changes
+                  </div>
+                  <iframe
+                    key={iframeKey}
+                    ref={editorRef}
+                    title="Edit Report"
+                    className="w-full bg-white"
+                    style={{ minHeight: '60vh' }}
+                  />
+                </div>
               ) : (
                 <div
                   className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-6 overflow-auto max-h-[80vh] report-html"
