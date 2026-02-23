@@ -137,12 +137,80 @@ export interface ConversationHistory {
   dataset_id: string
   dataset_name: string
   duration_seconds?: number
+  report_plan?: string
+  report_id?: string
   created: string // ISO date string from Pocketbase
 }
 
 export interface ConversationsByDate {
   date: string // YYYY-MM-DD format
   conversations: ConversationHistory[]
+}
+
+export interface ReportPlanQueryStrategy {
+  filters: Record<string, string | string[]>
+  columns: string[]
+  logic: string
+  join_on: string
+}
+
+export interface ReportPlanStep {
+  step_number: number
+  dataset_id: string
+  purpose: string
+  query_strategy: ReportPlanQueryStrategy
+  dependencies: number[]
+  expected_output: string[]
+}
+
+export interface ReportPlan {
+  plan_id: string
+  total_steps: number
+  steps: ReportPlanStep[]
+}
+
+export interface PlanReportRequest {
+  prompt: string
+  email: string
+  datasetIds: string[]
+  model?: string
+}
+
+export interface PlanReportResult {
+  status: 'ok' | 'error'
+  plan?: ReportPlan
+  message?: string
+}
+
+export interface ExecutePlanRequest {
+  plan: string
+  email: string
+  model: string
+  templateId?: string
+}
+
+export interface ExecutePlanResult {
+  status: 'ok' | 'error'
+  report?: string
+  report_id?: string
+  total_steps?: number
+  message?: string
+}
+
+export interface ReportStepProgress {
+  step_number: number
+  purpose: string
+  dataset_id: string
+  status: 'started' | 'completed' | 'error'
+  step_result?: string
+}
+
+export interface CheckReportProgressResult {
+  report_id: string
+  steps: ReportStepProgress[]
+  final_report: string | null
+  status: 'starting' | 'in_progress' | 'completed' | 'error'
+  error_message?: string | null
 }
 
 export interface ReportTemplate {

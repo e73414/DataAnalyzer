@@ -10,6 +10,7 @@ import DeleteDatasetPage from './pages/DeleteDatasetPage'
 import HistoryPage from './pages/HistoryPage'
 import ReportTemplateManagerPage from './pages/ReportTemplateManagerPage'
 import UploadReportTemplatePage from './pages/UploadReportTemplatePage'
+import PlanReportPage from './pages/PlanReportPage'
 
 function UnauthorizedPage() {
   const navigate = useNavigate()
@@ -124,6 +125,14 @@ function App() {
         element={
           <ProtectedRoute>
             <UploadReportTemplatePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/plan-report"
+        element={
+          <ProtectedRoute>
+            <PlanReportPage />
           </ProtectedRoute>
         }
       />

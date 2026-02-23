@@ -1,5 +1,5 @@
 import { mcpN8nApi } from './api'
-import type { AnalysisRequest, AnalysisResult, DatasetDetail, DatasetPreview, UpdateSummaryRequest, UpdateSummaryResult, UpdateDatasetRequest, UpdateDatasetResult, UploadDatasetRequest, UploadDatasetResult, DeleteDatasetRequest, DeleteDatasetResult, ReportTemplate } from '../types'
+import type { AnalysisRequest, AnalysisResult, DatasetDetail, DatasetPreview, UpdateSummaryRequest, UpdateSummaryResult, UpdateDatasetRequest, UpdateDatasetResult, UploadDatasetRequest, UploadDatasetResult, DeleteDatasetRequest, DeleteDatasetResult, ReportTemplate, PlanReportRequest, PlanReportResult, ExecutePlanRequest, ExecutePlanResult, CheckReportProgressResult, ReportPlan } from '../types'
 
 interface N8nWebhookResponse {
   status: 'ok' | 'error'
@@ -24,6 +24,9 @@ const LIST_TEMPLATES_WEBHOOK_PATH = 'webhook/list-templates'
 const DELETE_TEMPLATE_WEBHOOK_PATH = 'webhook/delete-template'
 const UPLOAD_TEMPLATE_WEBHOOK_PATH = 'webhook/upload-template'
 const GET_DATASET_PREVIEW_WEBHOOK_PATH = 'webhook/get-dataset-preview'
+const PLAN_REPORT_WEBHOOK_PATH = 'webhook/plan-report'
+const EXECUTE_PLAN_WEBHOOK_PATH = 'webhook/execute-plan'
+const CHECK_REPORT_PROGRESS_WEBHOOK_PATH = 'webhook/check-report-progress'
 
 interface SendReportRequest {
   emails: string[]
@@ -353,6 +356,191 @@ export const n8nService = {
 
     if (response.data.status === 'error') {
       throw new Error(response.data.error || 'Failed to upload template')
+    }
+  },
+
+  async planReport(request: PlanReportRequest): Promise<PlanReportResult> {
+    const response = await mcpN8nApi.post('/mcp/execute', {
+      skill: 'n8n-webhook',
+      params: {
+        webhookPath: PLAN_REPORT_WEBHOOK_PATH,
+      },
+      input: {
+        prompt: request.prompt,
+        email: request.email,
+        dataset_ids: request.datasetIds,
+        ...(request.model && { model: request.model }),
+      },
+    })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fullData = response.data as any
+    if (fullData?.status === 'error') {
+      throw new Error(fullData?.error || 'Failed to generate report plan')
+    }
+
+    // Extract plan JSON — n8n AI Agent returns { output: {...} } or [{ output: {...} }]
+    // MCP adapter wraps as { status, code, data: <n8n_response> }
+    // data may be a JSON string or object
+    let raw = fullData?.data
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw) } catch { /* keep as-is */ }
+    }
+
+    // Recursively search for a ReportPlan object (has steps array)
+    const findPlan = (val: unknown, depth = 0): ReportPlan | undefined => {
+      if (depth > 5 || !val) return undefined
+
+      // If it's a string, try parsing as JSON
+      if (typeof val === 'string') {
+        try { return findPlan(JSON.parse(val), depth + 1) } catch { return undefined }
+      }
+
+      // If it's an array, check each element
+      if (Array.isArray(val)) {
+        for (const item of val) {
+          const found = findPlan(item, depth + 1)
+          if (found) return found
+        }
+        return undefined
+      }
+
+      if (typeof val !== 'object') return undefined
+      const obj = val as Record<string, unknown>
+
+      // If it has steps array, it's the plan itself
+      if (Array.isArray(obj.steps)) return obj as unknown as ReportPlan
+
+      // Check known wrapper fields: output, data, result, plan
+      for (const key of ['output', 'data', 'result', 'plan']) {
+        if (obj[key] != null) {
+          const found = findPlan(obj[key], depth + 1)
+          if (found) return found
+        }
+      }
+
+      return undefined
+    }
+
+    const planObj = findPlan(fullData)
+
+    if (!planObj) {
+      throw new Error('Failed to parse report plan from response')
+    }
+
+    return {
+      status: 'ok',
+      plan: planObj,
+    }
+  },
+
+  async executePlan(request: ExecutePlanRequest): Promise<ExecutePlanResult> {
+    const response = await mcpN8nApi.post('/mcp/execute', {
+      skill: 'n8n-webhook',
+      params: {
+        webhookPath: EXECUTE_PLAN_WEBHOOK_PATH,
+      },
+      input: {
+        plan: request.plan,
+        email: request.email,
+        model: request.model,
+        ...(request.templateId && { templateId: request.templateId }),
+      },
+    })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fullData = response.data as any
+
+    if (fullData?.status === 'error') {
+      throw new Error(fullData?.error || 'Failed to execute report plan')
+    }
+
+    // The workflow now responds immediately with { report_id, total_steps, status: 'started' }
+    let raw = fullData?.data
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw) } catch { /* keep as-is */ }
+    }
+
+    let reportId = ''
+    let totalSteps = 0
+
+    const extractFrom = (obj: Record<string, unknown>) => {
+      if (obj.report_id && typeof obj.report_id === 'string') reportId = obj.report_id
+      if (typeof obj.total_steps === 'number') totalSteps = obj.total_steps
+    }
+
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      extractFrom(raw as Record<string, unknown>)
+    } else if (Array.isArray(raw) && raw[0] && typeof raw[0] === 'object') {
+      extractFrom(raw[0] as Record<string, unknown>)
+    }
+
+    // Fallback: check fullData directly
+    if (!reportId && fullData?.report_id) reportId = fullData.report_id
+    if (!totalSteps && fullData?.total_steps) totalSteps = fullData.total_steps
+
+    return {
+      status: 'ok',
+      report_id: reportId || undefined,
+      total_steps: totalSteps || undefined,
+    }
+  },
+
+  async checkReportProgress(reportId: string): Promise<CheckReportProgressResult> {
+    const response = await mcpN8nApi.post('/mcp/execute', {
+      skill: 'n8n-webhook',
+      params: {
+        webhookPath: CHECK_REPORT_PROGRESS_WEBHOOK_PATH,
+      },
+      input: {
+        report_id: reportId,
+      },
+    })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fullData = response.data as any
+
+    if (fullData?.status === 'error') {
+      throw new Error(fullData?.error || 'Failed to check report progress')
+    }
+
+    let raw = fullData?.data
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw) } catch { /* keep as-is */ }
+    }
+
+    // Extract progress data from the response
+    const extractProgress = (obj: Record<string, unknown>): CheckReportProgressResult | null => {
+      if (obj.report_id && Array.isArray(obj.steps)) {
+        return {
+          report_id: obj.report_id as string,
+          steps: obj.steps as CheckReportProgressResult['steps'],
+          final_report: (obj.final_report as string) || null,
+          status: (obj.status as CheckReportProgressResult['status']) || 'in_progress',
+          error_message: (obj.error_message as string) || null,
+        }
+      }
+      return null
+    }
+
+    let result: CheckReportProgressResult | null = null
+
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      result = extractProgress(raw as Record<string, unknown>)
+    } else if (Array.isArray(raw) && raw[0] && typeof raw[0] === 'object') {
+      result = extractProgress(raw[0] as Record<string, unknown>)
+    }
+
+    // Fallback: check fullData directly
+    if (!result) {
+      result = extractProgress(fullData)
+    }
+
+    return result || {
+      report_id: reportId,
+      steps: [],
+      final_report: null,
+      status: 'starting',
     }
   },
 }

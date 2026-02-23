@@ -124,6 +124,7 @@ export default function ResultsPage() {
   const [shuffledPhrases, setShuffledPhrases] = useState<string[]>([])
   const conversationEndRef = useRef<HTMLDivElement>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const initialSavedRef = useRef(false)
 
   const state = location.state as LocationState | undefined
 
@@ -164,11 +165,12 @@ export default function ResultsPage() {
       setDatasetId(state.datasetId)
       setDatasetName(state.datasetName)
 
-      // Save initial conversation to history
-      if (session?.email) {
+      // Save initial conversation to history (ref guard prevents double-save in Strict Mode)
+      if (session?.email && !initialSavedRef.current) {
+        initialSavedRef.current = true
         pocketbaseService.saveConversation({
           email: session.email,
-          prompt: state.prompt,
+          prompt: `[Conversation] ${state.prompt}`,
           response: state.result.result,
           aiModel: session.aiModel,
           datasetId: state.datasetId,
@@ -262,7 +264,7 @@ export default function ResultsPage() {
       // Save follow-up conversation to history
       pocketbaseService.saveConversation({
         email: session.email,
-        prompt: trimmedPrompt,
+        prompt: `[Conversation] ${trimmedPrompt}`,
         response: result.result,
         aiModel: selectedModelId || session.aiModel,
         datasetId: datasetId,

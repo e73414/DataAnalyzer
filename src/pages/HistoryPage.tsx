@@ -5,7 +5,7 @@ import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
-import type { ConversationHistory } from '../types'
+import type { ConversationHistory, ReportPlan } from '../types'
 
 type ViewMode = 'by-date' | 'by-dataset'
 
@@ -341,9 +341,30 @@ export default function HistoryPage() {
     }
   }
 
+  // Extract type prefix and display prompt from conversation prompt
+  const parsePromptType = (prompt: string): { type: string | null; displayPrompt: string } => {
+    const match = prompt.match(/^\[(Conversation|Execute Plan|Plan Report)\]\s*(.*)$/s)
+    if (match) return { type: match[1], displayPrompt: match[2] }
+    return { type: null, displayPrompt: prompt }
+  }
+
+  const getTypeBadgeStyle = (type: string) => {
+    switch (type) {
+      case 'Conversation':
+        return 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+      case 'Execute Plan':
+        return 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
+      case 'Plan Report':
+        return 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
+      default:
+        return 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+    }
+  }
+
   const renderConversationCard = (conv: ConversationHistory) => {
     const isExpanded = expandedConversation === conv.id
     const isSelected = selectedConversations.has(conv.id)
+    const { type: promptType, displayPrompt } = parsePromptType(conv.prompt)
 
     return (
       <div
@@ -376,9 +397,16 @@ export default function HistoryPage() {
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                {conv.prompt}
-              </p>
+              <div className="flex items-center gap-2">
+                {promptType && (
+                  <span className={`flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded ${getTypeBadgeStyle(promptType)}`}>
+                    {promptType}
+                  </span>
+                )}
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                  {displayPrompt}
+                </p>
+              </div>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                 <span>{formatTime(conv.created)}</span>
                 <span>•</span>
@@ -393,6 +421,12 @@ export default function HistoryPage() {
                   <>
                     <span>•</span>
                     <span className="text-blue-600 dark:text-blue-400">{conv.dataset_name}</span>
+                  </>
+                )}
+                {conv.report_id && (
+                  <>
+                    <span>•</span>
+                    <span className="text-purple-600 dark:text-purple-400 font-mono">{conv.report_id}</span>
                   </>
                 )}
               </div>
@@ -462,6 +496,43 @@ export default function HistoryPage() {
                   dangerouslySetInnerHTML={{ __html: conv.response }}
                 />
               </div>
+              {conv.report_plan && (() => {
+                let planData: ReportPlan | null = null
+                try { planData = JSON.parse(conv.report_plan) as ReportPlan } catch { /* ignore */ }
+                if (!planData?.steps) return null
+                return (
+                  <div>
+                    <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                      Report Plan
+                    </h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      {planData.plan_id} — {planData.total_steps} step{planData.total_steps !== 1 ? 's' : ''}
+                    </p>
+                    <div className="space-y-2">
+                      {planData.steps.map((step) => (
+                        <div key={step.step_number} className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
+                          <div className="bg-gray-100 dark:bg-gray-700 px-3 py-2 flex items-center gap-2">
+                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
+                              {step.step_number}
+                            </span>
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">{step.purpose}</span>
+                          </div>
+                          <div className="px-3 py-2 space-y-1 text-xs">
+                            <p><span className="text-gray-500 dark:text-gray-400">Dataset:</span> <span className="font-mono text-gray-700 dark:text-gray-300">{step.dataset_id}</span></p>
+                            {step.query_strategy.columns.length > 0 && (
+                              <p><span className="text-gray-500 dark:text-gray-400">Columns:</span> <span className="font-mono text-gray-700 dark:text-gray-300">{step.query_strategy.columns.join(', ')}</span></p>
+                            )}
+                            <p><span className="text-gray-500 dark:text-gray-400">Logic:</span> <span className="text-gray-700 dark:text-gray-300">{step.query_strategy.logic}</span></p>
+                            {step.dependencies.length > 0 && (
+                              <p><span className="text-gray-500 dark:text-gray-400">Depends on:</span> {step.dependencies.map(d => `Step ${d}`).join(', ')}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           </div>
         )}

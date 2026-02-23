@@ -16,8 +16,10 @@ export const mcpN8nApi = axios.create({
 
 export const mcpPocketbaseApi = axios.create({
   baseURL: MCP_POCKETBASE_BASE_URL,
-  timeout: 10000,
+  timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
+  maxContentLength: Infinity,
+  maxBodyLength: Infinity,
 })
 
 // Add response interceptor for better error handling
@@ -38,7 +40,15 @@ mcpN8nApi.interceptors.response.use(
 mcpPocketbaseApi.interceptors.response.use(
   (response) => response,
   (error) => {
-    const message = error.response?.data?.error || error.message || 'Unknown error'
+    const data = error.response?.data
+    // PocketBase returns { message, data: { field: { code, message } } } on validation errors
+    let message = data?.error || data?.message || error.message || 'Unknown error'
+    if (data?.data && typeof data.data === 'object') {
+      const fieldErrors = Object.entries(data.data)
+        .map(([field, err]) => `${field}: ${(err as { message?: string })?.message || 'invalid'}`)
+        .join('; ')
+      if (fieldErrors) message += ` (${fieldErrors})`
+    }
     throw new Error(message)
   }
 )
