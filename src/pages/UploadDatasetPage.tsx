@@ -1,20 +1,47 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
 
+interface IncomingFileState {
+  csvFile?: File
+  fileName?: string
+}
+
 export default function UploadDatasetPage() {
   const { session } = useSession()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const location = useLocation()
+  const loadedRef = useRef(false)
 
   const [datasetName, setDatasetName] = useState('')
   const [description, setDescription] = useState('')
   const [datasetDesc, setDatasetDesc] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [csvPreview, setCsvPreview] = useState<string[]>([])
+
+  // Accept pre-populated file from CSV Optimizer
+  useEffect(() => {
+    if (loadedRef.current) return
+    const state = location.state as IncomingFileState | null
+    if (state?.csvFile) {
+      loadedRef.current = true
+      setSelectedFile(state.csvFile)
+      if (state.fileName) {
+        setDatasetName(state.fileName)
+      }
+      // Generate preview from the file
+      state.csvFile.text().then(text => {
+        const lines = text.split('\n').slice(0, 6)
+        setCsvPreview(lines)
+      })
+    }
+  }, [location.state])
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
@@ -43,14 +70,7 @@ export default function UploadDatasetPage() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['datasets'] })
       toast.success(`Dataset "${result.datasetName}" uploaded successfully! ${result.rowsInserted} rows inserted.`)
-      setDatasetName('')
-      setDescription('')
-      setDatasetDesc('')
-      setSelectedFile(null)
-      setCsvPreview([])
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
+      navigate('/analyze', { state: { preSelectedDatasetId: result.datasetId } })
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to upload dataset')

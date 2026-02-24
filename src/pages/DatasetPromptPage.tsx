@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
@@ -90,8 +90,11 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 
 export default function DatasetPromptPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { session, setAIModel } = useSession()
-  const [selectedDatasetId, setSelectedDatasetId] = useState('')
+  const [selectedDatasetId, setSelectedDatasetId] = useState(
+    (location.state as { preSelectedDatasetId?: string } | null)?.preSelectedDatasetId || ''
+  )
   const [selectedModelId, setSelectedModelId] = useState(session?.aiModel || '')
   const [prompt, setPrompt] = useState('')
   const [captureProcess, setCaptureProcess] = useState(false)

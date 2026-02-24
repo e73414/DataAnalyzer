@@ -1,4 +1,5 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import Navigation from '../components/Navigation'
 
 // --- Types ---
@@ -17,6 +18,11 @@ interface AnalysisResult {
   originalRows: string[][]
   rowCount: number
   columnCount: number
+}
+
+interface IncomingState {
+  csvText?: string
+  fileName?: string
 }
 
 // --- CSV Parsing ---
@@ -64,17 +70,25 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
 // --- Analysis Functions ---
 
 const NULL_LIKE = new Set(['n/a', 'na', 'null', 'none', '-', 'undefined', 'nil', '#n/a', '#null', 'nan'])
+const FORMULA_ERROR_REGEX = /^#(REF|VALUE|N\/A|DIV\/0|NAME\?|NUM|NULL)!?$/i
 const DATE_REGEX_YMD = /^\d{4}-\d{2}-\d{2}$/
 const DATE_REGEX_MDY = /^\d{1,2}\/\d{1,2}\/\d{4}$/
-const CURRENCY_REGEX = /^[$€£¥][\d,]+\.?\d*$/
+const DATE_REGEX_LONG = /^\w+ \d{1,2},? \d{4}$/ // e.g., "January 5, 2025"
+const CURRENCY_REGEX = /^[$€£¥][\s]?-?[\d,]+\.?\d*$/
 const NUMBER_WITH_COMMAS = /^-?[\d,]+\.?\d*$/
 
-function detectType(value: string): 'empty' | 'int' | 'real' | 'date' | 'bool' | 'currency' | 'string' {
-  if (value.trim() === '' || NULL_LIKE.has(value.trim().toLowerCase())) return 'empty'
-  if (/^(true|false)$/i.test(value.trim())) return 'bool'
-  if (DATE_REGEX_YMD.test(value.trim()) || DATE_REGEX_MDY.test(value.trim())) return 'date'
-  if (CURRENCY_REGEX.test(value.trim())) return 'currency'
-  const cleaned = value.trim().replace(/[$€£¥,]/g, '')
+function isFormulaError(value: string): boolean {
+  return FORMULA_ERROR_REGEX.test(value.trim())
+}
+
+function detectType(value: string): 'empty' | 'int' | 'real' | 'date' | 'bool' | 'currency' | 'formula_error' | 'string' {
+  const trimmed = value.trim()
+  if (trimmed === '' || NULL_LIKE.has(trimmed.toLowerCase())) return 'empty'
+  if (isFormulaError(trimmed)) return 'formula_error'
+  if (/^(true|false)$/i.test(trimmed)) return 'bool'
+  if (DATE_REGEX_YMD.test(trimmed) || DATE_REGEX_MDY.test(trimmed)) return 'date'
+  if (CURRENCY_REGEX.test(trimmed)) return 'currency'
+  const cleaned = trimmed.replace(/[$€£¥,\s]/g, '')
   if (cleaned !== '' && !isNaN(Number(cleaned))) {
     return cleaned.includes('.') ? 'real' : 'int'
   }
@@ -92,8 +106,6 @@ function toSnakeCase(header: string): string {
 
 function analyzeCSV(headers: string[], rows: string[][]): Issue[] {
   const issues: Issue[] = []
-
-  // --- ERRORS ---
 
   if (rows.length === 0) {
     issues.push({ severity: 'error', message: 'File contains no data rows (only headers or empty).', autoFixable: false })
@@ -121,7 +133,7 @@ function analyzeCSV(headers: string[], rows: string[][]): Issue[] {
   const expectedCols = headers.length
   const badRows: number[] = []
   rows.forEach((row, i) => {
-    if (row.length !== expectedCols) badRows.push(i + 2) // 1-indexed, +1 for header
+    if (row.length !== expectedCols) badRows.push(i + 2)
   })
   if (badRows.length > 0) {
     const display = badRows.length > 5 ? badRows.slice(0, 5).join(', ') + ` and ${badRows.length - 5} more` : badRows.join(', ')
@@ -133,13 +145,26 @@ function analyzeCSV(headers: string[], rows: string[][]): Issue[] {
     })
   }
 
+  // Empty or missing headers
+  const emptyHeaders: number[] = []
+  headers.forEach((h, i) => {
+    if (h.trim() === '') emptyHeaders.push(i + 1)
+  })
+  if (emptyHeaders.length > 0) {
+    issues.push({
+      severity: 'error',
+      message: `${emptyHeaders.length} column(s) have empty/missing headers (positions: ${emptyHeaders.join(', ')}). Every column must have a name.`,
+      autoFixable: true,
+    })
+  }
+
   // Mixed types per column
   for (let col = 0; col < headers.length; col++) {
     const types = new Set<string>()
     for (const row of rows) {
       const val = row[col] ?? ''
       const t = detectType(val)
-      if (t !== 'empty') types.add(t === 'currency' ? 'real' : t)
+      if (t !== 'empty' && t !== 'formula_error') types.add(t === 'currency' ? 'real' : t)
     }
     if (types.size > 1 && types.has('string')) {
       const nonString = [...types].filter(t => t !== 'string')
@@ -152,7 +177,66 @@ function analyzeCSV(headers: string[], rows: string[][]): Issue[] {
     }
   }
 
-  // --- WARNINGS ---
+  // Formula errors (#REF!, #VALUE!, #DIV/0!, etc.)
+  const colsWithErrors: string[] = []
+  let formulaErrorCount = 0
+  for (let col = 0; col < headers.length; col++) {
+    let found = false
+    for (const row of rows) {
+      if (isFormulaError((row[col] ?? '').trim())) {
+        formulaErrorCount++
+        if (!found) { colsWithErrors.push(headers[col].trim() || `Column ${col + 1}`); found = true }
+      }
+    }
+  }
+  if (formulaErrorCount > 0) {
+    issues.push({
+      severity: 'warning',
+      message: `${formulaErrorCount} cell(s) contain Excel formula errors (#REF!, #VALUE!, etc.). These will be replaced with empty values.`,
+      columns: colsWithErrors,
+      autoFixable: true,
+    })
+  }
+
+  // Embedded newlines/tabs in cell values
+  let embeddedNewlineCount = 0
+  const colsWithNewlines: string[] = []
+  for (let col = 0; col < headers.length; col++) {
+    let found = false
+    for (const row of rows) {
+      if (/[\r\n\t]/.test(row[col] ?? '')) {
+        embeddedNewlineCount++
+        if (!found) { colsWithNewlines.push(headers[col].trim() || `Column ${col + 1}`); found = true }
+      }
+    }
+  }
+  if (embeddedNewlineCount > 0) {
+    issues.push({
+      severity: 'warning',
+      message: `${embeddedNewlineCount} cell(s) contain embedded newlines or tabs. These will be replaced with spaces.`,
+      columns: colsWithNewlines,
+      autoFixable: true,
+    })
+  }
+
+  // Long date format (e.g., "January 5, 2025") that won't be detected as date type
+  const colsWithLongDates: string[] = []
+  for (let col = 0; col < headers.length; col++) {
+    for (const row of rows) {
+      if (DATE_REGEX_LONG.test((row[col] ?? '').trim())) {
+        colsWithLongDates.push(headers[col].trim())
+        break
+      }
+    }
+  }
+  if (colsWithLongDates.length > 0) {
+    issues.push({
+      severity: 'warning',
+      message: `Text date formats detected (e.g., "January 5, 2025"). Use YYYY-MM-DD or MM/DD/YYYY for proper date detection.`,
+      columns: colsWithLongDates,
+      autoFixable: false,
+    })
+  }
 
   // Null-like values
   const colsWithNulls: string[] = []
@@ -196,7 +280,7 @@ function analyzeCSV(headers: string[], rows: string[][]): Issue[] {
     })
   }
 
-  // Currency symbols in numeric columns
+  // Currency symbols
   const colsWithCurrency: string[] = []
   for (let col = 0; col < headers.length; col++) {
     for (const row of rows) {
@@ -265,8 +349,6 @@ function analyzeCSV(headers: string[], rows: string[][]): Issue[] {
     })
   }
 
-  // --- SUGGESTIONS ---
-
   if (headers.length > 50) {
     issues.push({
       severity: 'suggestion',
@@ -298,7 +380,7 @@ function analyzeCSV(headers: string[], rows: string[][]): Issue[] {
     })
   }
 
-  // Category inconsistencies (check columns with < 50 unique values)
+  // Category inconsistencies
   for (let col = 0; col < headers.length; col++) {
     const values = new Map<string, Set<string>>()
     for (const row of rows) {
@@ -350,50 +432,72 @@ function analyzeCSV(headers: string[], rows: string[][]): Issue[] {
 function optimizeCSV(headers: string[], rows: string[][]): { headers: string[]; rows: string[][]; fixCount: number } {
   let fixCount = 0
 
-  // Find empty columns to remove
+  // Find empty columns to remove (including those with only formula errors/nulls)
   const emptyColIdxs = new Set<number>()
   for (let col = 0; col < headers.length; col++) {
     const allEmpty = rows.every(row => {
       const val = (row[col] ?? '').trim().toLowerCase()
-      return val === '' || NULL_LIKE.has(val)
+      return val === '' || NULL_LIKE.has(val) || isFormulaError(val)
     })
     if (allEmpty) emptyColIdxs.add(col)
   }
   if (emptyColIdxs.size > 0) fixCount += emptyColIdxs.size
 
-  // Convert headers to snake_case and filter empty cols
+  // Convert headers to snake_case, generate names for empty headers, filter empty cols
   const newHeaders: string[] = []
   const keepCols: number[] = []
   for (let i = 0; i < headers.length; i++) {
     if (emptyColIdxs.has(i)) continue
     const original = headers[i]
-    const snake = toSnakeCase(original)
-    if (snake !== original.trim()) fixCount++
-    newHeaders.push(snake || `column_${i + 1}`)
+    let snake = toSnakeCase(original)
+    // Generate name for empty headers
+    if (!snake) {
+      snake = `column_${i + 1}`
+      fixCount++
+    } else if (snake !== original.trim()) {
+      fixCount++
+    }
+    newHeaders.push(snake)
     keepCols.push(i)
   }
 
   // Process rows
   const newRows: string[][] = []
   for (const row of rows) {
-    // Skip empty rows
-    const allEmpty = keepCols.every(col => (row[col] ?? '').trim() === '')
+    const allEmpty = keepCols.every(col => {
+      const val = (row[col] ?? '').trim()
+      return val === '' || isFormulaError(val)
+    })
     if (allEmpty) { fixCount++; continue }
 
     const newRow: string[] = []
     for (const col of keepCols) {
-      let val = (row[col] ?? '').trim()
+      let val = (row[col] ?? '')
+
+      // Replace embedded newlines/tabs with spaces
+      if (/[\r\n\t]/.test(val)) {
+        val = val.replace(/[\r\n\t]+/g, ' ')
+        fixCount++
+      }
+
+      val = val.trim()
+
+      // Replace formula errors with empty
+      if (isFormulaError(val)) {
+        val = ''
+        fixCount++
+      }
 
       // Replace null-like values
-      if (NULL_LIKE.has(val.toLowerCase())) {
+      if (val !== '' && NULL_LIKE.has(val.toLowerCase())) {
         val = ''
         fixCount++
       }
 
       // Strip currency symbols and thousand separators from numeric values
       if (CURRENCY_REGEX.test(val) || (NUMBER_WITH_COMMAS.test(val) && val.includes(','))) {
-        const cleaned = val.replace(/[$€£¥,]/g, '')
-        if (!isNaN(Number(cleaned))) {
+        const cleaned = val.replace(/[$€£¥,\s]/g, '')
+        if (!isNaN(Number(cleaned)) && cleaned !== '') {
           if (cleaned !== val) fixCount++
           val = cleaned
         }
@@ -409,7 +513,7 @@ function optimizeCSV(headers: string[], rows: string[][]): { headers: string[]; 
         fixCount++
       }
 
-      // Count trimming (already trimmed above)
+      // Count trimming
       if ((row[col] ?? '') !== (row[col] ?? '').trim()) fixCount++
 
       newRow.push(val)
@@ -434,7 +538,7 @@ function toCSVString(headers: string[], rows: string[][]): string {
   return lines.join('\n')
 }
 
-// --- Component ---
+// --- Component Helpers ---
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
@@ -458,13 +562,43 @@ function SeverityBadge({ severity, count }: { severity: 'error' | 'warning' | 's
   )
 }
 
+// --- Main Component ---
+
 export default function CsvOptimizerPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const incomingState = location.state as IncomingState | null
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [sourceName, setSourceName] = useState<string>('')
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null)
   const [optimizedCSV, setOptimizedCSV] = useState<{ headers: string[]; rows: string[][]; csvString: string; fixCount: number } | null>(null)
+  const [originalCSVString, setOriginalCSVString] = useState<string>('')
+  const [useOptimized, setUseOptimized] = useState(true)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ error: true, warning: true, suggestion: false })
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const loadedRef = useRef(false)
+
+  // Handle incoming data from Excel Upload page
+  useEffect(() => {
+    if (loadedRef.current) return
+    if (incomingState?.csvText) {
+      loadedRef.current = true
+      setSourceName(incomingState.fileName || 'excel_data')
+      // Auto-analyze the incoming CSV
+      const { headers, rows } = parseCSV(incomingState.csvText)
+      const issues = analyzeCSV(headers, rows)
+      setAnalysis({ issues, originalHeaders: headers, originalRows: rows, rowCount: rows.length, columnCount: headers.length })
+      setOriginalCSVString(incomingState.csvText)
+
+      const { headers: optHeaders, rows: optRows, fixCount } = optimizeCSV(headers, rows)
+      const csvString = toCSVString(optHeaders, optRows)
+      setOptimizedCSV({ headers: optHeaders, rows: optRows, csvString, fixCount })
+      setUseOptimized(fixCount > 0)
+      setExpandedSections({ error: true, warning: true, suggestion: false })
+    }
+  }, [incomingState])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -474,8 +608,10 @@ export default function CsvOptimizerPage() {
       return
     }
     setSelectedFile(file)
+    setSourceName(file.name.replace(/\.csv$/i, ''))
     setAnalysis(null)
     setOptimizedCSV(null)
+    setOriginalCSVString('')
   }
 
   const handleAnalyze = async () => {
@@ -486,12 +622,12 @@ export default function CsvOptimizerPage() {
       const { headers, rows } = parseCSV(text)
       const issues = analyzeCSV(headers, rows)
       setAnalysis({ issues, originalHeaders: headers, originalRows: rows, rowCount: rows.length, columnCount: headers.length })
+      setOriginalCSVString(text)
 
-      // Generate optimized CSV
       const { headers: optHeaders, rows: optRows, fixCount } = optimizeCSV(headers, rows)
       const csvString = toCSVString(optHeaders, optRows)
       setOptimizedCSV({ headers: optHeaders, rows: optRows, csvString, fixCount })
-
+      setUseOptimized(fixCount > 0)
       setExpandedSections({ error: true, warning: true, suggestion: false })
     } finally {
       setIsAnalyzing(false)
@@ -499,21 +635,34 @@ export default function CsvOptimizerPage() {
   }
 
   const handleDownload = () => {
-    if (!optimizedCSV || !selectedFile) return
-    const blob = new Blob([optimizedCSV.csvString], { type: 'text/csv' })
+    if (!optimizedCSV) return
+    const csvString = useOptimized ? optimizedCSV.csvString : originalCSVString
+    const blob = new Blob([csvString], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    const baseName = selectedFile.name.replace(/\.csv$/i, '')
-    a.download = `${baseName}_optimized.csv`
+    const suffix = useOptimized ? '_optimized' : ''
+    a.download = `${sourceName || 'data'}${suffix}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
 
+  const handleUploadAsDataset = () => {
+    if (!analysis) return
+    const csvString = useOptimized && optimizedCSV ? optimizedCSV.csvString : originalCSVString
+    const fileName = `${sourceName || 'data'}${useOptimized ? '_optimized' : ''}.csv`
+    const blob = new Blob([csvString], { type: 'text/csv' })
+    const file = new File([blob], fileName, { type: 'text/csv' })
+    navigate('/upload-dataset', { state: { csvFile: file, fileName: sourceName || 'data' } })
+  }
+
   const handleReset = () => {
     setSelectedFile(null)
+    setSourceName('')
     setAnalysis(null)
     setOptimizedCSV(null)
+    setOriginalCSVString('')
+    setUseOptimized(true)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -531,12 +680,19 @@ export default function CsvOptimizerPage() {
   }, [analysis])
 
   const hasNoIssues = analysis && analysis.issues.length === 0
+  const hasAutoFixes = optimizedCSV && optimizedCSV.fixCount > 0
+
+  // Active preview data based on toggle
+  const activeHeaders = useOptimized && optimizedCSV ? optimizedCSV.headers : analysis?.originalHeaders || []
+  const activeRows = useOptimized && optimizedCSV ? optimizedCSV.rows : analysis?.originalRows || []
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
+
+  const isFromExcel = !!incomingState?.csvText
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
@@ -548,63 +704,82 @@ export default function CsvOptimizerPage() {
           <ul className="text-sm text-blue-700 dark:text-blue-300 list-disc list-inside space-y-1">
             <li>Upload a CSV file to check for issues that could affect data analysis</li>
             <li>Review errors, warnings, and suggestions for your data</li>
-            <li>Download an optimized version with auto-fixable issues resolved</li>
-            <li>Upload the optimized CSV via the Upload Dataset page</li>
+            <li>Choose to use the optimized version or keep the original</li>
+            <li>Upload directly as a dataset or download the file</li>
           </ul>
         </div>
 
-        {/* Upload Card */}
-        <div className="card p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Upload CSV for Analysis</h2>
+        {/* Upload Card — hidden when data came from Excel */}
+        {!isFromExcel && (
+          <div className="card p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Upload CSV for Analysis</h2>
 
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="csvFile" className="label">CSV File</label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                id="csvFile"
-                accept=".csv"
-                onChange={handleFileChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm
-                           bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
-                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                           file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm
-                           file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700
-                           dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50
-                           transition-colors duration-200"
-              />
-            </div>
-
-            {selectedFile && (
-              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <div className="text-sm text-gray-700 dark:text-gray-300">
-                  <span className="font-medium">{selectedFile.name}</span>
-                  <span className="ml-2 text-gray-500 dark:text-gray-400">({formatFileSize(selectedFile.size)})</span>
-                </div>
-                <div className="flex gap-2">
-                  {analysis && (
-                    <button onClick={handleReset} className="btn-secondary text-sm">
-                      Clear
-                    </button>
-                  )}
-                  <button
-                    onClick={handleAnalyze}
-                    disabled={isAnalyzing}
-                    className="btn-primary text-sm"
-                  >
-                    {isAnalyzing ? (
-                      <span className="flex items-center gap-2">
-                        <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
-                        Analyzing...
-                      </span>
-                    ) : analysis ? 'Re-analyze' : 'Analyze'}
-                  </button>
-                </div>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="csvFile" className="label">CSV File</label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  id="csvFile"
+                  accept=".csv"
+                  onChange={handleFileChange}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm
+                             bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
+                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                             file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm
+                             file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700
+                             dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50
+                             transition-colors duration-200"
+                />
               </div>
-            )}
+
+              {selectedFile && (
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">{selectedFile.name}</span>
+                    <span className="ml-2 text-gray-500 dark:text-gray-400">({formatFileSize(selectedFile.size)})</span>
+                  </div>
+                  <div className="flex gap-2">
+                    {analysis && (
+                      <button onClick={handleReset} className="btn-secondary text-sm">
+                        Clear
+                      </button>
+                    )}
+                    <button
+                      onClick={handleAnalyze}
+                      disabled={isAnalyzing}
+                      className="btn-primary text-sm"
+                    >
+                      {isAnalyzing ? (
+                        <span className="flex items-center gap-2">
+                          <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
+                          Analyzing...
+                        </span>
+                      ) : analysis ? 'Re-analyze' : 'Analyze'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Source info when from Excel */}
+        {isFromExcel && analysis && (
+          <div className="card p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-700 dark:text-gray-300">
+                Source: <span className="font-medium">{sourceName}</span> (from Excel)
+              </div>
+              <button
+                onClick={() => navigate('/upload-excel')}
+                className="btn-secondary text-sm"
+              >
+                Back to Excel Upload
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Analysis Results */}
         {analysis && (
@@ -721,75 +896,106 @@ export default function CsvOptimizerPage() {
               )
             })}
 
-            {/* Optimized Output */}
-            {optimizedCSV && (
-              <div className="card p-6 mt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Optimized CSV</h2>
-                  <div className="flex items-center gap-3">
-                    {optimizedCSV.fixCount > 0 && (
-                      <span className="text-sm text-green-600 dark:text-green-400 font-medium">
-                        {optimizedCSV.fixCount} issue{optimizedCSV.fixCount !== 1 ? 's' : ''} auto-fixed
-                      </span>
-                    )}
-                    <button onClick={handleDownload} className="btn-primary text-sm">
-                      Download
-                    </button>
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                  <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-                    <div className="text-lg font-semibold text-gray-900 dark:text-white">{optimizedCSV.headers.length}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Columns</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-                    <div className="text-lg font-semibold text-gray-900 dark:text-white">{optimizedCSV.rows.length.toLocaleString()}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Rows</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-                    <div className="text-lg font-semibold text-gray-900 dark:text-white">{formatFileSize(optimizedCSV.csvString.length)}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">File Size</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-                    <div className="text-lg font-semibold text-green-600 dark:text-green-400">{optimizedCSV.fixCount}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Fixes Applied</div>
-                  </div>
-                </div>
-
-                {/* Preview Table */}
-                <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-                  <table className="min-w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-50 dark:bg-gray-700/50">
-                        {optimizedCSV.headers.map((h, i) => (
-                          <th key={i} className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {optimizedCSV.rows.slice(0, 10).map((row, i) => (
-                        <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                          {row.map((val, j) => (
-                            <td key={j} className="px-3 py-2 text-gray-800 dark:text-gray-200 whitespace-nowrap max-w-xs truncate">
-                              {val || <span className="text-gray-400 dark:text-gray-500 italic">empty</span>}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {optimizedCSV.rows.length > 10 && (
-                    <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 text-center">
-                      Showing 10 of {optimizedCSV.rows.length.toLocaleString()} rows
-                    </div>
-                  )}
+            {/* Data Version Toggle + Preview */}
+            <div className="card p-6 mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {hasAutoFixes ? 'Choose Data Version' : 'Data Preview'}
+                </h2>
+                <div className="flex items-center gap-3">
+                  <button onClick={handleDownload} className="btn-secondary text-sm">
+                    Download
+                  </button>
+                  <button onClick={handleUploadAsDataset} className="btn-primary text-sm">
+                    Upload as Dataset
+                  </button>
                 </div>
               </div>
-            )}
+
+              {/* Toggle: Optimized vs Original */}
+              {hasAutoFixes && (
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={() => setUseOptimized(true)}
+                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                      useOptimized
+                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-2 border-green-500'
+                        : 'bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400 border-2 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Use Optimized
+                    <span className="ml-1 text-xs">({optimizedCSV!.fixCount} fixes applied)</span>
+                  </button>
+                  <button
+                    onClick={() => setUseOptimized(false)}
+                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                      !useOptimized
+                        ? 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 border-2 border-gray-500'
+                        : 'bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400 border-2 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    Use Original (as-is)
+                  </button>
+                </div>
+              )}
+
+              {/* Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
+                  <div className="text-lg font-semibold text-gray-900 dark:text-white">{activeHeaders.length}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Columns</div>
+                </div>
+                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
+                  <div className="text-lg font-semibold text-gray-900 dark:text-white">{activeRows.length.toLocaleString()}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Rows</div>
+                </div>
+                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
+                  <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {formatFileSize((useOptimized && optimizedCSV ? optimizedCSV.csvString : originalCSVString).length)}
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">File Size</div>
+                </div>
+                {hasAutoFixes && (
+                  <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
+                    <div className={`text-lg font-semibold ${useOptimized ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                      {useOptimized ? optimizedCSV!.fixCount : 0}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Fixes Applied</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Preview Table */}
+              <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-700/50">
+                      {activeHeaders.map((h, i) => (
+                        <th key={i} className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {activeRows.slice(0, 10).map((row, i) => (
+                      <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                        {row.map((val, j) => (
+                          <td key={j} className="px-3 py-2 text-gray-800 dark:text-gray-200 whitespace-nowrap max-w-xs truncate">
+                            {val || <span className="text-gray-400 dark:text-gray-500 italic">empty</span>}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {activeRows.length > 10 && (
+                  <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 text-center">
+                    Showing 10 of {activeRows.length.toLocaleString()} rows
+                  </div>
+                )}
+              </div>
+            </div>
           </>
         )}
       </main>

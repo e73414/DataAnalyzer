@@ -12,6 +12,7 @@ import ReportTemplateManagerPage from './pages/ReportTemplateManagerPage'
 import UploadReportTemplatePage from './pages/UploadReportTemplatePage'
 import PlanReportPage from './pages/PlanReportPage'
 import CsvOptimizerPage from './pages/CsvOptimizerPage'
+import ExcelUploadPage from './pages/ExcelUploadPage'
 
 function UnauthorizedPage() {
   const navigate = useNavigate()
@@ -142,6 +143,14 @@ function App() {
         element={
           <ProtectedRoute>
             <CsvOptimizerPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/upload-excel"
+        element={
+          <ProtectedRoute>
+            <ExcelUploadPage />
           </ProtectedRoute>
         }
       />
