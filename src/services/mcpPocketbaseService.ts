@@ -80,6 +80,7 @@ interface PocketbaseUserProfileRecord {
   user_email: string
   template_id: string
   user_timezone?: string
+  password_hash?: string
 }
 
 interface ListUserProfileResponse {
@@ -107,6 +108,24 @@ export const pocketbaseService = {
       user_email: record.user_email,
       template_id: record.template_id,
       user_timezone: record.user_timezone,
+      password_hash: record.password_hash,
+    }
+  },
+
+  // Update the password_hash for a user profile
+  async updatePasswordHash(recordId: string, passwordHash: string): Promise<void> {
+    const response = await mcpPocketbaseApi.post<UpdateRecordResponse>('/mcp/execute', {
+      skill: 'pb-update-record',
+      params: {
+        collection: 'data_analyzer_user_profile',
+        id: recordId,
+        data: {
+          password_hash: passwordHash,
+        },
+      },
+    })
+    if (response.data.status === 'error') {
+      throw new Error('Failed to update password')
     }
   },
 

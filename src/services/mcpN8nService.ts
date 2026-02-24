@@ -97,7 +97,7 @@ export const n8nService = {
     return response.data.data as unknown as DatasetDetail
   },
 
-  async getDatasetPreview(datasetId: string, email: string, limit: number = 5): Promise<DatasetPreview> {
+  async getDatasetPreview(datasetId: string, email: string, limit: number = 20): Promise<DatasetPreview> {
     const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
       skill: 'n8n-webhook',
       params: {

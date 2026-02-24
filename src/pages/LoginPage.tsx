@@ -9,9 +9,18 @@ import { pocketbaseService } from '../services/mcpPocketbaseService'
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(1, 'Password is required'),
 })
 
 type LoginFormData = z.infer<typeof loginSchema>
+
+async function sha256Hex(text: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(text)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+}
 
 // Sun icon for light mode
 function SunIcon() {
@@ -56,6 +65,7 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',
+      password: '',
     },
   })
 
@@ -70,13 +80,22 @@ export default function LoginPage() {
     try {
       const profile = await pocketbaseService.getUserProfile(data.email)
       if (!profile) {
-        setLoginError('Email not found. Please contact your administrator for access.')
+        setLoginError('Invalid email or password.')
+        return
+      }
+      if (!profile.password_hash) {
+        setLoginError('Account not configured. Please contact your administrator.')
+        return
+      }
+      const inputHash = await sha256Hex(data.password)
+      if (inputHash !== profile.password_hash) {
+        setLoginError('Invalid email or password.')
         return
       }
       login(data.email)
       navigate('/analyze')
     } catch {
-      setLoginError('Unable to verify email. Please try again.')
+      setLoginError('Unable to sign in. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -125,6 +144,23 @@ export default function LoginPage() {
               )}
             </div>
 
+            <div>
+              <label htmlFor="password" className="label">
+                Password
+              </label>
+              <input
+                {...register('password')}
+                type="password"
+                id="password"
+                autoComplete="current-password"
+                className="input-field"
+                placeholder="Enter your password"
+              />
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password.message}</p>
+              )}
+            </div>
+
             {loginError && (
               <p className="text-sm text-red-600 dark:text-red-400">{loginError}</p>
             )}
@@ -140,14 +176,14 @@ export default function LoginPage() {
                   Signing in...
                 </span>
               ) : (
-                'Continue'
+                'Sign In'
               )}
             </button>
           </form>
 
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
             <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-              Enter your email to access your datasets and start analyzing data with AI-powered insights.
+              Sign in with your credentials to access your datasets and start analyzing data with AI-powered insights.
             </p>
           </div>
         </div>

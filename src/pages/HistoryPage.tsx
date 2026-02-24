@@ -19,6 +19,7 @@ export default function HistoryPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [viewMode, setViewMode] = useState<ViewMode>('by-date')
+  const [searchQuery, setSearchQuery] = useState('')
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [expandedConversation, setExpandedConversation] = useState<string | null>(null)
   const [selectedConversations, setSelectedConversations] = useState<Set<string>>(new Set())
@@ -77,58 +78,81 @@ export default function HistoryPage() {
     },
   })
 
-  // Helper to extract date from Pocketbase datetime (handles both "2024-01-15 10:30:00" and "2024-01-15T10:30:00" formats)
-  const userTimezone = userProfile?.user_timezone
+  const userTimezone = userProfile?.user_timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
 
-  // Parse a PocketBase datetime string into a Date, ensuring UTC interpretation
-  const parseCreatedDate = (created: string): Date | null => {
-    if (!created) return null
-    let isoDate = created.includes('T') ? created : created.replace(' ', 'T')
-    // Ensure UTC: append Z if no timezone indicator present
-    if (!/[Zz+\-]\d{0,4}$/.test(isoDate)) {
-      isoDate += 'Z'
+  // Parse a PocketBase/ISO datetime string into a Date object.
+  // PocketBase returns "2026-02-23 17:35:00.000Z" (space-separated, UTC).
+  // Our created_at stores "2026-02-23T17:35:00.123Z" (ISO, UTC).
+  // Strings without a Z are assumed UTC (PocketBase convention).
+  const toDate = (s: string): Date | null => {
+    if (!s) return null
+    // Normalize: replace space with T, ensure Z suffix for UTC
+    let normalized = s.includes('T') ? s : s.replace(' ', 'T')
+    if (!/[Zz]/.test(normalized) && !/[+-]\d{2}:\d{2}$/.test(normalized)) {
+      normalized += 'Z'
     }
-    const date = new Date(isoDate)
-    return isNaN(date.getTime()) ? null : date
+    const d = new Date(normalized)
+    return isNaN(d.getTime()) ? null : d
   }
 
+  // Format a Date to YYYY-MM-DD in the user's timezone (for grouping)
+  const toDateKey = (d: Date): string => {
+    return d.toLocaleDateString('sv-SE', { timeZone: userTimezone })
+  }
+
+  // Get date key from a created string
   const getDateFromCreated = (created: string): string => {
-    const date = parseCreatedDate(created)
-    if (!date) return 'Unknown Date'
-    // Use sv-SE locale for YYYY-MM-DD format in the user's timezone
-    if (userTimezone) {
-      return date.toLocaleDateString('sv-SE', { timeZone: userTimezone })
-    }
-    // Fallback to local browser timezone
-    const y = date.getFullYear()
-    const m = String(date.getMonth() + 1).padStart(2, '0')
-    const d = String(date.getDate()).padStart(2, '0')
-    return `${y}-${m}-${d}`
+    const d = toDate(created)
+    return d ? toDateKey(d) : 'Unknown Date'
   }
+
+  // Extract type prefix and display prompt from conversation prompt
+  const parsePromptType = (prompt: string): { type: string | null; displayPrompt: string } => {
+    const match = prompt.match(/^\[(Conversation|Execute Plan|Plan Report)\]\s*(.*)$/s)
+    if (match) return { type: match[1], displayPrompt: match[2] }
+    return { type: null, displayPrompt: prompt }
+  }
+
+  // Filter conversations by search query
+  const filteredConversations = useMemo(() => {
+    if (!conversations) return []
+    if (!searchQuery.trim()) return conversations
+    const q = searchQuery.toLowerCase()
+    return conversations.filter((conv) => {
+      const { displayPrompt } = parsePromptType(conv.prompt)
+      return (
+        displayPrompt.toLowerCase().includes(q) ||
+        conv.response.toLowerCase().includes(q) ||
+        conv.dataset_name.toLowerCase().includes(q) ||
+        conv.ai_model.toLowerCase().includes(q) ||
+        (conv.report_id && conv.report_id.toLowerCase().includes(q))
+      )
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations, searchQuery])
 
   // Group conversations by date
   const groupedByDate = useMemo(() => {
-    if (!conversations) return {}
     const grouped: GroupedConversations = {}
-    conversations.forEach((conv) => {
+    filteredConversations.forEach((conv) => {
       const date = getDateFromCreated(conv.created)
       if (!grouped[date]) grouped[date] = []
       grouped[date].push(conv)
     })
     return grouped
-  }, [conversations])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredConversations, userTimezone])
 
   // Group conversations by dataset
   const groupedByDataset = useMemo(() => {
-    if (!conversations) return {}
     const grouped: GroupedConversations = {}
-    conversations.forEach((conv) => {
+    filteredConversations.forEach((conv) => {
       const dataset = conv.dataset_name
       if (!grouped[dataset]) grouped[dataset] = []
       grouped[dataset].push(conv)
     })
     return grouped
-  }, [conversations])
+  }, [filteredConversations])
 
   // Get unique dates sorted descending
   const dates = useMemo(() => {
@@ -324,35 +348,37 @@ export default function HistoryPage() {
     setShowRawHtml(false)
   }
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr || dateStr === 'Unknown Date') return dateStr
+  // Format a YYYY-MM-DD date key into a human-readable string.
+  // Parse as local-midnight in a fixed way to avoid timezone shift.
+  const formatDate = (dateKey: string) => {
+    if (!dateKey || dateKey === 'Unknown Date') return dateKey
     try {
-      const date = parseCreatedDate(dateStr)
-      if (!date) return dateStr
-      const opts: Intl.DateTimeFormatOptions = {
+      // Split YYYY-MM-DD and construct date parts directly to avoid timezone issues
+      const [y, m, d] = dateKey.split('-').map(Number)
+      const date = new Date(y, m - 1, d) // local midnight
+      if (isNaN(date.getTime())) return dateKey
+      return date.toLocaleDateString('en-US', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
         day: 'numeric',
-        ...(userTimezone && { timeZone: userTimezone }),
-      }
-      return date.toLocaleDateString('en-US', opts)
+      })
     } catch {
-      return dateStr
+      return dateKey
     }
   }
 
-  const formatTime = (dateStr: string) => {
-    if (!dateStr) return ''
+  // Format a raw created timestamp to display time in the user's timezone
+  const formatTime = (created: string) => {
+    if (!created) return ''
     try {
-      const date = parseCreatedDate(dateStr)
-      if (!date) return ''
-      const opts: Intl.DateTimeFormatOptions = {
+      const d = toDate(created)
+      if (!d) return ''
+      return d.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
-        ...(userTimezone && { timeZone: userTimezone }),
-      }
-      return date.toLocaleTimeString('en-US', opts)
+        timeZone: userTimezone,
+      })
     } catch {
       return ''
     }
@@ -382,13 +408,6 @@ export default function HistoryPage() {
     } finally {
       setIsDeletingBulk(false)
     }
-  }
-
-  // Extract type prefix and display prompt from conversation prompt
-  const parsePromptType = (prompt: string): { type: string | null; displayPrompt: string } => {
-    const match = prompt.match(/^\[(Conversation|Execute Plan|Plan Report)\]\s*(.*)$/s)
-    if (match) return { type: match[1], displayPrompt: match[2] }
-    return { type: null, displayPrompt: prompt }
   }
 
   const getTypeBadgeStyle = (type: string) => {
@@ -679,6 +698,9 @@ export default function HistoryPage() {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Conversation History
               </h2>
+              <span className="px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">
+                {userTimezone.replace(/_/g, ' ')}
+              </span>
               {selectedConversations.size > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full">
@@ -731,6 +753,35 @@ export default function HistoryPage() {
               </button>
             </div>
           </div>
+
+          {/* Search */}
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search prompts, responses, datasets, models..."
+              className="w-full pl-10 pr-8 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {searchQuery && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {filteredConversations.length} result{filteredConversations.length !== 1 ? 's' : ''} for &quot;{searchQuery}&quot;
+            </p>
+          )}
 
           {/* Content */}
           {isLoading ? (

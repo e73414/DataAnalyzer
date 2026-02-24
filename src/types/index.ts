@@ -57,6 +57,7 @@ export interface UserProfile {
   user_email: string
   template_id: string
   user_timezone?: string
+  password_hash?: string
 }
 
 export interface AnalysisRequest {

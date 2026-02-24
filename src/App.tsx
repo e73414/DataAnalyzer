@@ -11,6 +11,7 @@ import HistoryPage from './pages/HistoryPage'
 import ReportTemplateManagerPage from './pages/ReportTemplateManagerPage'
 import UploadReportTemplatePage from './pages/UploadReportTemplatePage'
 import PlanReportPage from './pages/PlanReportPage'
+import CsvOptimizerPage from './pages/CsvOptimizerPage'
 
 function UnauthorizedPage() {
   const navigate = useNavigate()
@@ -133,6 +134,14 @@ function App() {
         element={
           <ProtectedRoute>
             <PlanReportPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/csv-optimizer"
+        element={
+          <ProtectedRoute>
+            <CsvOptimizerPage />
           </ProtectedRoute>
         }
       />

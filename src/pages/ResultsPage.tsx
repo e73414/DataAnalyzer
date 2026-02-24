@@ -147,7 +147,7 @@ export default function ResultsPage() {
 
   const { data: datasetPreview, isLoading: isLoadingPreview } = useQuery({
     queryKey: ['dataset-preview', datasetId],
-    queryFn: () => n8nService.getDatasetPreview(datasetId, session!.email, 5),
+    queryFn: () => n8nService.getDatasetPreview(datasetId, session!.email, 20),
     enabled: !!datasetId && !!session?.email && showPreview,
   })
 
@@ -398,11 +398,13 @@ export default function ResultsPage() {
 
                 {/* AI Response */}
                 <div className="flex justify-start">
-                  <div className="bg-gray-100 dark:bg-gray-700/50 rounded-2xl rounded-tl-md px-4 py-3 w-full shadow-sm">
+                  <div className="bg-gray-100 dark:bg-gray-700/50 rounded-2xl rounded-tl-md px-4 py-3 w-full shadow-sm overflow-x-auto">
+                    <div className="min-w-fit">
                     <div
                       className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 [&_*]:text-gray-800 dark:[&_*]:text-gray-200 [&_*]:!bg-transparent"
                       dangerouslySetInnerHTML={{ __html: item.response }}
                     />
+                    </div>
                     {item.durationSeconds != null && (
                       <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
                         Response time: {item.durationSeconds} sec{item.durationSeconds !== 1 ? 's' : ''}

@@ -1,9 +1,18 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { useTheme } from '../context/ThemeContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
+
+async function sha256Hex(text: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(text)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+}
 
 // Sun icon for light mode
 function SunIcon() {
@@ -39,7 +48,9 @@ export default function Navigation() {
   const { session, logout } = useSession()
   const { theme, toggleTheme } = useTheme()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const settingsRef = useRef<HTMLDivElement>(null)
 
   const { data: navLinks, isLoading: isLoadingNavLinks } = useQuery({
     queryKey: ['navLinks'],
@@ -51,6 +62,9 @@ export default function Navigation() {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsMenuOpen(false)
+      }
+      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
+        setIsSettingsOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -65,6 +79,55 @@ export default function Navigation() {
   const handleNavClick = (path: string) => {
     navigate(path)
     setIsMenuOpen(false)
+  }
+
+  // Change Password modal state
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+
+  const handleChangePassword = async () => {
+    setPasswordError('')
+    if (!newPassword || newPassword.length < 4) {
+      setPasswordError('New password must be at least 4 characters.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match.')
+      return
+    }
+    if (!session?.email) return
+    setIsChangingPassword(true)
+    try {
+      const profile = await pocketbaseService.getUserProfile(session.email)
+      if (!profile) {
+        setPasswordError('User profile not found.')
+        return
+      }
+      // Verify current password
+      if (profile.password_hash) {
+        const currentHash = await sha256Hex(currentPassword)
+        if (currentHash !== profile.password_hash) {
+          setPasswordError('Current password is incorrect.')
+          return
+        }
+      }
+      // Save new password hash
+      const newHash = await sha256Hex(newPassword)
+      await pocketbaseService.updatePasswordHash(profile.id, newHash)
+      toast.success('Password changed successfully')
+      setShowPasswordModal(false)
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : 'Failed to change password')
+    } finally {
+      setIsChangingPassword(false)
+    }
   }
 
   const currentPageTitle = navLinks?.find((link) => link.path === location.pathname)?.name || 'Menu'
@@ -140,15 +203,107 @@ export default function Navigation() {
             )}
           </div>
 
-          {/* Logout Button */}
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
-          >
-            Logout
-          </button>
+          {/* Settings Menu */}
+          <div className="relative" ref={settingsRef}>
+            <button
+              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+              className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+              title="Settings"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+            {isSettingsOpen && (
+              <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 z-50">
+                <button
+                  onClick={() => {
+                    setIsSettingsOpen(false)
+                    setShowPasswordModal(true)
+                    setPasswordError('')
+                    setCurrentPassword('')
+                    setNewPassword('')
+                    setConfirmPassword('')
+                  }}
+                  className="block w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                >
+                  Change PW
+                </button>
+                <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                <button
+                  onClick={() => {
+                    setIsSettingsOpen(false)
+                    handleLogout()
+                  }}
+                  className="block w-full text-left px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Change Password Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Change Password</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Current Password</label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  autoComplete="current-password"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">New Password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  autoComplete="new-password"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  autoComplete="new-password"
+                />
+              </div>
+              {passwordError && (
+                <p className="text-sm text-red-600 dark:text-red-400">{passwordError}</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                onClick={() => setShowPasswordModal(false)}
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleChangePassword}
+                disabled={isChangingPassword}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+              >
+                {isChangingPassword ? 'Saving...' : 'Update Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   )
 }
