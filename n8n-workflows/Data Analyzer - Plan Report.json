@@ -7,17 +7,17 @@
         "text": "={{ $json.body.prompt }}",
         "hasOutputParser": true,
         "options": {
-          "systemMessage": "=ROLE You are an expert business intelligence report analyst. Your goal is to review datasets belonging to the user and based on the user's prompt / requirement, come up with a plan to use the right datasets to create a report that meets the user requirements / answer questions.\nThis will usually involve using one or more datasets and creating a multi-step plan to query and source the right information from datasets with relevant data.\nIn order to do this, use the `Dataset Information` tool to retrieve the datasets that belong to the user and use the dataset_desc (user provided description of the dataset usually about the nature of data contained and when to use it) and dataset_summary (AI-generated summary of the fields and values to help build SQL queries).\nMake sure to review all datasets retrieved before making a plan. \nMake sure to use the latest data if more than one dataset are determined as appropriate data source.\nMake sure to define the data points required to arrive at the desired final data / answer and define intermediate input data required.\nFrom the intermediate data required, derive which dataset needs to be used (specify dataset_id so AI will know which dataset to use later) and a high-level query strategy.\n**IMPORTANT: Make sure each immediate step is small and simple enough to prevent LLM model from erroring due to excessive input file size or too large of a token size. Once all the intermediate steps and the how the inputs will be used to arrive at meeting the user request are determined, present the plan for user review and execution using the below methodology:\nPLAN OUTPUT STRUCTURE\nYour final response must be a single JSON object. This JSON will be used to drive an automated loop in n8n. Every step must be self-contained and specify which dataset is being targeted.\n\nJSON Requirements:\n\nplan_id: A unique identifier for this specific analysis.\n\ntotal_steps: The integer count of steps required.\n\nsteps: An array of objects, each containing:\n\nstep_number: (Integer) The sequence of the operation.\n\ndataset_id: (String) The UUID or unique ID of the dataset to query.\n\npurpose: (String) A brief explanation of what this step achieves.\n\nquery_strategy: (Object) Must contain filters (key-value pairs of what to include/exclude) and columns (the specific fields to return).\n\ndependencies: (Array) List the step_number of any previous steps whose output is required for this step. Use [] if none.\n\nexpected_output: (Array) The specific metrics or dimensions this step will produce for the final report.\n\nEXAMPLE JSON OUTPUT:\n{\n  \"plan_id\": \"budget_vs_pipeline_2026\",\n  \"total_steps\": 3,\n  \"steps\": [\n    {\n      \"step_number\": 1,\n      \"dataset_id\": \"e396c47a-41c1-4bcc-a624-ce9bcf36a99b\",\n      \"purpose\": \"Retrieve 2025 Monthly Revenue Budget targets.\",\n      \"query_strategy\": {\n        \"filters\": {\n          \"Versions\": \"Budget 2025\",\n          \"Accounts\": \"Income\",\n          \"Level_Exclude\": \"Total\"\n        },\n        \"columns\": [\"Month\", \"Amount\", \"Account_Name\"]\n      },\n      \"dependencies\": [],\n      \"expected_output\": [\"2025_monthly_budget_target\"]\n    },\n    {\n      \"step_number\": 2,\n      \"dataset_id\": \"deedbd5f-32c1-4428-a59b-89cf37a478d7\",\n      \"purpose\": \"Query 2026 Pipeline for SIT 1 and SIT 2 stage deals.\",\n      \"query_strategy\": {\n        \"filters\": {\n          \"Stage\": [\"SIT 1\", \"SIT 2\"],\n          \"Close_Date_Year\": \"2026\"\n        },\n        \"columns\": [\"Opportunity_Name\", \"Amount_AACV\", \"Close_Date\", \"Stage\"]\n      },\n      \"dependencies\": [],\n      \"expected_output\": [\"2026_pipeline_deals_sit1_sit2\"]\n    },\n    {\n      \"step_number\": 3,\n      \"dataset_id\": \"N/A - Aggregation Step\",\n      \"purpose\": \"Aggregate pipeline by month and compare against Step 1 budget targets.\",\n      \"query_strategy\": {\n        \"logic\": \"Sum Step 2 Amount_AACV by Month; Join with Step 1 Monthly Amount; Calculate Coverage Ratio.\",\n        \"join_on\": \"Month\"\n      },\n      \"dependencies\": [1, 2],\n      \"expected_output\": [\"Monthly_Pipeline_Total\", \"Budget_Target\", \"Coverage_Ratio\"]\n    }\n  ]\n}",
-          "maxIterations": 30
+          "systemMessage": "=ROLE: You are an expert business intelligence report analyst. Your goal is to review datasets belonging to the user and based on the user's prompt / requirement, come up with a plan to use the right datasets to create a report that meets the user requirements / answer questions.\n\nThis will usually involve using one or more datasets and creating a multi-step plan to query and source the right information from datasets with relevant data.\n\nSTEP 1 - RETRIEVE DATASETS:\nUse the `Dataset Information` tool to retrieve the datasets that belong to the user. Review the dataset_desc (user provided description of the dataset) and dataset_summary (AI-generated summary of the fields and values to help build SQL queries). Make sure to review ALL datasets retrieved before making a plan. Use the latest data if more than one dataset are determined as an appropriate data source.\n\nSTEP 2 - IDENTIFY DATA REQUIREMENTS:\nDefine the data points required to arrive at the desired final answer and define any intermediate data required. From the intermediate data required, derive which dataset needs to be used (specify dataset_id) and a high-level query strategy.\n\n**CRITICAL - COLUMN NAMES MUST BE EXACT:** When specifying columns in query_strategy, you MUST use the exact column names as they appear in the column_mapping field of the dataset. Do NOT paraphrase, abbreviate, or invent column names. Copy them verbatim from column_mapping or dataset_summary. Using a column name that does not exist in the dataset will cause the execution to fail.\n\n**IMPORTANT - STEP SIZE:** Make sure each step is small and simple enough to prevent LLM errors due to excessive input size or token limits.\n\nSTEP 3 - BUILD THE PLAN:\nOnce all intermediate steps are determined, present the plan using the structure below.\n\nPLAN OUTPUT STRUCTURE:\nYour final response must be a single JSON object used to drive an automated loop in n8n. Every step must be self-contained.\n\nJSON Requirements:\n- plan_id: A unique identifier for this analysis.\n- total_steps: Integer count of steps.\n- steps: Array of step objects, each containing:\n  - step_number: (Integer) Sequence of the operation.\n  - step_type: (String) MUST be either \"query\" (queries a dataset) or \"aggregate\" (computes/joins/summarizes results from prior steps).\n  - dataset_id: (String) The UUID of the dataset to query. Set to null for aggregate steps.\n  - purpose: (String) Brief explanation of what this step achieves.\n  - query_strategy: (Object) For \"query\" steps: must contain filters (key-value pairs) and columns (exact field names from column_mapping). For \"aggregate\" steps: must contain logic (description of computation) and optionally join_on.\n  - dependencies: (Array) step_numbers of prior steps whose output is required. Use [] if none.\n  - expected_output: (Array) Specific metrics or dimensions this step produces.\n\nEXAMPLE JSON OUTPUT: USE AS FORMAT REFERENCE ONLY. DO NOT COPY FILTERS OR VALUES FROM THIS EXAMPLE.\n{\n  \"plan_id\": \"budget_vs_pipeline_2026\",\n  \"total_steps\": 3,\n  \"steps\": [\n    {\n      \"step_number\": 1,\n      \"step_type\": \"query\",\n      \"dataset_id\": \"e396c47a-41c1-4bcc-a624-ce9bcf36a99b\",\n      \"purpose\": \"Retrieve 2025 Monthly Revenue Budget targets.\",\n      \"query_strategy\": {\n        \"filters\": {\n          \"Versions\": \"Budget 2025\",\n          \"Accounts\": \"Income\",\n          \"Level_Exclude\": \"Total\"\n        },\n        \"columns\": [\"Month\", \"Amount\", \"Account_Name\"]\n      },\n      \"dependencies\": [],\n      \"expected_output\": [\"2025_monthly_budget_target\"]\n    },\n    {\n      \"step_number\": 2,\n      \"step_type\": \"query\",\n      \"dataset_id\": \"deedbd5f-32c1-4428-a59b-89cf37a478d7\",\n      \"purpose\": \"Query 2026 Pipeline for SIT 1 and SIT 2 stage deals.\",\n      \"query_strategy\": {\n        \"filters\": {\n          \"Stage\": [\"SIT 1\", \"SIT 2\"],\n          \"Close_Date_Year\": \"2026\"\n        },\n        \"columns\": [\"Opportunity_Name\", \"Amount_AACV\", \"Close_Date\", \"Stage\"]\n      },\n      \"dependencies\": [],\n      \"expected_output\": [\"2026_pipeline_deals_sit1_sit2\"]\n    },\n    {\n      \"step_number\": 3,\n      \"step_type\": \"aggregate\",\n      \"dataset_id\": null,\n      \"purpose\": \"Aggregate pipeline by month and compare against Step 1 budget targets.\",\n      \"query_strategy\": {\n        \"logic\": \"Sum Step 2 Amount_AACV by Month; Join with Step 1 Monthly Amount; Calculate Coverage Ratio.\",\n        \"join_on\": \"Month\"\n      },\n      \"dependencies\": [1, 2],\n      \"expected_output\": [\"Monthly_Pipeline_Total\", \"Budget_Target\", \"Coverage_Ratio\"]\n    }\n  ]\n}",
+          "maxIterations": 10
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
       "position": [
-        448,
-        0
+        624,
+        -112
       ],
-      "id": "71c7eafe-85cf-4538-ae23-4db4361ab2e6",
+      "id": "aa6a85eb-58d5-4c3b-b05e-85ab9799e1d4",
       "name": "AI Agent",
       "alwaysOutputData": true
     },
@@ -26,10 +26,10 @@
       "type": "@n8n/n8n-nodes-langchain.toolCalculator",
       "typeVersion": 1,
       "position": [
-        688,
-        224
+        864,
+        112
       ],
-      "id": "ca362f37-0a8b-47a8-b983-5651593c0e49",
+      "id": "e5f7f1f1-61d8-4861-bc12-b139505a4600",
       "name": "Calculator"
     },
     {
@@ -43,10 +43,10 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        832,
-        224
+        1008,
+        112
       ],
-      "id": "eb2a5f61-f77e-4ffd-bfcf-bdda09e2afcc",
+      "id": "caec03e9-4d70-4a50-b1a5-15a21f43c714",
       "name": "Dataset Information",
       "credentials": {
         "postgres": {
@@ -63,10 +63,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        320,
-        208
+        496,
+        96
       ],
-      "id": "afe8169f-b30f-4826-a2a7-ced79092a788",
+      "id": "4420e061-22e3-4141-8ce8-c2f594825135",
       "name": "OpenRouter Chat Model",
       "credentials": {
         "openRouterApi": {
@@ -85,10 +85,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        208,
-        0
+        384,
+        -112
       ],
-      "id": "c29ced29-5d63-41dc-81dd-a077fb3bea8c",
+      "id": "aad228bb-13c7-4c4f-be9f-f6e297d4d22e",
       "name": "Webhook",
       "webhookId": "b8fb9511-fc84-4c0a-b47a-cc401748df88"
     },
@@ -99,38 +99,38 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        800,
-        0
+        976,
+        -112
       ],
-      "id": "988bc1e4-bbc7-412b-b1b8-5e7233bdc8c7",
+      "id": "e195b870-62f7-40a2-b1a1-0a4459d4577f",
       "name": "Respond to Webhook"
     },
     {
       "parameters": {
-        "jsonSchemaExample": "{\n  \"plan_id\": \"budget_vs_pipeline_2026\",\n  \"total_steps\": 3,\n  \"steps\": [\n    {\n      \"step_number\": 1,\n      \"dataset_id\": \"e396c47a-41c1-4bcc-a624-ce9bcf36a99b\",\n      \"purpose\": \"Retrieve 2025 Monthly Revenue Budget targets.\",\n      \"query_strategy\": {\n        \"filters\": {\n          \"Versions\": \"Budget 2025\",\n          \"Accounts\": \"Income\",\n          \"Level_Exclude\": \"Total\"\n        },\n        \"columns\": [\"Month\", \"Amount\", \"Account_Name\"]\n      },\n      \"dependencies\": [],\n      \"expected_output\": [\"2025_monthly_budget_target\"]\n    },\n    {\n      \"step_number\": 2,\n      \"dataset_id\": \"deedbd5f-32c1-4428-a59b-89cf37a478d7\",\n      \"purpose\": \"Query 2026 Pipeline for SIT 1 and SIT 2 stage deals.\",\n      \"query_strategy\": {\n        \"filters\": {\n          \"Stage\": [\"SIT 1\", \"SIT 2\"],\n          \"Close_Date_Year\": \"2026\"\n        },\n        \"columns\": [\"Opportunity_Name\", \"Amount_AACV\", \"Close_Date\", \"Stage\"]\n      },\n      \"dependencies\": [],\n      \"expected_output\": [\"2026_pipeline_deals_sit1_sit2\"]\n    },\n    {\n      \"step_number\": 3,\n      \"dataset_id\": \"N/A - Aggregation Step\",\n      \"purpose\": \"Aggregate pipeline by month and compare against Step 1 budget targets.\",\n      \"query_strategy\": {\n        \"logic\": \"Sum Step 2 Amount_AACV by Month; Join with Step 1 Monthly Amount; Calculate Coverage Ratio.\",\n        \"join_on\": \"Month\"\n      },\n      \"dependencies\": [1, 2],\n      \"expected_output\": [\"Monthly_Pipeline_Total\", \"Budget_Target\", \"Coverage_Ratio\"]\n    }\n  ]\n}",
+        "jsonSchemaExample": "{\n  \"plan_id\": \"budget_vs_pipeline_2026\",\n  \"total_steps\": 3,\n  \"steps\": [\n    {\n      \"step_number\": 1,\n      \"step_type\": \"query\",\n      \"dataset_id\": \"e396c47a-41c1-4bcc-a624-ce9bcf36a99b\",\n      \"purpose\": \"Retrieve 2025 Monthly Revenue Budget targets.\",\n      \"query_strategy\": {\n        \"filters\": {\n          \"Versions\": \"Budget 2025\",\n          \"Accounts\": \"Income\",\n          \"Level_Exclude\": \"Total\"\n        },\n        \"columns\": [\"Month\", \"Amount\", \"Account_Name\"]\n      },\n      \"dependencies\": [],\n      \"expected_output\": [\"2025_monthly_budget_target\"]\n    },\n    {\n      \"step_number\": 2,\n      \"step_type\": \"query\",\n      \"dataset_id\": \"deedbd5f-32c1-4428-a59b-89cf37a478d7\",\n      \"purpose\": \"Query 2026 Pipeline for SIT 1 and SIT 2 stage deals.\",\n      \"query_strategy\": {\n        \"filters\": {\n          \"Stage\": [\"SIT 1\", \"SIT 2\"],\n          \"Close_Date_Year\": \"2026\"\n        },\n        \"columns\": [\"Opportunity_Name\", \"Amount_AACV\", \"Close_Date\", \"Stage\"]\n      },\n      \"dependencies\": [],\n      \"expected_output\": [\"2026_pipeline_deals_sit1_sit2\"]\n    },\n    {\n      \"step_number\": 3,\n      \"step_type\": \"aggregate\",\n      \"dataset_id\": null,\n      \"purpose\": \"Aggregate pipeline by month and compare against Step 1 budget targets.\",\n      \"query_strategy\": {\n        \"logic\": \"Sum Step 2 Amount_AACV by Month; Join with Step 1 Monthly Amount; Calculate Coverage Ratio.\",\n        \"join_on\": \"Month\"\n      },\n      \"dependencies\": [1, 2],\n      \"expected_output\": [\"Monthly_Pipeline_Total\", \"Budget_Target\", \"Coverage_Ratio\"]\n    }\n  ]\n}",
         "autoFix": true
       },
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1.3,
       "position": [
-        512,
-        400
+        688,
+        288
       ],
-      "id": "d8996b2c-55bd-4807-8b62-0fd7217c079a",
+      "id": "d155131c-7be2-4a07-ac95-ae29b56452d2",
       "name": "Structured Output Parser"
     },
     {
       "parameters": {
-        "model": "openai/gpt-oss-120b",
+        "model": "={{ $('Webhook').item.json.body.model || 'moonshotai/kimi-k2.5' }}",
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        512,
-        576
+        688,
+        464
       ],
-      "id": "2756766b-c9fe-4ddb-b4f1-c2c9a9d51918",
+      "id": "0903acec-fb1e-4c57-b244-9085a81d0225",
       "name": "OpenRouter Chat Model1",
       "credentials": {
         "openRouterApi": {
@@ -225,7 +225,7 @@
     "executionOrder": "v1",
     "availableInMCP": false
   },
-  "versionId": "c13464b3-0c80-403a-9681-bdb113038ad3",
+  "versionId": "ec08df59-3cc7-4795-9845-ab54cbe026ab",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "558d88703fb65b2d0e44613bc35916258b0f0bf983c5d4730c00c424b77ca36a"
