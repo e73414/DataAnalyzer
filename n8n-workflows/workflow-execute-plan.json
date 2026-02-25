@@ -3,56 +3,6 @@
   "nodes": [
     {
       "parameters": {
-        "model": {
-          "__rl": true,
-          "mode": "list",
-          "value": "gpt-5-mini"
-        },
-        "responsesApiEnabled": false,
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -912,
-        -144
-      ],
-      "id": "7f37706f-6f2d-4331-ad7a-ab73a256cd8f",
-      "name": "OpenAI Chat Model1",
-      "credentials": {
-        "openAiApi": {
-          "id": "ayhC2xZ3iWv4ZkDW",
-          "name": "OpenAi account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "model": {
-          "__rl": true,
-          "mode": "list",
-          "value": "gpt-5-mini"
-        },
-        "responsesApiEnabled": false,
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -672,
-        192
-      ],
-      "id": "44c804bb-7021-4bfd-8d78-b59f3828d304",
-      "name": "OpenAI Chat Model2",
-      "credentials": {
-        "openAiApi": {
-          "id": "ayhC2xZ3iWv4ZkDW",
-          "name": "OpenAi account"
-        }
-      }
-    },
-    {
-      "parameters": {
         "httpMethod": "POST",
         "path": "execute-plan",
         "responseMode": "responseNode",
@@ -61,10 +11,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        -2928,
-        96
+        1552,
+        192
       ],
-      "id": "6dc5501b-32b1-4f44-b5cb-322b735c7189",
+      "id": "676d99ee-16a2-4fdc-aab2-c4796ef1bd1f",
       "name": "Webhook",
       "webhookId": "ep-webhook-id-001"
     },
@@ -75,10 +25,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2720,
-        96
+        1760,
+        192
       ],
-      "id": "bba3a372-71a4-4649-983c-6f2440bafd7d",
+      "id": "89e83eef-9b80-44f1-9f5e-d353777d321a",
       "name": "Parse Plan & Generate Report ID"
     },
     {
@@ -90,10 +40,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        -2496,
-        -128
+        1984,
+        -32
       ],
-      "id": "35ca0a29-59c6-4363-99b4-7fe33ab3edd8",
+      "id": "a2575a00-e2a7-4304-bb2a-2242e9241181",
       "name": "Respond Immediately"
     },
     {
@@ -103,29 +53,85 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        -2496,
-        96
+        1984,
+        192
       ],
-      "id": "6a8ff8df-6724-461d-b917-ab7f9e8f5cc5",
+      "id": "88170b37-82c1-46e8-92e6-ecfdb3db57a8",
       "name": "Loop Over Steps"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=INSERT INTO n8n_data.report_step_results (report_id, plan_id, step_number, purpose, dataset_id, step_result, status) VALUES ('{{ $json.report_id }}', '{{ $json.plan_id }}', {{ $json.step.step_number }}, '{{ $json.step.purpose.replace(/'/g, \"''\") }}', {{ $json.step.dataset_id ? \"'\" + $json.step.dataset_id + \"'\" : 'NULL' }}, '', 'started')",
+        "query": "=INSERT INTO n8n_data.report_step_results (report_id, plan_id, step_number, purpose, dataset_id, step_result, status) VALUES ('{{ $json.report_id }}', '{{ $json.plan_id }}', {{ $json.step.step_number }}, '{{ $json.step.purpose.replace(/'/g, \"''\") }}', '{{ $json.step.dataset_id }}', '', 'started')",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        -2272,
-        96
+        2208,
+        192
       ],
-      "id": "e1638c2b-2f8d-445b-b920-39bfdc521e6b",
+      "id": "2e8f01bd-c60c-4a4f-b4d1-0d57b8369fa2",
       "name": "Mark Step Started",
       "credentials": {
         "postgres": {
-          "id": "A7zRb9obSaMEyNKs",
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT column_mapping FROM n8n_data.dataset_record_manager WHERE dataset_id = '{{ $('Loop Over Steps').item.json.step.dataset_id }}' LIMIT 1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2432,
+        192
+      ],
+      "id": "fetch-col-map-001",
+      "name": "Fetch Column Mapping",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const datasetId = $('Loop Over Steps').item.json.step.dataset_id;\n\n// Aggregate steps have no real dataset - skip view creation\nif (!datasetId || datasetId === 'aggregation_step') {\n  return [{ json: { view_sql: null } }];\n}\n\n// Parse column_mapping from Fetch Column Mapping output\nlet mapping = {};\ntry {\n  const raw = $input.first().json.column_mapping;\n  mapping = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});\n} catch(e) {\n  // Fall back to no aliases - view will still filter by dataset_id\n}\n\n// Build SELECT aliases: string1 AS \"Original Name\", ...\nconst aliases = Object.entries(mapping)\n  .map(([origName, genericCol]) => `${genericCol} AS \"${origName.replace(/\"/g, '\"\"')}\"`)\n  .join(',\\n  ');\n\nconst selectClause = aliases.length > 0 ? aliases : '*';\nconst safeDatasetId = datasetId.replace(/'/g, \"''\");\n\nconst viewSql = `CREATE OR REPLACE VIEW n8n_data.v_step_current AS\\nSELECT ${selectClause}\\nFROM n8n_data.universal_datatable\\nWHERE dataset_id = '${safeDatasetId}'`;\n\nreturn [{ json: { view_sql: viewSql } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2656,
+        192
+      ],
+      "id": "build-step-view-001",
+      "name": "Build Step View SQL"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.view_sql || 'SELECT 1' }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2880,
+        192
+      ],
+      "id": "create-step-view-001",
+      "name": "Create Step View",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
           "name": "Postgres account"
         }
       }
@@ -133,22 +139,42 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Execute the following step of a report plan.\n\nREPORT ID: {{ $('Parse Plan & Generate Report ID').item.json.report_id }}\nSTEP NUMBER: {{ $('Loop Over Steps').item.json.step.step_number }} of {{ $('Loop Over Steps').item.json.total_steps }}\nSTEP TYPE: {{ $('Loop Over Steps').item.json.step.step_type }}\nPURPOSE: {{ $('Loop Over Steps').item.json.step.purpose }}\nDATASET ID: {{ $('Loop Over Steps').item.json.step.dataset_id }}\n\nQUERY STRATEGY:\n- Filters: {{ JSON.stringify($('Loop Over Steps').item.json.step.query_strategy.filters) }}\n- Columns needed: {{ ($('Loop Over Steps').item.json.step.query_strategy.columns || []).join(', ') || 'N/A' }}\n- Logic: {{ $('Loop Over Steps').item.json.step.query_strategy.logic }}\n- Join on: {{ $('Loop Over Steps').item.json.step.query_strategy.join_on }}\n\nDEPENDENCIES (previous step numbers whose results you may reference): {{ ($('Loop Over Steps').item.json.step.dependencies || []).join(', ') || 'None' }}\nEXPECTED OUTPUT: {{ ($('Loop Over Steps').item.json.step.expected_output || []).join(', ') }}\n\nInstructions:\n1. Check STEP TYPE above. If step_type is 'aggregate', skip to instruction 4 — do NOT query universal_datatable.\n2. For 'query' steps: use the Dataset Information tool to look up column_mapping for dataset_id '{{ $('Loop Over Steps').item.json.step.dataset_id }}' so you know which generic columns (string1, real1, etc.) map to the original column names.\n3. Build and execute SQL queries using the Query Dataset tool, filtering by dataset_id.\n4. If this step has dependencies or is an aggregate step, use the Read Previous Step Results tool to retrieve earlier step results, then compute the required aggregations or joins.\n5. Analyze the data and return a clear, structured result for this step.",
+        "text": "=Execute the following step of a report plan.\n\nREPORT ID: {{ $('Parse Plan & Generate Report ID').item.json.report_id }}\nSTEP NUMBER: {{ $('Parse Plan & Generate Report ID').item.json.step.step_number }} of {{ $('Parse Plan & Generate Report ID').item.json.total_steps }}\nPURPOSE: {{ $('Loop Over Steps').item.json.step.purpose }}\nDATASET ID: {{ $('Loop Over Steps').item.json.step.dataset_id }}\n\nQUERY STRATEGY:\n- Filters: {{ JSON.stringify($('Loop Over Steps').item.json.step.query_strategy.filters) }}\n- Columns needed: {{ $('Loop Over Steps').item.json.step.query_strategy.columns.join(', ') }}\n- Logic: {{ $('Loop Over Steps').item.json.step.query_strategy.logic }}\n- Join on: {{ $('Loop Over Steps').item.json.step.query_strategy.join_on }}\n\nDEPENDENCIES (previous step numbers whose results you may reference): {{ $('Loop Over Steps').item.json.step.dependencies.join(', ') || 'None' }}\nEXPECTED OUTPUT: {{ $('Loop Over Steps').item.json.step.expected_output.join(', ') }}\n\nInstructions:\n1. For 'query' steps: query n8n_data.v_step_current directly using original column names. The view is already filtered to this step's dataset - no column mapping lookup needed.\n2. Build and execute SQL queries using the Query Dataset tool. Always wrap column names in double quotes.\n3. Apply the filters, select the columns, and apply the logic described above.\n4. If this step has dependencies, use the Read Previous Step Results tool to retrieve earlier step results for context.\n5. Analyze the data and return a clear, structured result for this step.",
         "options": {
-          "systemMessage": "You are an expert data analyst executing one step of a multi-step report plan.\n\nIMPORTANT:\n- The universal_datatable stores data in generic columns (string1, string2, ..., real1, real2, etc.). Use column_mapping from dataset_record_manager to map original column names to generic columns.\n- Always filter by dataset_id in WHERE clauses.\n- For aggregation steps (step_type = 'aggregate'), do NOT query universal_datatable. Instead, use the Read Previous Step Results tool to get data from dependent steps and perform calculations.\n- Use the Calculator tool for arithmetic.\n- Return a structured analysis with data tables, calculations, and findings.\n- Be concise but thorough.",
-          "maxIterations": 10
+          "systemMessage": "You are an expert data analyst executing one step of a multi-step report plan.\n\nIMPORTANT:\n- A view n8n_data.v_step_current has been pre-created containing only this step's dataset, with original column names already applied. Query it directly - no column mapping lookup needed, no dataset_id filter needed.\n- Always wrap column names in double quotes (e.g., \"Revenue\", \"Customer Name\") and string values in single quotes.\n- For aggregate steps (dataset_id = 'aggregation_step'), do NOT query v_step_current. Instead, use the Read Previous Step Results tool to get data from dependent steps and perform calculations.\n- Use the Calculator tool for arithmetic.\n- Return a structured analysis with data tables, calculations, and findings.\n- Be concise but thorough.",
+          "maxIterations": 30
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
       "position": [
-        -2032,
-        96
+        3104,
+        192
       ],
-      "id": "0d2215f2-a1ab-4fd0-b39e-ee8ac55527c8",
+      "id": "3ddadf76-2ac5-4252-b283-b849f957f33a",
       "name": "Step AI Agent",
       "alwaysOutputData": true,
       "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": "={{ $('Webhook').item.json.body.model || 'moonshotai/kimi-k2.5' }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        2976,
+        416
+      ],
+      "id": "73ff5f68-c4c1-44e2-9836-1ddd8a98d46a",
+      "name": "Step LLM",
+      "credentials": {
+        "openRouterApi": {
+          "id": "SScyp7rqdYRmN9lx",
+          "name": "OpenRouter account"
+        }
+      }
     },
     {
       "parameters": {
@@ -161,14 +187,14 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        -1520,
-        320
+        3296,
+        416
       ],
-      "id": "4e81834c-c7f1-4cfa-95c0-23ef72f9b3f7",
+      "id": "9b525bb8-7ce9-4025-81d6-9262eca4970b",
       "name": "Read Previous Step Results",
       "credentials": {
         "postgres": {
-          "id": "A7zRb9obSaMEyNKs",
+          "id": "5JhwTls4nSPISJqU",
           "name": "Postgres account"
         }
       }
@@ -182,14 +208,14 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        -1632,
-        64
+        2848,
+        160
       ],
-      "id": "4c44eb27-3278-4e4c-b047-cd251089f2f8",
+      "id": "a691ce60-fbd8-4251-a10c-598dc82d62cd",
       "name": "Save Step Result",
       "credentials": {
         "postgres": {
-          "id": "A7zRb9obSaMEyNKs",
+          "id": "5JhwTls4nSPISJqU",
           "name": "Postgres account"
         }
       }
@@ -203,14 +229,14 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        -1792,
-        -128
+        2688,
+        -32
       ],
-      "id": "d631cffa-dd6b-4634-9f45-705130eb85ac",
+      "id": "98ba5304-d191-4334-8aeb-dd24e856e2ba",
       "name": "Load All Step Results",
       "credentials": {
         "postgres": {
-          "id": "A7zRb9obSaMEyNKs",
+          "id": "5JhwTls4nSPISJqU",
           "name": "Postgres account"
         }
       }
@@ -222,10 +248,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1584,
-        -128
+        2896,
+        -32
       ],
-      "id": "f35da869-11f8-4882-a03e-663f27ff2917",
+      "id": "5b5d4917-484f-4494-8f70-b2f6735dde92",
       "name": "Combine Step Results"
     },
     {
@@ -237,14 +263,14 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        -128,
-        720
+        4352,
+        816
       ],
-      "id": "2f7ccfb1-f9e0-47fa-be4b-9ba0a17a1074",
+      "id": "1f4db4d8-e647-4701-b6a1-1acca21685f3",
       "name": "Save Step Error",
       "credentials": {
         "postgres": {
-          "id": "A7zRb9obSaMEyNKs",
+          "id": "5JhwTls4nSPISJqU",
           "name": "Postgres account"
         }
       }
@@ -254,10 +280,10 @@
       "type": "@n8n/n8n-nodes-langchain.toolCalculator",
       "typeVersion": 1,
       "position": [
-        -1680,
-        320
+        3136,
+        416
       ],
-      "id": "80f91290-5f99-424b-96cd-e99d2c2a19f6",
+      "id": "02e46373-e208-413b-945b-873d145f8db3",
       "name": "Calculator"
     },
     {
@@ -290,14 +316,14 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        -1840,
-        336
+        2640,
+        432
       ],
-      "id": "6126fa67-f50c-4caa-81ce-73dcbba321df",
+      "id": "420e641e-c8f8-464b-975e-cd5d35370f5f",
       "name": "Dataset Information",
       "credentials": {
         "postgres": {
-          "id": "A7zRb9obSaMEyNKs",
+          "id": "5JhwTls4nSPISJqU",
           "name": "Postgres account"
         }
       }
@@ -305,7 +331,7 @@
     {
       "parameters": {
         "descriptionType": "manual",
-        "toolDescription": "Query data rows from datasets. Use SQL to query the n8n_data.universal_datatable table. Always include WHERE dataset_id = '<id>' to filter to the correct dataset. Always include LIMIT 500 unless the full dataset is explicitly required for the analysis.",
+        "toolDescription": "Query data rows for the current step. Use SQL to query n8n_data.v_step_current - it is already filtered to this step's dataset and uses original column names (not generic names like string1). Always wrap column names in double quotes. Do NOT add a WHERE dataset_id clause.",
         "operation": "executeQuery",
         "query": "{{ $fromAI('sql_query') }}",
         "options": {}
@@ -313,14 +339,14 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        -2016,
-        336
+        2800,
+        432
       ],
-      "id": "d12f0ce3-319d-4795-b749-8cc10180eea5",
+      "id": "7530f76b-367e-42a7-a7ee-2904f7c59c09",
       "name": "Query Dataset",
       "credentials": {
         "postgres": {
-          "id": "A7zRb9obSaMEyNKs",
+          "id": "5JhwTls4nSPISJqU",
           "name": "Postgres account"
         }
       }
@@ -334,14 +360,14 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        -256,
-        -352
+        4224,
+        -256
       ],
-      "id": "31a90c80-ada8-444c-a54d-f6230826952f",
+      "id": "a370bb4f-42c3-4343-92c9-c7a2177146e5",
       "name": "Save Final Report",
       "credentials": {
         "postgres": {
-          "id": "A7zRb9obSaMEyNKs",
+          "id": "5JhwTls4nSPISJqU",
           "name": "Postgres account"
         }
       }
@@ -355,15 +381,35 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        -272,
-        288
+        4208,
+        384
       ],
-      "id": "51cc94b7-7ea0-40f5-9662-e34c5042470d",
+      "id": "735af971-9782-4fb3-bc74-1aa98db8677e",
       "name": "Save Formatter Error",
       "credentials": {
         "postgres": {
-          "id": "A7zRb9obSaMEyNKs",
+          "id": "5JhwTls4nSPISJqU",
           "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        3568,
+        -16
+      ],
+      "id": "cd964b5e-e443-4356-9a1a-93eabfe6fc86",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "SScyp7rqdYRmN9lx",
+          "name": "OpenRouter account"
         }
       }
     },
@@ -375,65 +421,29 @@
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1.3,
       "position": [
-        -672,
-        -32
+        3808,
+        64
       ],
-      "id": "31cc4e42-e690-492a-b70e-98a2c6d19648",
+      "id": "162e8800-6c61-4496-8d11-17bdce7891da",
       "name": "Structured Output Parser"
     },
     {
       "parameters": {
-        "promptType": "define",
-        "text": "=Consolidate the following {{ $json.step_count }} step results into a single coherent, professional report and format it as styled HTML.\n\nREPORT ID: {{ $json.report_id }}\nPLAN ID: {{ $json.plan_id }}\n\nSTEP RESULTS:\n{{ $json.all_step_results }}",
-        "options": {
-          "systemMessage": "=Role: You are an expert report writer and HTML formatter.\n\nYour job has TWO parts:\n\nPART 1 - CONSOLIDATE: Take the individual analysis step results and consolidate them into a single, professional, well-structured report with:\n- Executive Summary - Key findings and highlights\n- Detailed Analysis - One section per step, incorporating the data and findings\n- Cross-step Insights - Connections and patterns across different analysis steps\n- Conclusions & Recommendations\nUse clear headings, bullet points, data tables where appropriate, and professional language. Present numbers with appropriate formatting. If any step had errors or missing data, note it but don't let it derail the overall report.\n\nPART 2 - FORMAT AS HTML: Query the 'Report Template' tool using template_Id: {{ $json.templateId }} to fetch reference HTML code.\nIf a reference HTML template is fetched, use its CSS and structure as the master template and map the consolidated report data into it. Prioritize the template's styles (colors, fonts, borders) above all else.\nIf no reference HTML is fetched, format the report as clean, professional HTML with inline styles.\n\nMake sure to eliminate any unnecessary tags or symbols that will get in the way of clean report such as \" \\n\"\n\nIMPORTANT: DO NOT OUTPUT THE PLAN, COMMENT OR EXPLANATION OF THE ACTION. JUST OUTPUT HTML."
-        }
-      },
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 3.1,
-      "position": [
-        -816,
-        -336
-      ],
-      "id": "7fc2f56b-68a0-42b5-909e-c5483cbbcb51",
-      "name": "Formatter",
-      "onError": "continueErrorOutput"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Get the HTML content from the previous node\nconst item = $input.first().json;\nlet html = item.output || \"\";\n\nif (typeof html !== 'string') {\n  // If the output is an object (e.g., from the Structured Output Parser), \n  // try to extract the content/html field\n  html = html.content || html.html || JSON.stringify(html);\n}\n\n/**\n * CLEANUP LOGIC\n */\n\n// 1. Remove Newlines and Carriage Returns\nhtml = html.replace(/[\\n\\r]/g, '');\n\n// 2. Remove tabs and sequences of multiple spaces\nhtml = html.replace(/\\t/g, '');\nhtml = html.replace(/\\s{2,}/g, ' ');\n\n// 3. Remove \"meaningless\" or empty common tags (e.g., <span></span> or <p></p>)\n// This regex looks for tags that contain only whitespace or nothing at all\nhtml = html.replace(/<(span|p|div|section)>\\s*<\\/\\1>/gi, '');\n\n// 4. Clean up common AI residuals like markdown code blocks if they were accidentally included\nhtml = html.replace(/^```html|```$/g, '');\n\n// 5. Trim leading/trailing whitespace\nhtml = html.trim();\n\nreturn {\n  json: {\n    ...item,\n    cleaned_html: html\n  }\n};"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -464,
-        -352
-      ],
-      "id": "b75e5086-2409-41fc-ab9e-2905dd482cbb",
-      "name": "Clean Up"
-    },
-    {
-      "parameters": {
-        "model": {
-          "__rl": true,
-          "value": "={{ $('Webhook').item.json.body.model || 'gpt-5-mini' }}",
-          "mode": "id"
-        },
-        "responsesApiEnabled": false,
+        "model": "openai/gpt-oss-120b",
         "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
       "position": [
-        -2272,
-        544
+        3808,
+        240
       ],
-      "id": "32b19c3e-f20b-4e6a-a5c2-a4d31bcc84d4",
-      "name": "Step",
+      "id": "0425816b-b48f-4341-b9d2-3edafdbcfdd4",
+      "name": "OpenRouter Chat Model4",
       "credentials": {
-        "openAiApi": {
-          "id": "ayhC2xZ3iWv4ZkDW",
-          "name": "OpenAi account"
+        "openRouterApi": {
+          "id": "SScyp7rqdYRmN9lx",
+          "name": "OpenRouter account"
         }
       }
     },
@@ -472,43 +482,52 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        -864,
-        32
+        3632,
+        192
       ],
-      "id": "784850f0-29fa-4532-827d-8cb42c1df7df",
+      "id": "61ea19e7-f152-40f6-8efd-158a760c8773",
       "name": "Report Template",
       "credentials": {
         "postgres": {
-          "id": "A7zRb9obSaMEyNKs",
+          "id": "5JhwTls4nSPISJqU",
           "name": "Postgres account"
         }
       }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Consolidate the following {{ $json.step_count }} step results into a single coherent, professional report and format it as styled HTML.\n\nREPORT ID: {{ $json.report_id }}\nPLAN ID: {{ $json.plan_id }}\n\nSTEP RESULTS:\n{{ $json.all_step_results }}",
+        "options": {
+          "systemMessage": "=Role: You are an expert report writer and HTML formatter.\n\nYour job has TWO parts:\n\nPART 1 - CONSOLIDATE: Take the individual analysis step results and consolidate them into a single, professional, well-structured report with:\n- Executive Summary - Key findings and highlights\n- Detailed Analysis - One section per step, incorporating the data and findings\n- Cross-step Insights - Connections and patterns across different analysis steps\n- Conclusions & Recommendations\nUse clear headings, bullet points, data tables where appropriate, and professional language. Present numbers with appropriate formatting. If any step had errors or missing data, note it but don't let it derail the overall report.\n\nPART 2 - FORMAT AS HTML: Query the 'Report Template' tool using template_Id: {{ $json.templateId }} to fetch reference HTML code.\nIf a reference HTML template is fetched, use its CSS and structure as the master template and map the consolidated report data into it. Prioritize the template's styles (colors, fonts, borders) above all else.\nIf no reference HTML is fetched, format the report as clean, professional HTML with inline styles.\n\nMake sure to eliminate any unnecessary tags or symbols that will get in the way of clean report such as \" \\n\"\n\nIMPORTANT: DO NOT OUTPUT THE PLAN, COMMENT OR EXPLANATION OF THE ACTION. JUST OUTPUT HTML."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        3664,
+        -240
+      ],
+      "id": "e84fd5fa-bc84-4d16-aa67-ce6962a2d3d4",
+      "name": "Formatter",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the HTML content from the previous node\nconst item = $input.first().json;\nlet html = item.output || \"\";\n\nif (typeof html !== 'string') {\n  // If the output is an object (e.g., from the Structured Output Parser), \n  // try to extract the content/html field\n  html = html.content || html.html || JSON.stringify(html);\n}\n\n/**\n * CLEANUP LOGIC\n */\n\n// 1. Remove Newlines and Carriage Returns\nhtml = html.replace(/[\\n\\r]/g, '');\n\n// 2. Remove tabs and sequences of multiple spaces\nhtml = html.replace(/\\t/g, '');\nhtml = html.replace(/\\s{2,}/g, ' ');\n\n// 3. Remove \"meaningless\" or empty common tags (e.g., <span></span> or <p></p>)\n// This regex looks for tags that contain only whitespace or nothing at all\nhtml = html.replace(/<(span|p|div|section)>\\s*<\\/\\1>/gi, '');\n\n// 4. Clean up common AI residuals like markdown code blocks if they were accidentally included\nhtml = html.replace(/^```html|```$/g, '');\n\n// 5. Trim leading/trailing whitespace\nhtml = html.trim();\n\nreturn {\n  json: {\n    ...item,\n    cleaned_html: html\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4016,
+        -256
+      ],
+      "id": "ef92227d-c037-4f84-b15c-8d56da6abd64",
+      "name": "Clean Up"
     }
   ],
   "pinData": {},
   "connections": {
-    "OpenAI Chat Model1": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Formatter",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "OpenAI Chat Model2": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Structured Output Parser",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Webhook": {
       "main": [
         [
@@ -558,6 +577,39 @@
       "main": [
         [
           {
+            "node": "Fetch Column Mapping",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Column Mapping": {
+      "main": [
+        [
+          {
+            "node": "Build Step View SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Step View SQL": {
+      "main": [
+        [
+          {
+            "node": "Create Step View",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Step View": {
+      "main": [
+        [
+          {
             "node": "Step AI Agent",
             "type": "main",
             "index": 0
@@ -578,17 +630,6 @@
           {
             "node": "Save Step Error",
             "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Read Previous Step Results": {
-      "ai_tool": [
-        [
-          {
-            "node": "Step AI Agent",
-            "type": "ai_tool",
             "index": 0
           }
         ]
@@ -627,6 +668,28 @@
         ]
       ]
     },
+    "Step LLM": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Step AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Previous Step Results": {
+      "ai_tool": [
+        [
+          {
+            "node": "Step AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Save Step Error": {
       "main": [
         [
@@ -649,7 +712,7 @@
         ]
       ]
     },
-    "Dataset Information": {
+    "Query Dataset": {
       "ai_tool": [
         [
           {
@@ -660,11 +723,33 @@
         ]
       ]
     },
-    "Query Dataset": {
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Formatter",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report Template": {
       "ai_tool": [
         [
           {
-            "node": "Step AI Agent",
+            "node": "Formatter",
             "type": "ai_tool",
             "index": 0
           }
@@ -699,41 +784,18 @@
           }
         ]
       ]
-    },
-    "Step": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Step AI Agent",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Report Template": {
-      "ai_tool": [
-        [
-          {
-            "node": "Formatter",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "f57bd32c-6d56-4aa6-80cc-b337f33785aa",
+  "versionId": "26b58291-db1c-4e7c-86ac-afbdf91b959c",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "558d88703fb65b2d0e44613bc35916258b0f0bf983c5d4730c00c424b77ca36a"
   },
-  "id": "rS9WfdjFmtsEgnxO",
+  "id": "taHjSlURcGuHr_vMzffkE",
   "tags": []
 }
