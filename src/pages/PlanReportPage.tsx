@@ -978,6 +978,15 @@ export default function PlanReportPage() {
                 {executionProgress?.status === 'error' && !isExecuting && (
                   <span className="text-red-500 font-bold text-lg">&#10007;</span>
                 )}
+                {isExecuting && executionProgress.steps.some(s => s.status === 'error') && (
+                  <button
+                    type="button"
+                    onClick={handleStopExecution}
+                    className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                  >
+                    <span>&#9632;</span> Stop Monitoring
+                  </button>
+                )}
               </div>
 
               {executionProgress.steps.length === 0 ? (
