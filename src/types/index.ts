@@ -31,6 +31,7 @@ export interface UpdateSummaryRequest {
   summary: string
   email: string
   datasetDesc?: string
+  datasetName?: string
 }
 
 export interface UpdateSummaryResult {

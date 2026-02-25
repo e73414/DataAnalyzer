@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
@@ -8,9 +9,11 @@ import Navigation from '../components/Navigation'
 import type { DatasetDetail } from '../types'
 
 export default function EditSummaryPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { session } = useSession()
   const [selectedDatasetId, setSelectedDatasetId] = useState('')
+  const [datasetName, setDatasetName] = useState('')
   const [editedSummary, setEditedSummary] = useState('')
   const [datasetDesc, setDatasetDesc] = useState('')
   const [hasChanges, setHasChanges] = useState(false)
@@ -36,17 +39,19 @@ export default function EditSummaryPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: (data: { summary: string; datasetDesc: string }) =>
+    mutationFn: (data: { summary: string; datasetDesc: string; datasetName: string }) =>
       n8nService.updateSummary({
         datasetId: selectedDatasetId,
         summary: data.summary,
         email: session!.email,
         datasetDesc: data.datasetDesc,
+        datasetName: data.datasetName,
       }),
     onSuccess: () => {
-      toast.success('Summary updated successfully')
-      setHasChanges(false)
+      toast.success('Dataset updated successfully')
       queryClient.invalidateQueries({ queryKey: ['dataset-detail', selectedDatasetId] })
+      queryClient.invalidateQueries({ queryKey: ['datasets', session?.email] })
+      navigate('/analyze', { state: { preSelectedDatasetId: selectedDatasetId } })
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to update summary')
@@ -55,6 +60,7 @@ export default function EditSummaryPage() {
 
   useEffect(() => {
     if (datasetDetail) {
+      setDatasetName(datasetDetail.name || '')
       setEditedSummary(datasetDetail.summary || '')
       setDatasetDesc(datasetDetail.dataset_desc || '')
       setHasChanges(false)
@@ -68,28 +74,43 @@ export default function EditSummaryPage() {
       }
     }
     setSelectedDatasetId(datasetId)
+    setDatasetName('')
     setEditedSummary('')
     setDatasetDesc('')
     setHasChanges(false)
   }
 
+  const checkHasChanges = (name: string, summary: string, desc: string) =>
+    name !== (datasetDetail?.name || '') ||
+    summary !== (datasetDetail?.summary || '') ||
+    desc !== (datasetDetail?.dataset_desc || '')
+
+  const handleDatasetNameChange = (value: string) => {
+    setDatasetName(value)
+    setHasChanges(checkHasChanges(value, editedSummary, datasetDesc))
+  }
+
   const handleSummaryChange = (value: string) => {
     setEditedSummary(value)
-    setHasChanges(value !== (datasetDetail?.summary || '') || datasetDesc !== (datasetDetail?.dataset_desc || ''))
+    setHasChanges(checkHasChanges(datasetName, value, datasetDesc))
   }
 
   const handleDatasetDescChange = (value: string) => {
     setDatasetDesc(value)
-    setHasChanges(editedSummary !== (datasetDetail?.summary || '') || value !== (datasetDetail?.dataset_desc || ''))
+    setHasChanges(checkHasChanges(datasetName, editedSummary, value))
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!datasetName.trim()) {
+      toast.error('Dataset title cannot be empty')
+      return
+    }
     if (!editedSummary.trim()) {
       toast.error('Summary cannot be empty')
       return
     }
-    updateMutation.mutate({ summary: editedSummary, datasetDesc: datasetDesc.trim() })
+    updateMutation.mutate({ summary: editedSummary, datasetDesc: datasetDesc.trim(), datasetName: datasetName.trim() })
   }
 
   const formatColumnMapping = (mapping: DatasetDetail['column_mapping']): string => {
@@ -173,6 +194,21 @@ export default function EditSummaryPage() {
                   ) : datasetDetail ? (
                     <form onSubmit={handleSubmit} className="space-y-6">
                       <div>
+                        <label htmlFor="datasetTitle" className="label">
+                          Dataset Title
+                        </label>
+                        <input
+                          id="datasetTitle"
+                          type="text"
+                          value={datasetName}
+                          onChange={(e) => handleDatasetNameChange(e.target.value)}
+                          className="input-field"
+                          placeholder="Enter dataset title..."
+                          disabled={updateMutation.isPending}
+                        />
+                      </div>
+
+                      <div>
                         <label className="label">
                           Column Mapping (Read-only)
                         </label>
@@ -233,6 +269,7 @@ export default function EditSummaryPage() {
                         <button
                           type="button"
                           onClick={() => {
+                            setDatasetName(datasetDetail.name || '')
                             setEditedSummary(datasetDetail.summary || '')
                             setDatasetDesc(datasetDetail.dataset_desc || '')
                             setHasChanges(false)

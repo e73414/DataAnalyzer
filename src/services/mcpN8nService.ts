@@ -128,6 +128,7 @@ export const n8nService = {
         summary: request.summary,
         email: request.email,
         ...(request.datasetDesc != null && { dataset_desc: request.datasetDesc }),
+        ...(request.datasetName != null && { dataset_name: request.datasetName }),
       },
     })
 
