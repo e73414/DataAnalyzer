@@ -83,7 +83,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=SELECT '{{ $('Loop Over Steps').item.json.step.dataset_id }}' AS dataset_id, (SELECT column_mapping FROM n8n_data.dataset_record_manager WHERE dataset_id = '{{ $('Loop Over Steps').item.json.step.dataset_id }}' LIMIT 1) AS column_mapping",
+        "query": "=SELECT '{{ $('Loop Over Steps').item.json.step.dataset_id }}' AS dataset_id, CASE WHEN length('{{ $('Loop Over Steps').item.json.step.dataset_id }}') = 36 THEN (SELECT column_mapping FROM n8n_data.dataset_record_manager WHERE dataset_id = '{{ $('Loop Over Steps').item.json.step.dataset_id }}' LIMIT 1) ELSE NULL END AS column_mapping",
         "options": {}
       },
       "type": "n8n-nodes-base.postgres",
