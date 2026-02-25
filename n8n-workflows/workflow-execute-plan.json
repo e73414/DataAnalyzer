@@ -103,51 +103,17 @@
     },
     {
       "parameters": {
-        "jsCode": "const row = $input.first().json;\nconst datasetId = row.dataset_id;\n\n// Aggregate steps have no real dataset - skip view creation\nif (!datasetId || datasetId === 'aggregation_step') {\n  return [{ json: { view_sql: null } }];\n}\n\n// Parse column_mapping from Fetch Column Mapping output\nlet mapping = {};\ntry {\n  const raw = row.column_mapping;\n  mapping = typeof raw === 'string' ? JSON.parse(raw) : (raw || {});\n} catch(e) {\n  // Fall back to no aliases - view will still filter by dataset_id\n}\n\n// Build SELECT aliases: string1 AS \"Original Name\", ...\nconst aliases = Object.entries(mapping)\n  .map(([origName, genericCol]) => `${genericCol} AS \"${origName.replace(/\"/g, '\"\"')}\"`)\n  .join(',\\n  ');\n\nconst selectClause = aliases.length > 0 ? aliases : '*';\nconst safeDatasetId = datasetId.replace(/'/g, \"''\");\n\nconst viewSql = `CREATE OR REPLACE VIEW n8n_data.v_step_current AS\\nSELECT ${selectClause}\\nFROM n8n_data.universal_datatable\\nWHERE dataset_id = '${safeDatasetId}'`;\n\nreturn [{ json: { view_sql: viewSql } }];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2656,
-        192
-      ],
-      "id": "build-step-view-001",
-      "name": "Build Step View SQL"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "={{ $json.view_sql || 'SELECT 1' }}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        2880,
-        192
-      ],
-      "id": "create-step-view-001",
-      "name": "Create Step View",
-      "credentials": {
-        "postgres": {
-          "id": "5JhwTls4nSPISJqU",
-          "name": "Postgres account"
-        }
-      }
-    },
-    {
-      "parameters": {
         "promptType": "define",
-        "text": "=Execute the following step of a report plan.\n\nREPORT ID: {{ $('Parse Plan & Generate Report ID').item.json.report_id }}\nSTEP NUMBER: {{ $('Parse Plan & Generate Report ID').item.json.step.step_number }} of {{ $('Parse Plan & Generate Report ID').item.json.total_steps }}\nPURPOSE: {{ $('Loop Over Steps').item.json.step.purpose }}\nDATASET ID: {{ $('Loop Over Steps').item.json.step.dataset_id }}\n\nQUERY STRATEGY:\n- Filters: {{ JSON.stringify($('Loop Over Steps').item.json.step.query_strategy.filters) }}\n- Columns needed: {{ $('Loop Over Steps').item.json.step.query_strategy.columns.join(', ') }}\n- Logic: {{ $('Loop Over Steps').item.json.step.query_strategy.logic }}\n- Join on: {{ $('Loop Over Steps').item.json.step.query_strategy.join_on }}\n\nDEPENDENCIES (previous step numbers whose results you may reference): {{ $('Loop Over Steps').item.json.step.dependencies.join(', ') || 'None' }}\nEXPECTED OUTPUT: {{ $('Loop Over Steps').item.json.step.expected_output.join(', ') }}\n\nInstructions:\n1. For 'query' steps: query n8n_data.v_step_current directly using original column names. The view is already filtered to this step's dataset - no column mapping lookup needed.\n2. Build and execute SQL queries using the Query Dataset tool. Always wrap column names in double quotes.\n3. Apply the filters, select the columns, and apply the logic described above.\n4. If this step has dependencies, use the Read Previous Step Results tool to retrieve earlier step results for context.\n5. Analyze the data and return a clear, structured result for this step.",
+        "text": "=Execute the following step of a report plan.\n\nREPORT ID: {{ $('Parse Plan & Generate Report ID').item.json.report_id }}\nSTEP NUMBER: {{ $('Parse Plan & Generate Report ID').item.json.step.step_number }} of {{ $('Parse Plan & Generate Report ID').item.json.total_steps }}\nPURPOSE: {{ $('Loop Over Steps').item.json.step.purpose }}\nDATASET ID: {{ $('Loop Over Steps').item.json.step.dataset_id }}\nCOLUMN MAPPING (key=original column name, value=generic column in universal_datatable):\n{{ $('Fetch Column Mapping').item.json.column_mapping || 'N/A (aggregate step - do not query universal_datatable)' }}\n\nQUERY STRATEGY:\n- Filters: {{ JSON.stringify($('Loop Over Steps').item.json.step.query_strategy.filters) }}\n- Columns needed: {{ $('Loop Over Steps').item.json.step.query_strategy.columns.join(', ') }}\n- Logic: {{ $('Loop Over Steps').item.json.step.query_strategy.logic }}\n- Join on: {{ $('Loop Over Steps').item.json.step.query_strategy.join_on }}\n\nDEPENDENCIES (previous step numbers whose results you may reference): {{ $('Loop Over Steps').item.json.step.dependencies.join(', ') || 'None' }}\nEXPECTED OUTPUT: {{ $('Loop Over Steps').item.json.step.expected_output.join(', ') }}\n\nInstructions:\n1. Use the COLUMN MAPPING above to identify which generic columns (string1, real1, etc.) match the original column names. Do NOT call the Dataset Information tool.\n2. Build and execute SQL using the Query Dataset tool. Always include WHERE dataset_id = '{{ $('Loop Over Steps').item.json.step.dataset_id }}' in every query.\n3. Apply the filters, select the columns, and apply the logic described above.\n4. If this step has dependencies, use the Read Previous Step Results tool to retrieve earlier step results for context.\n5. Analyze the data and return a clear, structured result for this step.",
         "options": {
-          "systemMessage": "You are an expert data analyst executing one step of a multi-step report plan.\n\nIMPORTANT:\n- A view n8n_data.v_step_current has been pre-created containing only this step's dataset, with original column names already applied. Query it directly - no column mapping lookup needed, no dataset_id filter needed.\n- Always wrap column names in double quotes (e.g., \"Revenue\", \"Customer Name\") and string values in single quotes.\n- For aggregate steps (dataset_id = 'aggregation_step'), do NOT query v_step_current. Instead, use the Read Previous Step Results tool to get data from dependent steps and perform calculations.\n- Use the Calculator tool for arithmetic.\n- Return a structured analysis with data tables, calculations, and findings.\n- Be concise but thorough.",
-          "maxIterations": 30
+          "systemMessage": "You are an expert data analyst executing one step of a multi-step report plan.\n\nIMPORTANT:\n- The column_mapping for this step's dataset is provided at the top of the task (key=original column name, value=generic column like string1/real1). Use it directly to write SQL — no Dataset Information tool call needed.\n- Always filter by dataset_id in WHERE clauses when querying universal_datatable.\n- For aggregation steps (dataset_id = 'aggregation_step'), do NOT query universal_datatable. Instead, use the Read Previous Step Results tool to get data from dependent steps and perform calculations.\n- Use the Calculator tool for arithmetic.\n- Return a structured analysis with data tables, calculations, and findings.\n- Be concise but thorough.",
+          "maxIterations": 10
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
       "position": [
-        3104,
+        2656,
         192
       ],
       "id": "3ddadf76-2ac5-4252-b283-b849f957f33a",
@@ -163,7 +129,7 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        2976,
+        2528,
         416
       ],
       "id": "73ff5f68-c4c1-44e2-9836-1ddd8a98d46a",
@@ -186,7 +152,7 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        3296,
+        2960,
         416
       ],
       "id": "9b525bb8-7ce9-4025-81d6-9262eca4970b",
@@ -279,7 +245,7 @@
       "type": "@n8n/n8n-nodes-langchain.toolCalculator",
       "typeVersion": 1,
       "position": [
-        3136,
+        2800,
         416
       ],
       "id": "02e46373-e208-413b-945b-873d145f8db3",
@@ -330,7 +296,7 @@
     {
       "parameters": {
         "descriptionType": "manual",
-        "toolDescription": "Query data rows for the current step. Use SQL to query n8n_data.v_step_current - it is already filtered to this step's dataset and uses original column names (not generic names like string1). Always wrap column names in double quotes. Do NOT add a WHERE dataset_id clause.",
+        "toolDescription": "Query data rows from datasets. Use SQL to query the n8n_data.universal_datatable table. Always include WHERE dataset_id = '<id>' to filter to the correct dataset.",
         "operation": "executeQuery",
         "query": "{{ $fromAI('sql_query') }}",
         "options": {}
@@ -338,7 +304,7 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        2800,
+        2464,
         432
       ],
       "id": "7530f76b-367e-42a7-a7ee-2904f7c59c09",
@@ -584,28 +550,6 @@
       ]
     },
     "Fetch Column Mapping": {
-      "main": [
-        [
-          {
-            "node": "Build Step View SQL",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Build Step View SQL": {
-      "main": [
-        [
-          {
-            "node": "Create Step View",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Create Step View": {
       "main": [
         [
           {
