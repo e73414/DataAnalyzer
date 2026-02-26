@@ -557,7 +557,18 @@ export default function PlanReportPage() {
     setSavedRecordId(null)
     setIsEditingReport(false)
     editorContentRef.current = ''
-    setExecutionProgress({ report_id: sharedReportId, steps: [], final_report: null, status: 'starting' })
+    // Pre-populate steps from the plan so the UI shows them immediately (no "Initializing..." delay)
+    setExecutionProgress({
+      report_id: sharedReportId,
+      steps: plan.steps.map(s => ({
+        step_number: s.step_number,
+        purpose: s.purpose,
+        dataset_id: s.dataset_id,
+        status: 'started' as const,
+      })),
+      final_report: null,
+      status: 'in_progress',
+    })
     executeStartTime.current = Date.now()
     toast.success(hasParallelism ? 'Execution started (parallel steps)...' : 'Execution started...')
     setTimeout(() => {
