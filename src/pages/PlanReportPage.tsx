@@ -6,7 +6,7 @@ import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
-import type { ReportPlan, ReportPlanStep, CheckReportProgressResult, PromptDialogQuestion } from '../types'
+import type { ReportPlan, ReportPlanStep, CheckReportProgressResult, PromptDialogQuestion, DatasetPreview, DatasetDetail } from '../types'
 
 interface LoadedPlanState {
   prompt: string
@@ -44,6 +44,8 @@ export default function PlanReportPage() {
   const [dialogQuestions, setDialogQuestions] = useState<PromptDialogQuestion[]>([])
   const [dialogAnswers, setDialogAnswers] = useState<Record<string, string>>({})
   const [dialogLoading, setDialogLoading] = useState(false)
+  const [previewDatasetId, setPreviewDatasetId] = useState<string | null>(null)
+  const [previewAnchorRect, setPreviewAnchorRect] = useState<DOMRect | null>(null)
   const editorRef = useRef<HTMLIFrameElement>(null)
   const editorContentRef = useRef('')
   const planRef = useRef<HTMLDivElement>(null)
@@ -53,6 +55,7 @@ export default function PlanReportPage() {
   const executeStartTime = useRef<number>(0)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pollProgressRef = useRef<((rptId: string) => Promise<void>) | null>(null)
+  const previewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const {
     data: datasets,
@@ -67,6 +70,20 @@ export default function PlanReportPage() {
   const { data: aiModels } = useQuery({
     queryKey: ['ai-models'],
     queryFn: () => pocketbaseService.getAIModels(),
+  })
+
+  const { data: previewData, isLoading: isLoadingPreview } = useQuery<DatasetPreview>({
+    queryKey: ['dataset-preview', previewDatasetId],
+    queryFn: () => n8nService.getDatasetPreview(previewDatasetId!, session!.email, 10),
+    enabled: !!previewDatasetId && !!session?.email,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const { data: previewDetail } = useQuery<DatasetDetail>({
+    queryKey: ['dataset-detail-preview', previewDatasetId],
+    queryFn: () => n8nService.getDatasetDetail(previewDatasetId!, session!.email),
+    enabled: !!previewDatasetId && !!session?.email,
+    staleTime: 5 * 60 * 1000,
   })
 
   const { data: userProfile } = useQuery({
@@ -688,30 +705,49 @@ export default function PlanReportPage() {
                 </div>
                 <div className="border border-gray-200 dark:border-gray-600 rounded-lg divide-y divide-gray-200 dark:divide-gray-600 max-h-64 overflow-y-auto">
                   {datasets?.map((dataset) => (
-                    <label
+                    <div
                       key={dataset.id}
-                      className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
+                      className={`flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
                         selectedDatasetIds.has(dataset.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                       }`}
                     >
-                      <input
-                        type="checkbox"
-                        checked={selectedDatasetIds.has(dataset.id)}
-                        onChange={() => toggleDataset(dataset.id)}
-                        disabled={isWorking}
-                        className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
-                      />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                          {dataset.name}
-                        </p>
-                        {dataset.description && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                            {dataset.description}
+                      <label className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedDatasetIds.has(dataset.id)}
+                          onChange={() => toggleDataset(dataset.id)}
+                          disabled={isWorking}
+                          className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {dataset.name}
                           </p>
-                        )}
-                      </div>
-                    </label>
+                          {dataset.description && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {dataset.description}
+                            </p>
+                          )}
+                        </div>
+                      </label>
+                      <button
+                        type="button"
+                        className="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex-shrink-0"
+                        onMouseEnter={(e) => {
+                          if (previewTimeoutRef.current) clearTimeout(previewTimeoutRef.current)
+                          setPreviewDatasetId(dataset.id)
+                          setPreviewAnchorRect(e.currentTarget.getBoundingClientRect())
+                        }}
+                        onMouseLeave={() => {
+                          previewTimeoutRef.current = setTimeout(() => {
+                            setPreviewDatasetId(null)
+                            setPreviewAnchorRect(null)
+                          }, 150)
+                        }}
+                      >
+                        Preview
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1263,6 +1299,79 @@ export default function PlanReportPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Dataset Preview Popup */}
+      {previewDatasetId && previewAnchorRect && (
+        <div
+          className="fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden"
+          style={{
+            left: Math.min(previewAnchorRect.right + 8, window.innerWidth - 508),
+            top: Math.min(previewAnchorRect.top, window.innerHeight - 308),
+            width: 500,
+            maxHeight: 300,
+          }}
+          onMouseEnter={() => {
+            if (previewTimeoutRef.current) clearTimeout(previewTimeoutRef.current)
+          }}
+          onMouseLeave={() => {
+            previewTimeoutRef.current = setTimeout(() => {
+              setPreviewDatasetId(null)
+              setPreviewAnchorRect(null)
+            }, 150)
+          }}
+        >
+          <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300">
+            {datasets?.find(d => d.id === previewDatasetId)?.name} — first 10 rows
+          </div>
+          {isLoadingPreview ? (
+            <div className="flex items-center justify-center py-6">
+              <span className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></span>
+              <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">Loading preview...</span>
+            </div>
+          ) : previewData && previewData.columns.length > 0 ? (
+            (() => {
+              const mapping = (() => {
+                if (!previewDetail?.column_mapping) return {} as Record<string, string>
+                const m = typeof previewDetail.column_mapping === 'string'
+                  ? JSON.parse(previewDetail.column_mapping) as Record<string, string>
+                  : previewDetail.column_mapping as Record<string, string>
+                const r: Record<string, string> = {}
+                Object.entries(m).forEach(([orig, db]) => { r[db] = orig })
+                return r
+              })()
+              const displayCols = previewData.columns.filter(c => mapping[c])
+              return (
+                <div className="overflow-auto max-h-56">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
+                      <tr>
+                        {displayCols.map(col => (
+                          <th key={col} className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600 whitespace-nowrap">
+                            {mapping[col]}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {previewData.rows.map((row, i) => (
+                        <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                          {displayCols.map(col => (
+                            <td key={col} className="px-3 py-1.5 text-gray-600 dark:text-gray-400 whitespace-nowrap max-w-[150px] truncate">
+                              {row[col] != null ? String(row[col]) : ''}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            })()
+          ) : (
+            <p className="text-xs text-gray-400 dark:text-gray-500 py-4 text-center">No preview available</p>
+          )}
         </div>
       )}
     </div>
