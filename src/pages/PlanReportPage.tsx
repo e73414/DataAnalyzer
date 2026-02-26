@@ -445,7 +445,10 @@ export default function PlanReportPage() {
   const pollProgress = useCallback(async (rptId: string) => {
     try {
       const progress = await n8nService.checkReportProgress(rptId)
-      setExecutionProgress(progress)
+      // Only update UI when we have real step data — never overwrite pre-populated steps with empty
+      if (progress.steps.length > 0 || progress.status === 'completed' || progress.status === 'error') {
+        setExecutionProgress(progress)
+      }
 
       if (progress.status === 'completed') {
         stallCountRef.current = 0
@@ -494,12 +497,22 @@ export default function PlanReportPage() {
   // Poll until all steps in stepNumbers reach completed/error, updating progress UI along the way
   const waitForBatchCompletion = useCallback(
     async (reportId: string, stepNumbers: number[]): Promise<void> => {
+      let emptyPolls = 0
+      const MAX_EMPTY_POLLS = 12 // ~1 minute of empty responses before giving up
       while (true) {
         if (executionCancelledRef.current) throw new Error('Execution cancelled')
         await new Promise(res => setTimeout(res, 5000))
         if (executionCancelledRef.current) throw new Error('Execution cancelled')
         const progress = await n8nService.checkReportProgress(reportId)
-        setExecutionProgress(progress)
+        if (progress.steps.length > 0) {
+          emptyPolls = 0
+          setExecutionProgress(progress)
+        } else {
+          emptyPolls++
+          if (emptyPolls >= MAX_EMPTY_POLLS) {
+            throw new Error('Execution timed out: no step results received after 1 minute')
+          }
+        }
         const hasError = stepNumbers.some(
           num => progress.steps.find(s => s.step_number === num)?.status === 'error'
         )
@@ -557,10 +570,12 @@ export default function PlanReportPage() {
     setSavedRecordId(null)
     setIsEditingReport(false)
     editorContentRef.current = ''
-    // Pre-populate steps from the plan so the UI shows them immediately (no "Initializing..." delay)
+    // Pre-populate only the first batch (no-dependency steps) so the UI shows them immediately.
+    // Dependent steps will appear naturally once n8n writes them to the DB.
+    const firstBatch = batches[0] ?? []
     setExecutionProgress({
       report_id: sharedReportId,
-      steps: plan.steps.map(s => ({
+      steps: firstBatch.map(s => ({
         step_number: s.step_number,
         purpose: s.purpose,
         dataset_id: s.dataset_id,
