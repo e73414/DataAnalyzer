@@ -1,5 +1,5 @@
 import { mcpN8nApi } from './api'
-import type { AnalysisRequest, AnalysisResult, DatasetDetail, DatasetPreview, UpdateSummaryRequest, UpdateSummaryResult, UpdateDatasetRequest, UpdateDatasetResult, UploadDatasetRequest, UploadDatasetResult, DeleteDatasetRequest, DeleteDatasetResult, ReportTemplate, PlanReportRequest, PlanReportResult, ExecutePlanRequest, ExecutePlanResult, CheckReportProgressResult, ReportPlan } from '../types'
+import type { AnalysisRequest, AnalysisResult, DatasetDetail, DatasetPreview, UpdateSummaryRequest, UpdateSummaryResult, UpdateDatasetRequest, UpdateDatasetResult, UploadDatasetRequest, UploadDatasetResult, DeleteDatasetRequest, DeleteDatasetResult, ReportTemplate, PlanReportRequest, PlanReportResult, ExecutePlanRequest, ExecutePlanResult, CheckReportProgressResult, ReportPlan, PromptDialogRequest, PromptDialogResult, PromptDialogQuestion } from '../types'
 
 interface N8nWebhookResponse {
   status: 'ok' | 'error'
@@ -24,6 +24,7 @@ const LIST_TEMPLATES_WEBHOOK_PATH = 'webhook/list-templates'
 const DELETE_TEMPLATE_WEBHOOK_PATH = 'webhook/delete-template'
 const UPLOAD_TEMPLATE_WEBHOOK_PATH = 'webhook/upload-template'
 const GET_DATASET_PREVIEW_WEBHOOK_PATH = 'webhook/get-dataset-preview'
+const PROMPT_DIALOG_WEBHOOK_PATH = 'webhook/prompt-dialog'
 const PLAN_REPORT_WEBHOOK_PATH = 'webhook/plan-report'
 const EXECUTE_PLAN_WEBHOOK_PATH = 'webhook/execute-plan'
 const CHECK_REPORT_PROGRESS_WEBHOOK_PATH = 'webhook/check-report-progress'
@@ -358,6 +359,64 @@ export const n8nService = {
     if (response.data.status === 'error') {
       throw new Error(response.data.error || 'Failed to upload template')
     }
+  },
+
+  async promptDialog(request: PromptDialogRequest): Promise<PromptDialogResult> {
+    const response = await mcpN8nApi.post('/mcp/execute', {
+      skill: 'n8n-webhook',
+      params: {
+        webhookPath: PROMPT_DIALOG_WEBHOOK_PATH,
+      },
+      input: {
+        prompt: request.prompt,
+        email: request.email,
+        dataset_ids: request.datasetIds,
+        ...(request.model && { model: request.model }),
+      },
+    })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fullData = response.data as any
+    if (fullData?.status === 'error') {
+      throw new Error(fullData?.error || 'Failed to generate clarifying questions')
+    }
+
+    // Extract questions array — same deep-search pattern as planReport
+    let raw = fullData?.data
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw) } catch { /* keep as-is */ }
+    }
+
+    const findQuestions = (val: unknown, depth = 0): PromptDialogQuestion[] | undefined => {
+      if (depth > 5 || !val) return undefined
+      if (typeof val === 'string') {
+        try { return findQuestions(JSON.parse(val), depth + 1) } catch { return undefined }
+      }
+      if (Array.isArray(val)) {
+        // If it's an array of question objects
+        if (val.length > 0 && typeof val[0] === 'object' && (val[0] as Record<string, unknown>).question) {
+          return val as PromptDialogQuestion[]
+        }
+        for (const item of val) {
+          const found = findQuestions(item, depth + 1)
+          if (found) return found
+        }
+        return undefined
+      }
+      if (typeof val !== 'object') return undefined
+      const obj = val as Record<string, unknown>
+      if (Array.isArray(obj.questions)) return obj.questions as PromptDialogQuestion[]
+      for (const key of ['output', 'data', 'result']) {
+        if (obj[key] != null) {
+          const found = findQuestions(obj[key], depth + 1)
+          if (found) return found
+        }
+      }
+      return undefined
+    }
+
+    const questions = findQuestions(fullData) ?? []
+    return { questions }
   },
 
   async planReport(request: PlanReportRequest): Promise<PlanReportResult> {

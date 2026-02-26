@@ -216,6 +216,23 @@ export interface CheckReportProgressResult {
   error_message?: string | null
 }
 
+export interface PromptDialogQuestion {
+  id: string
+  question: string
+  hint: string
+}
+
+export interface PromptDialogResult {
+  questions: PromptDialogQuestion[]
+}
+
+export interface PromptDialogRequest {
+  prompt: string
+  email: string
+  datasetIds: string[]
+  model?: string
+}
+
 export interface ReportTemplate {
   template_id: string
   title: string

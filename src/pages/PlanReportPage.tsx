@@ -6,7 +6,7 @@ import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
-import type { ReportPlan, ReportPlanStep, CheckReportProgressResult } from '../types'
+import type { ReportPlan, ReportPlanStep, CheckReportProgressResult, PromptDialogQuestion } from '../types'
 
 interface LoadedPlanState {
   prompt: string
@@ -40,6 +40,10 @@ export default function PlanReportPage() {
   const [savedRecordId, setSavedRecordId] = useState<string | null>(loadedState?.savedRecordId || null)
   const [isEditingReport, setIsEditingReport] = useState(false)
   const [iframeKey, setIframeKey] = useState(0)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogQuestions, setDialogQuestions] = useState<PromptDialogQuestion[]>([])
+  const [dialogAnswers, setDialogAnswers] = useState<Record<string, string>>({})
+  const [dialogLoading, setDialogLoading] = useState(false)
   const editorRef = useRef<HTMLIFrameElement>(null)
   const editorContentRef = useRef('')
   const planRef = useRef<HTMLDivElement>(null)
@@ -447,9 +451,9 @@ export default function PlanReportPage() {
   pollProgressRef.current = pollProgress
 
   const planMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (promptOverride?: string) =>
       n8nService.planReport({
-        prompt,
+        prompt: promptOverride ?? prompt,
         email: session!.email,
         datasetIds: Array.from(selectedDatasetIds),
         model: selectedModelId,
@@ -541,7 +545,44 @@ export default function PlanReportPage() {
       return
     }
     planStartTime.current = Date.now()
-    planMutation.mutate()
+    planMutation.mutate(undefined)
+  }
+
+  const handleGuidedSetup = async () => {
+    if (!prompt.trim()) {
+      toast.error('Please enter report requirements first')
+      return
+    }
+    setDialogLoading(true)
+    try {
+      const result = await n8nService.promptDialog({
+        prompt,
+        email: session!.email,
+        datasetIds: Array.from(selectedDatasetIds),
+        model: selectedModelId,
+      })
+      setDialogQuestions(result.questions)
+      setDialogAnswers({})
+      setDialogOpen(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to generate questions')
+    } finally {
+      setDialogLoading(false)
+    }
+  }
+
+  const handleDialogSubmit = () => {
+    const answered = dialogQuestions
+      .filter(q => dialogAnswers[q.id]?.trim())
+      .map(q => `- ${q.question.replace(/\?$/, '')}: ${dialogAnswers[q.id].trim()}`)
+      .join('\n')
+    const enhanced = answered
+      ? `${prompt.trim()}\n\nAdditional context:\n${answered}`
+      : prompt
+    setPrompt(enhanced)
+    setDialogOpen(false)
+    planStartTime.current = Date.now()
+    planMutation.mutate(enhanced)
   }
 
   const handleExecute = () => {
@@ -688,6 +729,22 @@ export default function PlanReportPage() {
                     </span>
                   ) : (
                     'Generate Plan'
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleGuidedSetup}
+                  disabled={isWorking || dialogLoading || !prompt.trim()}
+                  className="btn-secondary"
+                >
+                  {dialogLoading ? (
+                    <span className="flex items-center gap-2">
+                      <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent dark:border-gray-400"></span>
+                      Analyzing...
+                    </span>
+                  ) : (
+                    'Guided Setup'
                   )}
                 </button>
 
@@ -1151,6 +1208,63 @@ export default function PlanReportPage() {
           )}
         </div>
       </main>
+
+      {/* Guided Setup Dialog */}
+      {dialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Refine Your Requirements</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  Answer to generate a more targeted plan. All fields are optional.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDialogOpen(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none p-1"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 px-6 py-4 space-y-5">
+              {dialogQuestions.map((q) => (
+                <div key={q.id}>
+                  <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
+                    {q.question}
+                  </label>
+                  <input
+                    type="text"
+                    value={dialogAnswers[q.id] || ''}
+                    onChange={(e) => setDialogAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                    placeholder={q.hint}
+                    className="input-field"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => { setDialogOpen(false); planMutation.mutate(undefined) }}
+                className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                Skip — Use Original Prompt
+              </button>
+              <button
+                type="button"
+                onClick={handleDialogSubmit}
+                className="btn-primary"
+              >
+                Generate Plan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
