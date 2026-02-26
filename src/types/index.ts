@@ -190,6 +190,15 @@ export interface ExecutePlanRequest {
   email: string
   model: string
   templateId?: string
+  reportId?: string    // pre-generated shared report_id for parallel execution
+  stepsOnly?: boolean  // skip formatter after steps complete
+}
+
+export interface RunFormatterRequest {
+  reportId: string
+  email: string
+  model?: string
+  templateId?: string
 }
 
 export interface ExecutePlanResult {

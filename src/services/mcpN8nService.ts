@@ -1,5 +1,5 @@
 import { mcpN8nApi } from './api'
-import type { AnalysisRequest, AnalysisResult, DatasetDetail, DatasetPreview, UpdateSummaryRequest, UpdateSummaryResult, UpdateDatasetRequest, UpdateDatasetResult, UploadDatasetRequest, UploadDatasetResult, DeleteDatasetRequest, DeleteDatasetResult, ReportTemplate, PlanReportRequest, PlanReportResult, ExecutePlanRequest, ExecutePlanResult, CheckReportProgressResult, ReportPlan, PromptDialogRequest, PromptDialogResult, PromptDialogQuestion } from '../types'
+import type { AnalysisRequest, AnalysisResult, DatasetDetail, DatasetPreview, UpdateSummaryRequest, UpdateSummaryResult, UpdateDatasetRequest, UpdateDatasetResult, UploadDatasetRequest, UploadDatasetResult, DeleteDatasetRequest, DeleteDatasetResult, ReportTemplate, PlanReportRequest, PlanReportResult, ExecutePlanRequest, ExecutePlanResult, CheckReportProgressResult, ReportPlan, PromptDialogRequest, PromptDialogResult, PromptDialogQuestion, RunFormatterRequest } from '../types'
 
 interface N8nWebhookResponse {
   status: 'ok' | 'error'
@@ -28,6 +28,7 @@ const PROMPT_DIALOG_WEBHOOK_PATH = 'webhook/prompt-dialog'
 const PLAN_REPORT_WEBHOOK_PATH = 'webhook/plan-report'
 const EXECUTE_PLAN_WEBHOOK_PATH = 'webhook/execute-plan'
 const CHECK_REPORT_PROGRESS_WEBHOOK_PATH = 'webhook/check-report-progress'
+const RUN_FORMATTER_WEBHOOK_PATH = 'webhook/run-formatter'
 
 interface SendReportRequest {
   emails: string[]
@@ -505,6 +506,8 @@ export const n8nService = {
         email: request.email,
         model: request.model,
         ...(request.templateId && { templateId: request.templateId }),
+        ...(request.reportId && { report_id: request.reportId }),
+        ...(request.stepsOnly && { steps_only: true }),
       },
     })
 
@@ -601,6 +604,24 @@ export const n8nService = {
       steps: [],
       final_report: null,
       status: 'starting',
+    }
+  },
+
+  async runFormatter(request: RunFormatterRequest): Promise<void> {
+    const response = await mcpN8nApi.post('/mcp/execute', {
+      skill: 'n8n-webhook',
+      params: { webhookPath: RUN_FORMATTER_WEBHOOK_PATH },
+      input: {
+        report_id: request.reportId,
+        email: request.email,
+        ...(request.model && { model: request.model }),
+        ...(request.templateId && { templateId: request.templateId }),
+      },
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fullData = response.data as any
+    if (fullData?.status === 'error') {
+      throw new Error(fullData?.error || 'Failed to start formatter')
     }
   },
 }

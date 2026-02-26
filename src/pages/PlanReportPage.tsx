@@ -19,6 +19,28 @@ interface LoadedPlanState {
   savedRecordId: string
 }
 
+// Topological sort: groups steps into parallel batches by dependency level.
+// Steps in the same batch have no inter-dependencies and can run concurrently.
+function groupStepsByBatch(steps: ReportPlanStep[]): ReportPlanStep[][] {
+  const batches: ReportPlanStep[][] = []
+  const completed = new Set<number>()
+  let remaining = [...steps]
+  while (remaining.length > 0) {
+    const batch = remaining.filter(s =>
+      (s.dependencies ?? []).every(dep => completed.has(dep))
+    )
+    if (batch.length === 0) {
+      // Cycle or unresolvable deps — fall back to running all remaining one at a time
+      batches.push(...remaining.map(s => [s]))
+      break
+    }
+    batches.push(batch)
+    batch.forEach(s => completed.add(s.step_number))
+    remaining = remaining.filter(s => !completed.has(s.step_number))
+  }
+  return batches
+}
+
 export default function PlanReportPage() {
   const { session, setAIModel } = useSession()
   const location = useLocation()
@@ -56,6 +78,7 @@ export default function PlanReportPage() {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pollProgressRef = useRef<((rptId: string) => Promise<void>) | null>(null)
   const previewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const executionCancelledRef = useRef(false)
 
   const {
     data: datasets,
@@ -323,6 +346,7 @@ export default function PlanReportPage() {
   }, [])
 
   const handleStopExecution = useCallback(() => {
+    executionCancelledRef.current = true
     stopPolling()
     setIsExecuting(false)
     toast('Execution stopped', { icon: '\u23F9' })
@@ -467,6 +491,28 @@ export default function PlanReportPage() {
   // Keep ref updated so setInterval always calls the latest version
   pollProgressRef.current = pollProgress
 
+  // Poll until all steps in stepNumbers reach completed/error, updating progress UI along the way
+  const waitForBatchCompletion = useCallback(
+    async (reportId: string, stepNumbers: number[]): Promise<void> => {
+      while (true) {
+        if (executionCancelledRef.current) throw new Error('Execution cancelled')
+        await new Promise(res => setTimeout(res, 5000))
+        if (executionCancelledRef.current) throw new Error('Execution cancelled')
+        const progress = await n8nService.checkReportProgress(reportId)
+        setExecutionProgress(progress)
+        const hasError = stepNumbers.some(
+          num => progress.steps.find(s => s.step_number === num)?.status === 'error'
+        )
+        if (hasError) throw new Error('One or more steps failed during execution')
+        const allDone = stepNumbers.every(
+          num => progress.steps.find(s => s.step_number === num)?.status === 'completed'
+        )
+        if (allDone) return
+      }
+    },
+    [] // executionCancelledRef is a ref — no dep needed
+  )
+
   const planMutation = useMutation({
     mutationFn: (promptOverride?: string) =>
       n8nService.planReport({
@@ -496,43 +542,73 @@ export default function PlanReportPage() {
     },
   })
 
-  const executeMutation = useMutation({
-    mutationFn: () =>
-      n8nService.executePlan({
-        plan: JSON.stringify(plan),
-        email: session!.email,
+  const handleExecutePlan = useCallback(async () => {
+    if (!plan || !session?.email) return
+
+    executionCancelledRef.current = false
+    const sharedReportId = 'rpt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)
+    const batches = groupStepsByBatch(plan.steps)
+    const hasParallelism = batches.some(b => b.length > 1)
+
+    setReportId(sharedReportId)
+    setIsExecuting(true)
+    setReport('')
+    setReportSaved(false)
+    setSavedRecordId(null)
+    setIsEditingReport(false)
+    editorContentRef.current = ''
+    setExecutionProgress({ report_id: sharedReportId, steps: [], final_report: null, status: 'starting' })
+    executeStartTime.current = Date.now()
+    toast.success(hasParallelism ? 'Execution started (parallel steps)...' : 'Execution started...')
+    setTimeout(() => {
+      progressRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
+
+    try {
+      for (const batch of batches) {
+        if (executionCancelledRef.current) return
+
+        // Fire all steps in this batch in parallel — each as a separate n8n execution
+        await Promise.all(
+          batch.map(step =>
+            n8nService.executePlan({
+              plan: JSON.stringify({ ...plan, steps: [step] }),
+              email: session.email,
+              model: selectedModelId,
+              templateId: userProfile?.template_id,
+              reportId: sharedReportId,
+              stepsOnly: true,
+            })
+          )
+        )
+
+        // Poll until all steps in this batch reach completed/error
+        await waitForBatchCompletion(sharedReportId, batch.map(s => s.step_number))
+      }
+
+      if (executionCancelledRef.current) return
+
+      // All batches done — trigger the formatter
+      await n8nService.runFormatter({
+        reportId: sharedReportId,
+        email: session.email,
         model: selectedModelId,
         templateId: userProfile?.template_id,
-      }),
-    onSuccess: (result) => {
-      const rptId = result.report_id || ''
-      setReportId(rptId)
-      setIsExecuting(true)
-      setExecutionProgress({
-        report_id: rptId,
-        steps: [],
-        final_report: null,
-        status: 'starting',
       })
-      toast.success('Execution started — tracking progress...')
-      setTimeout(() => {
-        progressRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 100)
 
-      // Start polling every 5 seconds — use ref to avoid stale closure
-      if (rptId) {
-        pollingRef.current = setInterval(() => pollProgressRef.current?.(rptId), 5000)
-        // Also poll immediately after a short delay to catch the first step
-        setTimeout(() => pollProgressRef.current?.(rptId), 2000)
-      }
-    },
-    onError: (error) => {
+      // Poll for final report using existing mechanism
+      pollingRef.current = setInterval(() => pollProgressRef.current?.(sharedReportId), 5000)
+      setTimeout(() => pollProgressRef.current?.(sharedReportId), 2000)
+
+    } catch (err) {
+      if (executionCancelledRef.current) return
+      stopPolling()
       setIsExecuting(false)
-      toast.error(error instanceof Error ? error.message : 'Failed to execute plan')
-    },
-  })
+      toast.error(err instanceof Error ? err.message : 'Failed to execute plan')
+    }
+  }, [plan, session, selectedModelId, userProfile, waitForBatchCompletion, stopPolling])
 
-  const isWorking = planMutation.isPending || executeMutation.isPending || isExecuting
+  const isWorking = planMutation.isPending || isExecuting
 
   const toggleDataset = (id: string) => {
     setSelectedDatasetIds((prev) => {
@@ -607,8 +683,7 @@ export default function PlanReportPage() {
       toast.error('No plan to execute')
       return
     }
-    executeStartTime.current = Date.now()
-    executeMutation.mutate()
+    handleExecutePlan()
   }
 
   const getDatasetName = (datasetId: string): string => {
@@ -1032,14 +1107,7 @@ export default function PlanReportPage() {
                   disabled={isWorking || !plan || !selectedModelId}
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium rounded-lg shadow-sm transition-colors disabled:cursor-not-allowed"
                 >
-                  {executeMutation.isPending ? (
-                    <span className="flex items-center gap-2">
-                      <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
-                      Starting...
-                    </span>
-                  ) : (
-                    'Execute Plan'
-                  )}
+                  Execute Plan
                 </button>
 
                 {isExecuting && (
