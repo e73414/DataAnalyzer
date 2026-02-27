@@ -118,7 +118,7 @@ export default function EditSummaryPage() {
     if (!selectedDatasetId || !session?.email) return
     setIsDownloading(true)
     try {
-      const preview = await n8nService.getDatasetView(selectedDatasetId)
+      const preview = await n8nService.getDatasetPreview(selectedDatasetId, session.email, 99999)
       const escape = (val: string) => {
         if (val.includes(',') || val.includes('"') || val.includes('\n')) {
           return `"${val.replace(/"/g, '""')}"`
