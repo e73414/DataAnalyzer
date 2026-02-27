@@ -5,56 +5,6 @@
       "parameters": {
         "model": {
           "__rl": true,
-          "mode": "list",
-          "value": "gpt-5-mini"
-        },
-        "responsesApiEnabled": false,
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -416,
-        896
-      ],
-      "id": "7f37706f-6f2d-4331-ad7a-ab73a256cd8f",
-      "name": "OpenAI Chat Model1",
-      "credentials": {
-        "openAiApi": {
-          "id": "ayhC2xZ3iWv4ZkDW",
-          "name": "OpenAi account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "model": {
-          "__rl": true,
-          "mode": "list",
-          "value": "gpt-5-mini"
-        },
-        "responsesApiEnabled": false,
-        "options": {}
-      },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        384,
-        816
-      ],
-      "id": "44c804bb-7021-4bfd-8d78-b59f3828d304",
-      "name": "OpenAI Chat Model2",
-      "credentials": {
-        "openAiApi": {
-          "id": "ayhC2xZ3iWv4ZkDW",
-          "name": "OpenAi account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "model": {
-          "__rl": true,
           "value": "={{ $('Webhook').item.json.body.model || 'gpt-5-mini' }}",
           "mode": "id"
         },
@@ -222,40 +172,6 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=SELECT step_number, purpose, dataset_id, step_result FROM n8n_data.report_step_results WHERE report_id = '{{ $('Parse Plan & Generate Report ID').first().json.report_id }}' AND step_number > 0 ORDER BY step_number",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        -1376,
-        -576
-      ],
-      "id": "91b053bf-b8e0-46fe-835b-f6d37704628a",
-      "name": "Load All Step Results",
-      "credentials": {
-        "postgres": {
-          "id": "A7zRb9obSaMEyNKs",
-          "name": "Postgres account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const steps = $input.all().map(item => item.json);\nconst src = $('Parse Plan & Generate Report ID').first().json;\n\nlet stepsText = '';\nfor (const s of steps) {\n  stepsText += `\\n=== STEP ${s.step_number}: ${s.purpose} ===\\nDataset: ${s.dataset_id}\\n\\n${s.step_result}\\n\\n`;\n}\n\nreturn [{\n  json: {\n    report_id: src.report_id,\n    plan_id: src.plan_id,\n    email: src.email,\n    model: src.model,\n    templateId: src.templateId || '',\n    all_step_results: stepsText,\n    step_count: steps.length\n  }\n}];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -1168,
-        -576
-      ],
-      "id": "1ba8dff2-65e1-4997-b10d-bcc9687178ef",
-      "name": "Combine Step Results"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
         "query": "=UPDATE n8n_data.report_step_results SET step_result = '{{ ($json.error ? (typeof $json.error === \"object\" ? JSON.stringify($json.error) : String($json.error)) : \"Step failed\").replace(/'/g, \"''\") }}', status = 'error' WHERE report_id = '{{ $('Loop Over Steps').item.json.report_id }}' AND step_number = {{ $('Loop Over Steps').item.json.step.step_number }}",
         "options": {}
       },
@@ -353,140 +269,6 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "=INSERT INTO n8n_data.report_step_results (report_id, plan_id, step_number, purpose, dataset_id, step_result, status) VALUES ('{{ $('Combine Step Results').first().json.report_id }}', '', 0, 'Final Consolidated Report', '', '{{ $json.cleaned_html ? String($json.cleaned_html).replace(/'/g, \"''\") : $('Combine Step Results').item.json.all_step_results }}', 'final_report')",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        160,
-        -800
-      ],
-      "id": "562fde44-489f-4ef8-8ff8-a5f74bad24a1",
-      "name": "Save Final Report",
-      "credentials": {
-        "postgres": {
-          "id": "A7zRb9obSaMEyNKs",
-          "name": "Postgres account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
-        "query": "=INSERT INTO n8n_data.report_step_results (report_id, plan_id, step_number, purpose, dataset_id, step_result, status) VALUES ('{{ $('Combine Step Results').first().json.report_id }}', '', 0, 'Formatter Error', '', '{{ $json.error ? (typeof $json.error === \"object\" ? JSON.stringify($json.error) : String($json.error)).replace(/'/g, \"''\") : \"Formatter failed\" }}', 'error')",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [
-        144,
-        -160
-      ],
-      "id": "4027f9d9-c373-4b52-945a-f46153353bff",
-      "name": "Save Formatter Error",
-      "credentials": {
-        "postgres": {
-          "id": "A7zRb9obSaMEyNKs",
-          "name": "Postgres account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsonSchemaExample": "{\n  \"subject\": \"Technical Analysis\",\n  \"content\": \"Multiple short positions were initiated based on technical patterns indicating overextended moves and impending pullbacks.\"\n}",
-        "autoFix": true
-      },
-      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
-      "typeVersion": 1.3,
-      "position": [
-        -256,
-        -480
-      ],
-      "id": "6206b943-20e1-4403-bc7e-b141cbc4a694",
-      "name": "Structured Output Parser"
-    },
-    {
-      "parameters": {
-        "descriptionType": "manual",
-        "toolDescription": "Fetches the HTML template for the report. Pass the template_id as a string argument.",
-        "operation": "select",
-        "schema": {
-          "__rl": true,
-          "value": "n8n_data",
-          "mode": "list",
-          "cachedResultName": "n8n_data"
-        },
-        "table": {
-          "__rl": true,
-          "value": "data-analyzer-report-templates",
-          "mode": "list",
-          "cachedResultName": "data-analyzer-report-templates"
-        },
-        "limit": 1,
-        "where": {
-          "values": [
-            {
-              "column": "template_id",
-              "value": "={{ $fromAI('template_id', 'The ID of the report template to fetch', 'string') }}"
-            }
-          ]
-        },
-        "options": {
-          "outputColumns": [
-            "html"
-          ]
-        }
-      },
-      "type": "n8n-nodes-base.postgresTool",
-      "typeVersion": 2.6,
-      "position": [
-        -432,
-        -352
-      ],
-      "id": "e84fcb57-4282-4825-8158-51b369949739",
-      "name": "Report Template",
-      "credentials": {
-        "postgres": {
-          "id": "A7zRb9obSaMEyNKs",
-          "name": "Postgres account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "promptType": "define",
-        "text": "=Consolidate the following {{ $json.step_count }} step results into a single coherent, professional report and format it as styled HTML.\n\nREPORT ID: {{ $json.report_id }}\nPLAN ID: {{ $json.plan_id }}\n\nSTEP RESULTS:\n{{ $json.all_step_results }}",
-        "options": {
-          "systemMessage": "=Role: You are an expert report writer and HTML formatter.\n\nYour job has TWO parts:\n\nPART 1 - CONSOLIDATE: Take the individual analysis step results and consolidate them into a single, professional, well-structured report with:\n- Executive Summary - Key findings and highlights\n- Detailed Analysis - One section per step, incorporating the data and findings\n- Conclusions & Recommendations\nUse clear headings, bullet points, data tables where appropriate, and professional language. Present numbers with appropriate formatting. If any step had errors or missing data, note it but don't let it derail the overall report.\n\nPART 2 - FORMAT AS HTML: {{ $json.templateId ? 'Query the Report Template tool with template_id: ' + $json.templateId + ' to fetch reference HTML. Use its CSS and structure as the master template, prioritizing its styles (colors, fonts, borders) above all else.' : 'No template ID provided — skip the Report Template tool entirely. Format the report as clean, professional HTML with tasteful inline styles.' }}\n\nMake sure to eliminate any unnecessary tags or symbols that will get in the way of clean report such as \" \\n\"\n\nIMPORTANT: DO NOT OUTPUT THE PLAN, COMMENT OR EXPLANATION OF THE ACTION. JUST OUTPUT HTML."
-        }
-      },
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 3.1,
-      "position": [
-        -400,
-        -784
-      ],
-      "id": "6b96dea4-a6d3-4f95-93c5-385bb0a163b3",
-      "name": "Formatter",
-      "onError": "continueErrorOutput"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Get the HTML content from the Formatter agent output\n// n8n agent nodes may use 'output', 'text', or 'response' depending on typeVersion\nconst item = $input.first().json;\nlet html = item.output || item.text || item.response || item.message || \"\";\n\nif (typeof html !== 'string') {\n  // If structured (e.g. { subject, content }), extract the HTML content\n  html = html.content || html.html || JSON.stringify(html);\n}\n\n// 1. Remove newlines and carriage returns\nhtml = html.replace(/[\\n\\r]/g, '');\n\n// 2. Remove tabs and sequences of multiple spaces\nhtml = html.replace(/\\t/g, '');\nhtml = html.replace(/\\s{2,}/g, ' ');\n\n// 3. Remove meaningless empty tags\nhtml = html.replace(/<(span|p|div|section)>\\s*<\\/\\1>/gi, '');\n\n// 4. Strip stray markdown code fences\nhtml = html.replace(/^```html|```$/g, '');\n\n// 5. Trim\nhtml = html.trim();\n\nreturn [{\n  json: {\n    ...item,\n    cleaned_html: html\n  }\n}];"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -48,
-        -800
-      ],
-      "id": "4c71ce0a-aaa3-4d4d-bae7-4a7f7a2968b3",
-      "name": "Clean Up"
-    },
-    {
-      "parameters": {
-        "operation": "executeQuery",
         "query": "=SELECT COALESCE(\n  (SELECT column_mapping::text FROM n8n_data.dataset_record_manager\n   WHERE dataset_id::text = '{{ $('Loop Over Steps').item.json.step.dataset_id }}'\n   LIMIT 1),\n  '{}'\n) AS column_mapping",
         "options": {}
       },
@@ -504,45 +286,10 @@
           "name": "Postgres account"
         }
       }
-    },
-    {
-      "parameters": {
-        "jsCode": "const stepsOnly = $('Webhook').first().json.body.steps_only === true;\nreturn stepsOnly ? [] : $input.all();"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -2080,
-        -800
-      ],
-      "id": "skip-formatter-if-001",
-      "name": "Skip Formatter?"
     }
   ],
   "pinData": {},
   "connections": {
-    "OpenAI Chat Model1": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Formatter",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "OpenAI Chat Model2": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Structured Output Parser",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Step": {
       "ai_languageModel": [
         [
@@ -583,13 +330,7 @@
     },
     "Loop Over Steps": {
       "main": [
-        [
-          {
-            "node": "Skip Formatter?",
-            "type": "main",
-            "index": 0
-          }
-        ],
+        [],
         [
           {
             "node": "Mark Step Started",
@@ -650,28 +391,6 @@
         ]
       ]
     },
-    "Load All Step Results": {
-      "main": [
-        [
-          {
-            "node": "Combine Step Results",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Combine Step Results": {
-      "main": [
-        [
-          {
-            "node": "Formatter",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Save Step Error": {
       "main": [
         [
@@ -705,62 +424,11 @@
         ]
       ]
     },
-    "Report Template": {
-      "ai_tool": [
-        [
-          {
-            "node": "Formatter",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Formatter": {
-      "main": [
-        [
-          {
-            "node": "Clean Up",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Save Formatter Error",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Clean Up": {
-      "main": [
-        [
-          {
-            "node": "Save Final Report",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Fetch Column Mapping For Step": {
       "main": [
         [
           {
             "node": "Step AI Agent",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Skip Formatter?": {
-      "main": [
-        [
-          {
-            "node": "Load All Step Results",
             "type": "main",
             "index": 0
           }
