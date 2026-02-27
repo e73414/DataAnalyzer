@@ -376,19 +376,20 @@ export default function PlanReportPage() {
     stopPolling()
     setIsExecuting(false)
     const finalReport = extractReportHtml(progress.final_report)
-    setReport(finalReport)
-    setReportSaved(false)
-    setSavedRecordId(null)
-    setIsEditingReport(false)
-    editorContentRef.current = ''
     if (finalReport) {
+      setReport(finalReport)
+      setReportSaved(false)
+      setSavedRecordId(null)
+      setIsEditingReport(false)
+      editorContentRef.current = ''
       toast.success('Report generated successfully')
+      setTimeout(() => {
+        reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
     } else {
-      toast.error('Report completed but content was empty — the formatter may have returned invalid output')
+      // Don't clear existing report state — formatter returned empty output
+      toast.error('Report completed but the formatter returned empty content. Check the run-formatter workflow in n8n.')
     }
-    setTimeout(() => {
-      reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 100)
   }, [stopPolling])
 
   const handleSaveReport = async () => {
@@ -417,7 +418,7 @@ export default function PlanReportPage() {
         const selectedNames = (datasets ?? []).filter(d => selectedDatasetIds.has(d.id)).map(d => d.name).join(', ')
         const saved = await pocketbaseService.saveConversation({
           email: session.email,
-          prompt,
+          prompt: `[Execute Plan] ${prompt}`,
           response: content,
           aiModel: selectedModelId,
           datasetId: Array.from(selectedDatasetIds).join(',') || 'all',
