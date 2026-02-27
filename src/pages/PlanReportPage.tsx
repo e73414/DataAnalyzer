@@ -417,7 +417,7 @@ export default function PlanReportPage() {
         const selectedNames = (datasets ?? []).filter(d => selectedDatasetIds.has(d.id)).map(d => d.name).join(', ')
         const saved = await pocketbaseService.saveConversation({
           email: session.email,
-          prompt: `[Execute Plan] ${plan?.plan_id || 'unknown'}`,
+          prompt,
           response: content,
           aiModel: selectedModelId,
           datasetId: Array.from(selectedDatasetIds).join(',') || 'all',
