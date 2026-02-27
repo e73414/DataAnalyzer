@@ -41,6 +41,27 @@ function groupStepsByBatch(steps: ReportPlanStep[]): ReportPlanStep[][] {
   return batches
 }
 
+// Like groupStepsByBatch, but pre-seeds completed with steps that already finished
+// so a failed step whose dependencies already ran doesn't get blocked.
+function groupRetryStepsByBatch(failedSteps: ReportPlanStep[], alreadyCompleted: Set<number>): ReportPlanStep[][] {
+  const batches: ReportPlanStep[][] = []
+  const completed = new Set<number>(alreadyCompleted)
+  let remaining = [...failedSteps]
+  while (remaining.length > 0) {
+    const batch = remaining.filter(s =>
+      (s.dependencies ?? []).every(dep => completed.has(dep))
+    )
+    if (batch.length === 0) {
+      batches.push(...remaining.map(s => [s]))
+      break
+    }
+    batches.push(batch)
+    batch.forEach(s => completed.add(s.step_number))
+    remaining = remaining.filter(s => !completed.has(s.step_number))
+  }
+  return batches
+}
+
 export default function PlanReportPage() {
   const { session, setAIModel } = useSession()
   const location = useLocation()
@@ -514,14 +535,19 @@ export default function PlanReportPage() {
             throw new Error('Execution timed out: no step results received after 1 minute')
           }
         }
-        const hasError = stepNumbers.some(
-          num => progress.steps.find(s => s.step_number === num)?.status === 'error'
-        )
-        if (hasError) throw new Error('One or more steps failed during execution')
-        const allDone = stepNumbers.every(
-          num => progress.steps.find(s => s.step_number === num)?.status === 'completed'
-        )
-        if (allDone) return
+        // Wait for all batch steps to settle (completed OR error) before deciding outcome —
+        // this ensures n8n has finished all parallel steps before we throw or return.
+        const allSettled = stepNumbers.every(num => {
+          const s = progress.steps.find(s => s.step_number === num)
+          return s?.status === 'completed' || s?.status === 'error'
+        })
+        if (allSettled) {
+          const hasError = stepNumbers.some(
+            num => progress.steps.find(s => s.step_number === num)?.status === 'error'
+          )
+          if (hasError) throw new Error('One or more steps failed during execution')
+          return
+        }
       }
     },
     [] // executionCancelledRef is a ref — no dep needed
@@ -631,9 +657,80 @@ export default function PlanReportPage() {
       if (executionCancelledRef.current) return
       stopPolling()
       setIsExecuting(false)
-      toast.error(err instanceof Error ? err.message : 'Failed to execute plan')
+      const msg = err instanceof Error ? err.message : 'Failed to execute plan'
+      // Preserve the progress display so the user can see which steps failed
+      setExecutionProgress(prev => prev ? { ...prev, status: 'error', error_message: msg } : null)
+      toast.error(msg)
     }
   }, [plan, session, selectedModelId, userProfile, waitForBatchCompletion, stopPolling])
+
+  const handleRetryFailed = useCallback(async () => {
+    if (!plan || !session?.email || !reportId || !executionProgress) return
+
+    const failedStepNumbers = executionProgress.steps
+      .filter(s => s.status === 'error')
+      .map(s => s.step_number)
+    const failedSteps = failedStepNumbers
+      .map(n => plan.steps.find(ps => ps.step_number === n))
+      .filter(Boolean) as ReportPlanStep[]
+    if (failedSteps.length === 0) return
+
+    const alreadyCompleted = new Set(
+      executionProgress.steps.filter(s => s.status === 'completed').map(s => s.step_number)
+    )
+    const batches = groupRetryStepsByBatch(failedSteps, alreadyCompleted)
+
+    executionCancelledRef.current = false
+    setIsExecuting(true)
+    setExecutionProgress(prev => prev ? {
+      ...prev,
+      status: 'in_progress',
+      error_message: null,
+      steps: prev.steps.map(s =>
+        failedStepNumbers.includes(s.step_number) ? { ...s, status: 'started' as const } : s
+      ),
+    } : null)
+    toast.success(`Retrying ${failedSteps.length} failed step${failedSteps.length > 1 ? 's' : ''}...`)
+
+    try {
+      for (const batch of batches) {
+        if (executionCancelledRef.current) return
+        await Promise.all(
+          batch.map(step =>
+            n8nService.executePlan({
+              plan: JSON.stringify({ ...plan, steps: [step] }),
+              email: session.email,
+              model: selectedModelId,
+              templateId: userProfile?.template_id,
+              reportId,
+              stepsOnly: true,
+            })
+          )
+        )
+        await waitForBatchCompletion(reportId, batch.map(s => s.step_number))
+      }
+
+      if (executionCancelledRef.current) return
+
+      await n8nService.runFormatter({
+        reportId,
+        email: session.email,
+        model: selectedModelId,
+        templateId: userProfile?.template_id,
+      })
+
+      pollingRef.current = setInterval(() => pollProgressRef.current?.(reportId), 5000)
+      setTimeout(() => pollProgressRef.current?.(reportId), 2000)
+
+    } catch (err) {
+      if (executionCancelledRef.current) return
+      stopPolling()
+      setIsExecuting(false)
+      const msg = err instanceof Error ? err.message : 'Retry failed'
+      setExecutionProgress(prev => prev ? { ...prev, status: 'error', error_message: msg } : null)
+      toast.error(msg)
+    }
+  }, [plan, session, selectedModelId, userProfile, reportId, executionProgress, waitForBatchCompletion, stopPolling])
 
   const isWorking = planMutation.isPending || isExecuting
 
@@ -1236,6 +1333,22 @@ export default function PlanReportPage() {
                         <p className="text-sm font-medium text-red-700 dark:text-red-300">Execution Failed</p>
                         <p className="text-xs text-red-600 dark:text-red-400 mt-1">{executionProgress.error_message}</p>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Retry failed steps */}
+                  {!isExecuting && executionProgress.steps.some(s => s.status === 'error') && plan && reportId && (
+                    <div className="flex items-center gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleRetryFailed}
+                        className="px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-sm transition-colors"
+                      >
+                        Retry Failed Steps ({executionProgress.steps.filter(s => s.status === 'error').length})
+                      </button>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        Completed steps will be reused
+                      </span>
                     </div>
                   )}
                 </div>
