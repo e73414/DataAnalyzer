@@ -17,6 +17,7 @@ export default function EditSummaryPage() {
   const [editedSummary, setEditedSummary] = useState('')
   const [datasetDesc, setDatasetDesc] = useState('')
   const [hasChanges, setHasChanges] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
 
   const {
     data: datasets,
@@ -111,6 +112,36 @@ export default function EditSummaryPage() {
       return
     }
     updateMutation.mutate({ summary: editedSummary, datasetDesc: datasetDesc.trim(), datasetName: datasetName.trim() })
+  }
+
+  const handleDownloadCsv = async () => {
+    if (!selectedDatasetId || !session?.email) return
+    setIsDownloading(true)
+    try {
+      const preview = await n8nService.getDatasetPreview(selectedDatasetId, session.email, 100000)
+      const escape = (val: string) => {
+        if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+          return `"${val.replace(/"/g, '""')}"`
+        }
+        return val
+      }
+      const header = preview.columns.map(escape).join(',')
+      const dataRows = preview.rows.map(row =>
+        preview.columns.map(col => escape(String(row[col] ?? ''))).join(',')
+      )
+      const csv = [header, ...dataRows].join('\n')
+      const blob = new Blob([csv], { type: 'text/csv' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${datasetName || selectedDatasetId}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to download CSV')
+    } finally {
+      setIsDownloading(false)
+    }
   }
 
   const formatColumnMapping = (mapping: DatasetDetail['column_mapping']): string => {
@@ -278,6 +309,22 @@ export default function EditSummaryPage() {
                           className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Reset
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleDownloadCsv}
+                          disabled={isDownloading || updateMutation.isPending}
+                          className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isDownloading ? (
+                            <span className="flex items-center gap-2">
+                              <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent"></span>
+                              Downloading...
+                            </span>
+                          ) : (
+                            'Download CSV'
+                          )}
                         </button>
                       </div>
                     </form>
