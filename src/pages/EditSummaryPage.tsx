@@ -126,9 +126,22 @@ export default function EditSummaryPage() {
         }
         return val
       }
-      const header = preview.columns.map(escape).join(',')
+      // Build db→original mapping so headers use original column names from the view
+      const columnMapping = (() => {
+        if (!datasetDetail?.column_mapping) return {} as Record<string, string>
+        if (typeof datasetDetail.column_mapping === 'string') {
+          try { return JSON.parse(datasetDetail.column_mapping) as Record<string, string> } catch { return {} as Record<string, string> }
+        }
+        return datasetDetail.column_mapping as Record<string, string>
+      })()
+      const dbToOriginal: Record<string, string> = {}
+      Object.entries(columnMapping).forEach(([orig, db]) => { dbToOriginal[db] = orig })
+      const columns = Object.keys(dbToOriginal).length > 0
+        ? preview.columns.filter(col => dbToOriginal[col])
+        : preview.columns
+      const header = columns.map(col => escape(dbToOriginal[col] ?? col)).join(',')
       const dataRows = preview.rows.map(row =>
-        preview.columns.map(col => escape(String(row[col] ?? ''))).join(',')
+        columns.map(col => escape(String(row[col] ?? ''))).join(',')
       )
       const csv = [header, ...dataRows].join('\n')
       const blob = new Blob([csv], { type: 'text/csv' })
