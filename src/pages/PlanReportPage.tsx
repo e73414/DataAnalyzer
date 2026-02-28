@@ -904,7 +904,7 @@ export default function PlanReportPage() {
                   </button>
                 </div>
                 <div className="border border-gray-200 dark:border-gray-600 rounded-lg divide-y divide-gray-200 dark:divide-gray-600 max-h-64 overflow-y-auto">
-                  {datasets?.map((dataset) => (
+                  {[...(datasets ?? [])].sort((a, b) => a.name.localeCompare(b.name)).map((dataset) => (
                     <div
                       key={dataset.id}
                       className={`flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${

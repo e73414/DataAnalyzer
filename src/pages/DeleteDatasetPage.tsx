@@ -100,7 +100,7 @@ export default function DeleteDatasetPage() {
                   disabled={deleteMutation.isPending}
                 >
                   <option value="">-- Select a dataset --</option>
-                  {datasets?.map((dataset) => (
+                  {[...(datasets ?? [])].sort((a, b) => a.name.localeCompare(b.name)).map((dataset) => (
                     <option key={dataset.id} value={dataset.id}>
                       {dataset.name}
                       {dataset.description && ` - ${dataset.description}`}
