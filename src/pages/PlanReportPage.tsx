@@ -6,6 +6,7 @@ import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
+import ReportHtml from '../components/ReportHtml'
 import type { ReportPlan, ReportPlanStep, CheckReportProgressResult, PromptDialogQuestion, DatasetPreview, DatasetDetail } from '../types'
 
 interface LoadedPlanState {
@@ -62,25 +63,6 @@ function groupRetryStepsByBatch(failedSteps: ReportPlanStep[], alreadyCompleted:
   return batches
 }
 
-function downloadTableAsCSV(table: HTMLTableElement, tableIndex: number) {
-  const rows = Array.from(table.querySelectorAll('tr'))
-  const csv = rows.map(row => {
-    const cells = Array.from(row.querySelectorAll('th, td'))
-    return cells.map(cell => {
-      const text = (cell.textContent ?? '').trim()
-      return /[,"\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
-    }).join(',')
-  }).join('\n')
-
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `table-${tableIndex}.csv`
-  link.click()
-  URL.revokeObjectURL(url)
-}
-
 export default function PlanReportPage() {
   const { session, setAIModel } = useSession()
   const location = useLocation()
@@ -119,7 +101,6 @@ export default function PlanReportPage() {
   const pollProgressRef = useRef<((rptId: string) => Promise<void>) | null>(null)
   const previewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const executionCancelledRef = useRef(false)
-  const reportContainerRef = useRef<HTMLDivElement>(null)
 
   const {
     data: datasets,
@@ -232,31 +213,6 @@ export default function PlanReportPage() {
 
     toast.success('Plan and report loaded from history')
   }, [loadedState, setAIModel])
-
-  // Inject "Download CSV" buttons above each table in the rendered report
-  useEffect(() => {
-    const container = reportContainerRef.current
-    if (!container || !report) return
-
-    const tables = Array.from(container.querySelectorAll('table'))
-    tables.forEach((table, index) => {
-      // Avoid double-wrapping on re-renders
-      if (table.parentElement?.classList.contains('report-table-wrapper')) return
-
-      const wrapper = document.createElement('div')
-      wrapper.className = 'report-table-wrapper'
-
-      const btn = document.createElement('button')
-      btn.className = 'csv-download-btn'
-      btn.innerHTML = '&#x2B07; Download CSV'
-      btn.title = 'Download table as CSV'
-      btn.addEventListener('click', () => downloadTableAsCSV(table, index + 1))
-
-      table.parentNode?.insertBefore(wrapper, table)
-      wrapper.appendChild(btn)
-      wrapper.appendChild(table)
-    })
-  }, [report])
 
   const handleModelChange = (modelId: string) => {
     setSelectedModelId(modelId)
@@ -1488,10 +1444,9 @@ export default function PlanReportPage() {
                   />
                 </div>
               ) : (
-                <div
-                  ref={reportContainerRef}
+                <ReportHtml
+                  html={report}
                   className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-6 overflow-auto max-h-[80vh] report-html"
-                  dangerouslySetInnerHTML={{ __html: report }}
                 />
               )}
             </div>

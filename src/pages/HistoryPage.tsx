@@ -6,6 +6,7 @@ import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
+import ReportHtml from '../components/ReportHtml'
 import type { ConversationHistory, ReportPlan } from '../types'
 
 type ViewMode = 'by-date' | 'by-dataset'
@@ -579,9 +580,9 @@ export default function HistoryPage() {
                 <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                   Response
                 </h4>
-                <div
+                <ReportHtml
+                  html={conv.response}
                   className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 [&_*]:text-gray-800 dark:[&_*]:text-gray-200 [&_*]:!bg-transparent"
-                  dangerouslySetInnerHTML={{ __html: conv.response }}
                 />
               </div>
               {conv.report_plan && (() => {
