@@ -105,6 +105,7 @@ export default function PlanReportPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogQuestions, setDialogQuestions] = useState<PromptDialogQuestion[]>([])
   const [dialogAnswers, setDialogAnswers] = useState<Record<string, string>>({})
+  const [datasetSearch, setDatasetSearch] = useState('')
   const [dialogLoading, setDialogLoading] = useState(false)
   const [previewDatasetId, setPreviewDatasetId] = useState<string | null>(null)
   const [previewAnchorRect, setPreviewAnchorRect] = useState<DOMRect | null>(null)
@@ -947,8 +948,16 @@ export default function PlanReportPage() {
                     {selectedDatasetIds.size === datasets?.length ? 'Deselect All' : 'Select All'}
                   </button>
                 </div>
+                <input
+                  type="text"
+                  value={datasetSearch}
+                  onChange={(e) => setDatasetSearch(e.target.value)}
+                  placeholder="Search datasets..."
+                  className="input-field mb-2"
+                  disabled={isWorking}
+                />
                 <div className="border border-gray-200 dark:border-gray-600 rounded-lg divide-y divide-gray-200 dark:divide-gray-600 max-h-64 overflow-y-auto">
-                  {[...(datasets ?? [])].sort((a, b) => a.name.localeCompare(b.name)).map((dataset) => (
+                  {[...(datasets ?? [])].sort((a, b) => a.name.localeCompare(b.name)).filter(d => d.name.toLowerCase().includes(datasetSearch.toLowerCase())).map((dataset) => (
                     <div
                       key={dataset.id}
                       className={`flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${

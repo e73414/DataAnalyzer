@@ -13,6 +13,7 @@ export default function EditSummaryPage() {
   const queryClient = useQueryClient()
   const { session } = useSession()
   const [selectedDatasetId, setSelectedDatasetId] = useState('')
+  const [datasetSearch, setDatasetSearch] = useState('')
   const [datasetName, setDatasetName] = useState('')
   const [editedSummary, setEditedSummary] = useState('')
   const [datasetDesc, setDatasetDesc] = useState('')
@@ -192,6 +193,14 @@ export default function EditSummaryPage() {
                 <label htmlFor="dataset" className="label">
                   Select Dataset
                 </label>
+                <input
+                  type="text"
+                  value={datasetSearch}
+                  onChange={(e) => setDatasetSearch(e.target.value)}
+                  placeholder="Search datasets..."
+                  className="input-field mb-2"
+                  disabled={updateMutation.isPending}
+                />
                 <select
                   id="dataset"
                   value={selectedDatasetId}
@@ -200,7 +209,7 @@ export default function EditSummaryPage() {
                   disabled={updateMutation.isPending}
                 >
                   <option value="">-- Select a dataset --</option>
-                  {[...(datasets ?? [])].sort((a, b) => a.name.localeCompare(b.name)).map((dataset) => (
+                  {[...(datasets ?? [])].sort((a, b) => a.name.localeCompare(b.name)).filter(d => d.name.toLowerCase().includes(datasetSearch.toLowerCase())).map((dataset) => (
                     <option key={dataset.id} value={dataset.id}>
                       {dataset.name}
                       {dataset.description && ` - ${dataset.description}`}
