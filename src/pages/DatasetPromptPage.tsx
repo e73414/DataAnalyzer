@@ -95,6 +95,7 @@ export default function DatasetPromptPage() {
   const [selectedDatasetId, setSelectedDatasetId] = useState(
     (location.state as { preSelectedDatasetId?: string } | null)?.preSelectedDatasetId || ''
   )
+  const [datasetSearch, setDatasetSearch] = useState('')
   const [selectedModelId, setSelectedModelId] = useState(session?.aiModel || '')
   const [prompt, setPrompt] = useState('')
   const [captureProcess, setCaptureProcess] = useState(false)
@@ -309,6 +310,14 @@ export default function DatasetPromptPage() {
                 <label htmlFor="dataset" className="label">
                   Select Dataset
                 </label>
+                <input
+                  type="text"
+                  value={datasetSearch}
+                  onChange={(e) => setDatasetSearch(e.target.value)}
+                  placeholder="Search datasets..."
+                  className="input-field mb-2"
+                  disabled={isAnalyzing}
+                />
                 <select
                   id="dataset"
                   value={selectedDatasetId}
@@ -317,7 +326,7 @@ export default function DatasetPromptPage() {
                   disabled={isAnalyzing}
                 >
                   <option value="">-- Select a dataset --</option>
-                  {[...(datasets ?? [])].sort((a, b) => a.name.localeCompare(b.name)).map((dataset) => (
+                  {[...(datasets ?? [])].sort((a, b) => a.name.localeCompare(b.name)).filter(d => d.name.toLowerCase().includes(datasetSearch.toLowerCase())).map((dataset) => (
                     <option key={dataset.id} value={dataset.id}>
                       {dataset.name}
                       {dataset.description && ` - ${dataset.description}`}

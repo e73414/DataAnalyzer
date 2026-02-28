@@ -11,6 +11,7 @@ export default function DeleteDatasetPage() {
   const { session } = useSession()
   const [selectedDatasetId, setSelectedDatasetId] = useState('')
   const [confirmText, setConfirmText] = useState('')
+  const [datasetSearch, setDatasetSearch] = useState('')
 
   const {
     data: datasets,
@@ -89,6 +90,14 @@ export default function DeleteDatasetPage() {
                 <label htmlFor="dataset" className="label">
                   Select Dataset to Delete
                 </label>
+                <input
+                  type="text"
+                  value={datasetSearch}
+                  onChange={(e) => setDatasetSearch(e.target.value)}
+                  placeholder="Search datasets..."
+                  className="input-field mb-2"
+                  disabled={deleteMutation.isPending}
+                />
                 <select
                   id="dataset"
                   value={selectedDatasetId}
@@ -100,7 +109,7 @@ export default function DeleteDatasetPage() {
                   disabled={deleteMutation.isPending}
                 >
                   <option value="">-- Select a dataset --</option>
-                  {[...(datasets ?? [])].sort((a, b) => a.name.localeCompare(b.name)).map((dataset) => (
+                  {[...(datasets ?? [])].sort((a, b) => a.name.localeCompare(b.name)).filter(d => d.name.toLowerCase().includes(datasetSearch.toLowerCase())).map((dataset) => (
                     <option key={dataset.id} value={dataset.id}>
                       {dataset.name}
                       {dataset.description && ` - ${dataset.description}`}
