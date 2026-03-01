@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { n8nService } from '../services/mcpN8nService'
+import { pocketbaseService } from '../services/mcpPocketbaseService'
 import Navigation from '../components/Navigation'
 
 interface IncomingFileState {
@@ -59,13 +60,20 @@ export default function UploadDatasetPage() {
         reader.readAsDataURL(selectedFile)
       })
 
-      return n8nService.uploadDataset({
+      const result = await n8nService.uploadDataset({
         datasetName: datasetName || selectedFile.name.replace('.csv', ''),
         description,
         email: session.email,
         csvData,
         ...(datasetDesc.trim() && { datasetDesc: datasetDesc.trim() }),
       })
+
+      const profile = session.profile?.trim()
+      if (profile && profile !== 'admadmadm' && result.datasetId) {
+        await pocketbaseService.setTemplateProfile(result.datasetId, profile)
+      }
+
+      return result
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['datasets'] })
