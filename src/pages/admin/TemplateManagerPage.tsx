@@ -84,7 +84,7 @@ function DatasetRow({ dataset, assignment, onSave, onDelete, isSaving, isDeletin
             {currentCode}
           </span>
         ) : (
-          <span className="text-xs text-gray-400 italic">All users</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{dataset.owner_email}</span>
         )}
       </td>
       <td className="px-4 py-3">
