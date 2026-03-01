@@ -7,7 +7,7 @@ const SESSION_EXPIRY_HOURS = 24
 
 interface SessionContextType {
   session: Session | null
-  login: (email: string, model?: string) => void
+  login: (email: string, model?: string, profile?: string) => void
   logout: () => void
   setAIModel: (model: string) => void
   isLoggedIn: boolean
@@ -63,11 +63,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     })
   }, [session])
 
-  const login = useCallback((email: string, model?: string) => {
+  const login = useCallback((email: string, model?: string, profile?: string) => {
     const newSession: Session = {
       email,
       aiModel: model || '',
       loginTime: Date.now(),
+      profile,
     }
     saveSession(newSession)
     setSession(newSession)

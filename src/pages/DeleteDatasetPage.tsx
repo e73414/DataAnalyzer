@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
+import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
 
 export default function DeleteDatasetPage() {
@@ -14,14 +15,10 @@ export default function DeleteDatasetPage() {
   const [datasetSearch, setDatasetSearch] = useState('')
 
   const {
-    data: datasets,
+    datasets: datasets = [],
     isLoading: isLoadingDatasets,
     error: datasetsError,
-  } = useQuery({
-    queryKey: ['datasets', session?.email],
-    queryFn: () => pocketbaseService.getDatasetsByEmail(session!.email),
-    enabled: !!session?.email,
-  })
+  } = useAccessibleDatasets()
 
   const deleteMutation = useMutation({
     mutationFn: () =>

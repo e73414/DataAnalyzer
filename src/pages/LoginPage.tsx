@@ -144,7 +144,7 @@ export default function LoginPage() {
         setLoginError('Invalid email or password.')
         return
       }
-      login(data.email)
+      login(data.email, undefined, profile.profile)
       navigate('/analyze')
     } catch {
       setLoginError('Unable to sign in. Please try again.')

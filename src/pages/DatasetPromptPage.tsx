@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
+import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
 import type { AnalysisResult } from '../types'
 
@@ -107,14 +108,10 @@ export default function DatasetPromptPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const {
-    data: datasets,
+    datasets: datasets = [],
     isLoading: isLoadingDatasets,
     error: datasetsError,
-  } = useQuery({
-    queryKey: ['datasets', session?.email],
-    queryFn: () => pocketbaseService.getDatasetsByEmail(session!.email),
-    enabled: !!session?.email,
-  })
+  } = useAccessibleDatasets()
 
   const {
     data: aiModels,

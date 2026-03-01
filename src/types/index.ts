@@ -2,6 +2,7 @@ export interface Session {
   email: string
   aiModel: string
   loginTime: number
+  profile?: string
 }
 
 export interface AIModel {
@@ -59,6 +60,47 @@ export interface UserProfile {
   template_id: string
   user_timezone?: string
   password_hash?: string
+  profile?: string
+}
+
+export interface ProfileCompany {
+  id: string
+  name: string
+  code: string
+  created_at: string
+}
+
+export interface ProfileBusinessUnit {
+  id: string
+  name: string
+  code: string
+  company_code: string
+  created_at: string
+}
+
+export interface ProfileTeam {
+  id: string
+  name: string
+  code: string
+  company_code: string
+  bu_code: string
+  created_at: string
+}
+
+export interface TemplateProfileAssignment {
+  template_id: string
+  profile_code: string | null
+  updated_at: string
+}
+
+export interface AdminUser {
+  id: string
+  user_email: string
+  password_hash: string | null
+  template_id: string | null
+  user_timezone: string | null
+  profile: string | null
+  created_at: string
 }
 
 export interface AnalysisRequest {
