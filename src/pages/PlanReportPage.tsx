@@ -90,7 +90,7 @@ export default function PlanReportPage() {
   const [dialogAnswers, setDialogAnswers] = useState<Record<string, string>>({})
   const [datasetSearch, setDatasetSearch] = useState('')
   const [dialogLoading, setDialogLoading] = useState(false)
-  const [detailLevel, setDetailLevel] = useState('Some Detail')
+  const [detailLevel, setDetailLevel] = useState('None')
   const [previewDatasetId, setPreviewDatasetId] = useState<string | null>(null)
   const [previewAnchorRect, setPreviewAnchorRect] = useState<DOMRect | null>(null)
   const editorRef = useRef<HTMLIFrameElement>(null)
@@ -994,21 +994,6 @@ export default function PlanReportPage() {
                   )}
                 </button>
 
-                <div className="flex items-center gap-1">
-                  <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">Show steps -</span>
-                  <select
-                    value={detailLevel}
-                    onChange={(e) => setDetailLevel(e.target.value)}
-                    className="input-field w-auto"
-                    disabled={isWorking}
-                  >
-                    <option value="Highly Detailed">Highly Detailed</option>
-                    <option value="Some Detail">Some Detail</option>
-                    <option value="Just Overview">Just Overview</option>
-                    <option value="None">None</option>
-                  </select>
-                </div>
-
                 <select
                   value={selectedModelId}
                   onChange={(e) => handleModelChange(e.target.value)}
@@ -1250,6 +1235,21 @@ export default function PlanReportPage() {
                     ))
                   )}
                 </select>
+
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">Show steps -</span>
+                  <select
+                    value={detailLevel}
+                    onChange={(e) => setDetailLevel(e.target.value)}
+                    className="input-field w-auto"
+                    disabled={isWorking}
+                  >
+                    <option value="Highly Detailed">Highly Detailed</option>
+                    <option value="Some Detail">Some Detail</option>
+                    <option value="Just Overview">Just Overview</option>
+                    <option value="None">None</option>
+                  </select>
+                </div>
 
                 <button
                   type="button"
