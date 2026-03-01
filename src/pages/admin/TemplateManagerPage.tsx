@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { pocketbaseService } from '../../services/mcpPocketbaseService'
+import { n8nService } from '../../services/mcpN8nService'
 import type { Dataset, TemplateProfileAssignment } from '../../types'
 import Navigation from '../../components/Navigation'
 import { useSession } from '../../context/SessionContext'
@@ -24,12 +25,15 @@ interface DatasetRowProps {
   dataset: Dataset
   assignment: TemplateProfileAssignment | undefined
   onSave: (datasetId: string, profileCode: string | null) => Promise<void>
+  onDelete: (datasetId: string) => Promise<void>
   isSaving: boolean
+  isDeleting: boolean
 }
 
-function DatasetRow({ dataset, assignment, onSave, isSaving }: DatasetRowProps) {
+function DatasetRow({ dataset, assignment, onSave, onDelete, isSaving, isDeleting }: DatasetRowProps) {
   const parsed = parseProfile(assignment?.profile_code ?? null)
   const [editing, setEditing] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [companyCode, setCompanyCode] = useState(parsed.company)
   const [buCode, setBuCode] = useState(parsed.bu)
   const [teamCode, setTeamCode] = useState(parsed.team)
@@ -159,6 +163,33 @@ function DatasetRow({ dataset, assignment, onSave, isSaving }: DatasetRowProps) 
           </button>
         )}
       </td>
+      <td className="px-4 py-3 w-28">
+        {confirmDelete ? (
+          <div className="flex gap-1">
+            <button
+              className="px-2 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded disabled:opacity-50"
+              disabled={isDeleting}
+              onClick={async () => { await onDelete(dataset.id); setConfirmDelete(false) }}
+            >
+              {isDeleting ? '…' : 'Confirm'}
+            </button>
+            <button
+              className="btn-secondary px-2 py-1 text-xs"
+              disabled={isDeleting}
+              onClick={() => setConfirmDelete(false)}
+            >
+              No
+            </button>
+          </div>
+        ) : (
+          <button
+            className="px-3 py-1 text-xs font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            onClick={() => setConfirmDelete(true)}
+          >
+            Delete
+          </button>
+        )}
+      </td>
     </tr>
   )
 }
@@ -188,8 +219,22 @@ export default function TemplateManagerPage() {
     onError: (err: Error) => toast.error(err.message),
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: (datasetId: string) =>
+      n8nService.deleteDataset({ datasetId, email: session!.email }),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['datasets-all'] })
+      toast.success(`"${result.datasetName}" deleted`)
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
   const handleSave = async (datasetId: string, profileCode: string | null) => {
     await saveMutation.mutateAsync({ datasetId, profileCode })
+  }
+
+  const handleDelete = async (datasetId: string) => {
+    await deleteMutation.mutateAsync(datasetId)
   }
 
   const isLoading = loadingDatasets || loadingAssignments
@@ -222,6 +267,7 @@ export default function TemplateManagerPage() {
                   <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Dataset</th>
                   <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium w-36">Profile</th>
                   <th className="px-4 py-3 text-gray-500 dark:text-gray-400 font-medium text-left">Assignment</th>
+                  <th className="px-4 py-3 text-gray-500 dark:text-gray-400 font-medium w-28"></th>
                 </tr>
               </thead>
               <tbody>
@@ -231,7 +277,9 @@ export default function TemplateManagerPage() {
                     dataset={d}
                     assignment={assignmentMap[d.id]}
                     onSave={handleSave}
+                    onDelete={handleDelete}
                     isSaving={saveMutation.isPending}
+                    isDeleting={deleteMutation.isPending}
                   />
                 ))}
               </tbody>
