@@ -90,6 +90,7 @@ export default function PlanReportPage() {
   const [dialogAnswers, setDialogAnswers] = useState<Record<string, string>>({})
   const [datasetSearch, setDatasetSearch] = useState('')
   const [dialogLoading, setDialogLoading] = useState(false)
+  const [detailLevel, setDetailLevel] = useState('Some Detail')
   const [previewDatasetId, setPreviewDatasetId] = useState<string | null>(null)
   const [previewAnchorRect, setPreviewAnchorRect] = useState<DOMRect | null>(null)
   const editorRef = useRef<HTMLIFrameElement>(null)
@@ -192,9 +193,10 @@ export default function PlanReportPage() {
       }
     }
 
-    // Select the dataset
-    if (loadedState.datasetId) {
-      setSelectedDatasetIds(new Set([loadedState.datasetId]))
+    // Select the datasets (stored as comma-separated IDs, or 'all')
+    if (loadedState.datasetId && loadedState.datasetId !== 'all') {
+      const ids = loadedState.datasetId.split(',').map(id => id.trim()).filter(Boolean)
+      setSelectedDatasetIds(new Set(ids))
     }
 
     // Set the AI model
@@ -646,6 +648,7 @@ export default function PlanReportPage() {
         email: session.email,
         model: selectedModelId,
         templateId: userProfile?.template_id,
+        detailLevel,
       })
 
       // Poll for final report using existing mechanism
@@ -716,6 +719,7 @@ export default function PlanReportPage() {
         email: session.email,
         model: selectedModelId,
         templateId: userProfile?.template_id,
+        detailLevel,
       })
 
       pollingRef.current = setInterval(() => pollProgressRef.current?.(reportId), 5000)
@@ -989,6 +993,21 @@ export default function PlanReportPage() {
                     'Guided Setup'
                   )}
                 </button>
+
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">Show steps -</span>
+                  <select
+                    value={detailLevel}
+                    onChange={(e) => setDetailLevel(e.target.value)}
+                    className="input-field w-auto"
+                    disabled={isWorking}
+                  >
+                    <option value="Highly Detailed">Highly Detailed</option>
+                    <option value="Some Detail">Some Detail</option>
+                    <option value="Just Overview">Just Overview</option>
+                    <option value="None">None</option>
+                  </select>
+                </div>
 
                 <select
                   value={selectedModelId}

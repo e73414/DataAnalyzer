@@ -621,6 +621,7 @@ export const n8nService = {
         email: request.email,
         ...(request.model && { model: request.model }),
         ...(request.templateId && { templateId: request.templateId }),
+        ...(request.detailLevel && { detail_level: request.detailLevel }),
       },
     })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

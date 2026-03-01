@@ -241,6 +241,7 @@ export interface RunFormatterRequest {
   email: string
   model?: string
   templateId?: string
+  detailLevel?: string
 }
 
 export interface ExecutePlanResult {
