@@ -1,7 +1,5 @@
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
 import { useSession } from './context/SessionContext'
-import { pocketbaseService } from './services/mcpPocketbaseService'
 import LoginPage from './pages/LoginPage'
 import DatasetPromptPage from './pages/DatasetPromptPage'
 import ResultsPage from './pages/ResultsPage'
@@ -61,22 +59,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, isLoggedIn, isValidating } = useSession()
-  const [adminChecked, setAdminChecked] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
-
-  useEffect(() => {
-    if (!isLoggedIn || !session?.email) {
-      setAdminChecked(true)
-      return
-    }
-    pocketbaseService.getUserProfile(session.email).then((profile) => {
-      setIsAdmin(profile?.profile === 'admadmadm')
-      setAdminChecked(true)
-    }).catch(() => setAdminChecked(true))
-  }, [isLoggedIn, session?.email])
-
-  if (isValidating || !adminChecked) return <LoadingSpinner />
-  if (!isLoggedIn || !isAdmin) return <Navigate to="/unauthorized" replace />
+  if (isValidating) return <LoadingSpinner />
+  if (!isLoggedIn) return <Navigate to="/unauthorized" replace />
+  if (session?.profile?.trim() !== 'admadmadm') return <Navigate to="/unauthorized" replace />
   return <>{children}</>
 }
 
