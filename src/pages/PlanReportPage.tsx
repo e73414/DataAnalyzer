@@ -1505,13 +1505,16 @@ export default function PlanReportPage() {
                   <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
                     {q.question}
                   </label>
-                  <input
-                    type="text"
+                  <textarea
+                    rows={2}
                     value={dialogAnswers[q.id] || ''}
                     onChange={(e) => setDialogAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
-                    placeholder={q.hint}
-                    className="input-field"
+                    placeholder="Your answer…"
+                    className="input-field resize-none"
                   />
+                  {q.hint && (
+                    <p className="mt-1 text-xs text-gray-400 dark:text-gray-500 leading-snug">{q.hint}</p>
+                  )}
                 </div>
               ))}
             </div>
