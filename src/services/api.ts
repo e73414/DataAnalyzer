@@ -4,19 +4,10 @@ import axios from 'axios'
 // In development: /mcp-n8n proxies to http://localhost:3000
 // In production: set VITE_MCP_N8N_URL to the actual URL
 const MCP_N8N_BASE_URL = import.meta.env.VITE_MCP_N8N_URL || '/mcp-n8n'
-const MCP_POCKETBASE_BASE_URL = import.meta.env.VITE_MCP_POCKETBASE_URL || '/mcp-pocketbase'
 
 export const mcpN8nApi = axios.create({
   baseURL: MCP_N8N_BASE_URL,
   timeout: 300000, // 5 minutes for AI processing
-  headers: { 'Content-Type': 'application/json' },
-  maxContentLength: Infinity,
-  maxBodyLength: Infinity,
-})
-
-export const mcpPocketbaseApi = axios.create({
-  baseURL: MCP_POCKETBASE_BASE_URL,
-  timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
   maxContentLength: Infinity,
   maxBodyLength: Infinity,
@@ -37,18 +28,3 @@ mcpN8nApi.interceptors.response.use(
   }
 )
 
-mcpPocketbaseApi.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const data = error.response?.data
-    // PocketBase returns { message, data: { field: { code, message } } } on validation errors
-    let message = data?.error || data?.message || error.message || 'Unknown error'
-    if (data?.data && typeof data.data === 'object') {
-      const fieldErrors = Object.entries(data.data)
-        .map(([field, err]) => `${field}: ${(err as { message?: string })?.message || 'invalid'}`)
-        .join('; ')
-      if (fieldErrors) message += ` (${fieldErrors})`
-    }
-    throw new Error(message)
-  }
-)
