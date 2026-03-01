@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { useSession } from './context/SessionContext'
+import { pocketbaseService } from './services/mcpPocketbaseService'
 import LoginPage from './pages/LoginPage'
 import DatasetPromptPage from './pages/DatasetPromptPage'
 import ResultsPage from './pages/ResultsPage'
@@ -13,6 +15,9 @@ import UploadReportTemplatePage from './pages/UploadReportTemplatePage'
 import PlanReportPage from './pages/PlanReportPage'
 import CsvOptimizerPage from './pages/CsvOptimizerPage'
 import ExcelUploadPage from './pages/ExcelUploadPage'
+import ProfileManagerPage from './pages/admin/ProfileManagerPage'
+import UserManagerPage from './pages/admin/UserManagerPage'
+import TemplateManagerPage from './pages/admin/TemplateManagerPage'
 
 function UnauthorizedPage() {
   const navigate = useNavigate()
@@ -39,18 +44,39 @@ function UnauthorizedPage() {
   )
 }
 
+function LoadingSpinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent"></div>
+    </div>
+  )
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isLoggedIn, isValidating } = useSession()
-  if (isValidating) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent"></div>
-      </div>
-    )
-  }
-  if (!isLoggedIn) {
-    return <Navigate to="/unauthorized" replace />
-  }
+  if (isValidating) return <LoadingSpinner />
+  if (!isLoggedIn) return <Navigate to="/unauthorized" replace />
+  return <>{children}</>
+}
+
+function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { session, isLoggedIn, isValidating } = useSession()
+  const [adminChecked, setAdminChecked] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    if (!isLoggedIn || !session?.email) {
+      setAdminChecked(true)
+      return
+    }
+    pocketbaseService.getUserProfile(session.email).then((profile) => {
+      setIsAdmin(profile?.profile === 'admadmadm')
+      setAdminChecked(true)
+    }).catch(() => setAdminChecked(true))
+  }, [isLoggedIn, session?.email])
+
+  if (isValidating || !adminChecked) return <LoadingSpinner />
+  if (!isLoggedIn || !isAdmin) return <Navigate to="/unauthorized" replace />
   return <>{children}</>
 }
 
@@ -152,6 +178,30 @@ function App() {
           <ProtectedRoute>
             <ExcelUploadPage />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/profiles"
+        element={
+          <AdminProtectedRoute>
+            <ProfileManagerPage />
+          </AdminProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/users"
+        element={
+          <AdminProtectedRoute>
+            <UserManagerPage />
+          </AdminProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/templates"
+        element={
+          <AdminProtectedRoute>
+            <TemplateManagerPage />
+          </AdminProtectedRoute>
         }
       />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />

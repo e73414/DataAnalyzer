@@ -168,8 +168,8 @@ export default function TemplateManagerPage() {
   const qc = useQueryClient()
 
   const { data: datasets = [], isLoading: loadingDatasets } = useQuery({
-    queryKey: ['datasets', session?.email],
-    queryFn: () => pocketbaseService.getDatasetsByEmail(session!.email),
+    queryKey: ['datasets-all'],
+    queryFn: () => pocketbaseService.getAllDatasets(),
     enabled: !!session?.email,
   })
 

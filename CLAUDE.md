@@ -16,9 +16,8 @@ Create and update n8n workflows using the available n8n-mcp tool and n8n skills.
 ### Before Modifying Any Workflow
 
 1. Confirm the workflow ID/name with the user
-2. Verify the `AI-DEV` tag is present on the workflow
-3. Review the current workflow state
-4. Explain proposed changes before implementing
+2 Review the current workflow state
+3 Explain proposed changes before implementing
 
 ## Best Practices
 
@@ -28,6 +27,9 @@ Create and update n8n workflows using the available n8n-mcp tool and n8n skills.
 - **Backup awareness**: Note the current state of a workflow before changes
 - **Incremental changes**: Make small, testable changes rather than large overhauls
 - **No destructive operations**: Never delete workflows without explicit user confirmation
+- **No auto commit and push**: Never commit and push automatically as user will do so
+
+
 
 ### Workflow Development
 

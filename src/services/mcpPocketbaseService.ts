@@ -110,6 +110,20 @@ export const pocketbaseService = {
     return data.items || []
   },
 
+  // Fetch ALL datasets directly from postgres (all owners).
+  // Column names are mapped flexibly to handle different naming conventions.
+  async getAllDatasets(): Promise<Dataset[]> {
+    const response = await mcpN8nApi.get<Record<string, unknown>[]>('/datasets/all')
+    return (response.data || []).map((row) => ({
+      id: String(row.id ?? row.dataset_id ?? ''),
+      name: String(row.name ?? row.dataset_name ?? ''),
+      description: row.description != null ? String(row.description) : undefined,
+      owner_email: String(row.owner_email ?? ''),
+      created: String(row.created ?? row.created_at ?? ''),
+      updated: String(row.updated ?? row.updated_at ?? ''),
+    }))
+  },
+
   // Save analysis result to PostgreSQL via n8n webhook (unchanged)
   async saveAnalysisResult(data: {
     datasetId: string
