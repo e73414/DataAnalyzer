@@ -1506,7 +1506,7 @@ export default function PlanReportPage() {
                     {q.question}
                   </label>
                   <textarea
-                    rows={2}
+                    rows={1}
                     value={dialogAnswers[q.id] || ''}
                     onChange={(e) => setDialogAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
                     placeholder="Your answer…"
