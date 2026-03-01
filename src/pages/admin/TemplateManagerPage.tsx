@@ -25,7 +25,7 @@ interface DatasetRowProps {
   dataset: Dataset
   assignment: TemplateProfileAssignment | undefined
   onSave: (datasetId: string, profileCode: string | null) => Promise<void>
-  onDelete: (datasetId: string) => Promise<void>
+  onDelete: (datasetId: string, ownerEmail: string) => Promise<void>
   isSaving: boolean
   isDeleting: boolean
 }
@@ -169,7 +169,7 @@ function DatasetRow({ dataset, assignment, onSave, onDelete, isSaving, isDeletin
             <button
               className="px-2 py-1 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded disabled:opacity-50"
               disabled={isDeleting}
-              onClick={async () => { await onDelete(dataset.id); setConfirmDelete(false) }}
+              onClick={async () => { await onDelete(dataset.id, dataset.owner_email); setConfirmDelete(false) }}
             >
               {isDeleting ? '…' : 'Confirm'}
             </button>
@@ -220,8 +220,8 @@ export default function TemplateManagerPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (datasetId: string) =>
-      n8nService.deleteDataset({ datasetId, email: session!.email }),
+    mutationFn: ({ datasetId, ownerEmail }: { datasetId: string; ownerEmail: string }) =>
+      n8nService.deleteDataset({ datasetId, email: ownerEmail }),
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['datasets-all'] })
       toast.success(`"${result.datasetName}" deleted`)
@@ -233,8 +233,8 @@ export default function TemplateManagerPage() {
     await saveMutation.mutateAsync({ datasetId, profileCode })
   }
 
-  const handleDelete = async (datasetId: string) => {
-    await deleteMutation.mutateAsync(datasetId)
+  const handleDelete = async (datasetId: string, ownerEmail: string) => {
+    await deleteMutation.mutateAsync({ datasetId, ownerEmail })
   }
 
   const isLoading = loadingDatasets || loadingAssignments
