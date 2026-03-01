@@ -1,5 +1,8 @@
 import { mcpN8nApi } from './api'
-import type { Dataset, AIModel, NavLink, ConversationHistory, UserProfile } from '../types'
+import type {
+  Dataset, AIModel, NavLink, ConversationHistory, UserProfile,
+  ProfileCompany, ProfileBusinessUnit, ProfileTeam, TemplateProfileAssignment, AdminUser
+} from '../types'
 
 // ── Types for Postgres REST responses ─────────────────────────────────────────
 
@@ -15,6 +18,7 @@ interface PgUser {
   password_hash: string | null
   template_id: string | null
   user_timezone: string | null
+  profile: string | null
 }
 
 interface PgConversation {
@@ -61,6 +65,7 @@ export const pocketbaseService = {
       template_id: record.template_id ?? '',
       user_timezone: record.user_timezone ?? undefined,
       password_hash: record.password_hash ?? undefined,
+      profile: record.profile ?? undefined,
     }
   },
 
@@ -193,5 +198,114 @@ export const pocketbaseService = {
     const conversations = await this.getConversationHistory(email)
     const uniqueDatasets = [...new Set(conversations.map((c) => c.dataset_name))]
     return uniqueDatasets.sort()
+  },
+
+  // ── Admin: Users ────────────────────────────────────────────────────────────
+
+  async listAllUsers(): Promise<AdminUser[]> {
+    const response = await mcpN8nApi.get<AdminUser[]>('/admin/users')
+    return response.data || []
+  },
+
+  async createUser(data: {
+    user_email: string
+    password_hash: string
+    profile?: string
+    user_timezone?: string
+    template_id?: string
+  }): Promise<AdminUser> {
+    const response = await mcpN8nApi.post<AdminUser>('/admin/users', data)
+    return response.data
+  },
+
+  async updateUser(id: string, data: {
+    password_hash?: string
+    profile?: string
+    user_timezone?: string
+    template_id?: string
+  }): Promise<void> {
+    await mcpN8nApi.patch(`/users/${id}`, data)
+  },
+
+  async deleteUser(id: string): Promise<void> {
+    await mcpN8nApi.delete(`/admin/users/${id}`)
+  },
+
+  // ── Admin: Companies ────────────────────────────────────────────────────────
+
+  async listCompanies(): Promise<ProfileCompany[]> {
+    const response = await mcpN8nApi.get<ProfileCompany[]>('/admin/companies')
+    return response.data || []
+  },
+
+  async createCompany(name: string): Promise<ProfileCompany> {
+    const response = await mcpN8nApi.post<ProfileCompany>('/admin/companies', { name })
+    return response.data
+  },
+
+  async updateCompany(id: string, name: string): Promise<ProfileCompany> {
+    const response = await mcpN8nApi.patch<ProfileCompany>(`/admin/companies/${id}`, { name })
+    return response.data
+  },
+
+  async deleteCompany(id: string): Promise<void> {
+    await mcpN8nApi.delete(`/admin/companies/${id}`)
+  },
+
+  // ── Admin: Business Units ───────────────────────────────────────────────────
+
+  async listBusinessUnits(company_code: string): Promise<ProfileBusinessUnit[]> {
+    const response = await mcpN8nApi.get<ProfileBusinessUnit[]>('/admin/business-units', { params: { company_code } })
+    return response.data || []
+  },
+
+  async createBusinessUnit(name: string, company_code: string): Promise<ProfileBusinessUnit> {
+    const response = await mcpN8nApi.post<ProfileBusinessUnit>('/admin/business-units', { name, company_code })
+    return response.data
+  },
+
+  async updateBusinessUnit(id: string, name: string): Promise<ProfileBusinessUnit> {
+    const response = await mcpN8nApi.patch<ProfileBusinessUnit>(`/admin/business-units/${id}`, { name })
+    return response.data
+  },
+
+  async deleteBusinessUnit(id: string): Promise<void> {
+    await mcpN8nApi.delete(`/admin/business-units/${id}`)
+  },
+
+  // ── Admin: Teams ────────────────────────────────────────────────────────────
+
+  async listTeams(company_code: string, bu_code: string): Promise<ProfileTeam[]> {
+    const response = await mcpN8nApi.get<ProfileTeam[]>('/admin/teams', { params: { company_code, bu_code } })
+    return response.data || []
+  },
+
+  async createTeam(name: string, company_code: string, bu_code: string): Promise<ProfileTeam> {
+    const response = await mcpN8nApi.post<ProfileTeam>('/admin/teams', { name, company_code, bu_code })
+    return response.data
+  },
+
+  async updateTeam(id: string, name: string): Promise<ProfileTeam> {
+    const response = await mcpN8nApi.patch<ProfileTeam>(`/admin/teams/${id}`, { name })
+    return response.data
+  },
+
+  async deleteTeam(id: string): Promise<void> {
+    await mcpN8nApi.delete(`/admin/teams/${id}`)
+  },
+
+  // ── Admin: Template Profiles ────────────────────────────────────────────────
+
+  async listTemplateProfiles(): Promise<TemplateProfileAssignment[]> {
+    const response = await mcpN8nApi.get<TemplateProfileAssignment[]>('/admin/template-profiles')
+    return response.data || []
+  },
+
+  async setTemplateProfile(template_id: string, profile_code: string | null): Promise<TemplateProfileAssignment> {
+    const response = await mcpN8nApi.put<TemplateProfileAssignment>(
+      `/admin/template-profiles/${encodeURIComponent(template_id)}`,
+      { profile_code }
+    )
+    return response.data
   },
 }
