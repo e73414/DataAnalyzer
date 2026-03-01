@@ -337,4 +337,8 @@ export const pocketbaseService = {
     )
     return response.data
   },
+
+  async updateDatasetOwner(datasetId: string, ownerEmail: string): Promise<void> {
+    await mcpN8nApi.patch(`/datasets/${encodeURIComponent(datasetId)}`, { owner_email: ownerEmail })
+  },
 }

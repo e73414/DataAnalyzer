@@ -24,7 +24,7 @@ function parseProfile(code: string | null): { company: string; bu: string; team:
 interface DatasetRowProps {
   dataset: Dataset
   assignment: TemplateProfileAssignment | undefined
-  onSave: (datasetId: string, profileCode: string | null) => Promise<void>
+  onSave: (datasetId: string, profileCode: string | null, ownerEmail: string) => Promise<void>
   onDelete: (datasetId: string, ownerEmail: string) => Promise<void>
   isSaving: boolean
   isDeleting: boolean
@@ -37,6 +37,7 @@ function DatasetRow({ dataset, assignment, onSave, onDelete, isSaving, isDeletin
   const [companyCode, setCompanyCode] = useState(parsed.company)
   const [buCode, setBuCode] = useState(parsed.bu)
   const [teamCode, setTeamCode] = useState(parsed.team)
+  const [ownerEmail, setOwnerEmail] = useState(dataset.owner_email)
 
   const { data: companies = [] } = useQuery({
     queryKey: ['admin-companies'],
@@ -55,17 +56,23 @@ function DatasetRow({ dataset, assignment, onSave, onDelete, isSaving, isDeletin
   })
 
   const handleSave = async () => {
-    const code = companyCode ? composeProfile(companyCode, buCode, teamCode) : null
-    await onSave(dataset.id, code)
-    setEditing(false)
+    try {
+      const code = companyCode ? composeProfile(companyCode, buCode, teamCode) : null
+      await onSave(dataset.id, code, ownerEmail)
+    } finally {
+      setEditing(false)
+    }
   }
 
   const handleClear = async () => {
-    await onSave(dataset.id, null)
-    setCompanyCode('')
-    setBuCode('')
-    setTeamCode('')
-    setEditing(false)
+    try {
+      await onSave(dataset.id, null, ownerEmail)
+      setCompanyCode('')
+      setBuCode('')
+      setTeamCode('')
+    } finally {
+      setEditing(false)
+    }
   }
 
   const currentCode = assignment?.profile_code ?? null
@@ -79,7 +86,15 @@ function DatasetRow({ dataset, assignment, onSave, onDelete, isSaving, isDeletin
         )}
       </td>
       <td className="px-4 py-3">
-        {currentCode ? (
+        {editing ? (
+          <input
+            type="text"
+            className="input-field py-1 text-sm"
+            value={ownerEmail}
+            onChange={(e) => setOwnerEmail(e.target.value)}
+            placeholder="owner email"
+          />
+        ) : currentCode ? (
           <span className="font-mono text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded">
             {currentCode}
           </span>
@@ -95,7 +110,7 @@ function DatasetRow({ dataset, assignment, onSave, onDelete, isSaving, isDeletin
               value={companyCode}
               onChange={(e) => { setCompanyCode(e.target.value); setBuCode(''); setTeamCode('') }}
             >
-              <option value="">— all users —</option>
+              <option value="">— owner only —</option>
               {companies.map((c) => (
                 <option key={c.id} value={c.code}>{c.name} ({c.code})</option>
               ))}
@@ -229,7 +244,21 @@ export default function TemplateManagerPage() {
     onError: (err: Error) => toast.error(err.message),
   })
 
-  const handleSave = async (datasetId: string, profileCode: string | null) => {
+  const updateOwnerMutation = useMutation({
+    mutationFn: ({ datasetId, ownerEmail }: { datasetId: string; ownerEmail: string }) =>
+      pocketbaseService.updateDatasetOwner(datasetId, ownerEmail),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['datasets-all'] })
+      qc.invalidateQueries({ queryKey: ['datasets'] })
+    },
+    onError: (err: Error) => toast.error(`Owner update failed: ${err.message}`),
+  })
+
+  const handleSave = async (datasetId: string, profileCode: string | null, ownerEmail: string) => {
+    const original = datasets.find(d => d.id === datasetId)?.owner_email ?? ''
+    if (ownerEmail.trim() && ownerEmail.trim() !== original) {
+      await updateOwnerMutation.mutateAsync({ datasetId, ownerEmail: ownerEmail.trim() })
+    }
     await saveMutation.mutateAsync({ datasetId, profileCode })
   }
 
