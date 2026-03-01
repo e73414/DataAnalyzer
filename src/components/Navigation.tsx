@@ -178,7 +178,7 @@ export default function Navigation() {
                   {isLoadingNavLinks ? (
                     <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">Loading...</div>
                   ) : (
-                    navLinks?.map((link) => (
+                    navLinks?.filter((link) => !link.path.startsWith('/admin') || session?.profile?.trim() === 'admadmadm').map((link) => (
                       <div key={link.id}>
                         {link.separator_before && (
                           <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
