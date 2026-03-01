@@ -168,11 +168,16 @@ export default function LoginPage() {
         {/* Logo and Title */}
         <div className="text-center mb-8">
           <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg mb-4">
-            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="white" strokeWidth="1.5" strokeOpacity="0.6"/>
+              <g transform="rotate(35, 12, 12)">
+                <path d="M12 5L9.5 12L14.5 12Z" fill="white"/>
+                <path d="M12 19L9.5 12L14.5 12Z" fill="white" fillOpacity="0.35"/>
+              </g>
+              <circle cx="12" cy="12" r="1.5" fill="white"/>
             </svg>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Data Analyzer</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">DataPilot</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">Sign in to analyze your datasets with AI</p>
         </div>
 
