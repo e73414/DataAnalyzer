@@ -110,8 +110,23 @@ export const pocketbaseService = {
     return data.items || []
   },
 
+  // Fetch datasets accessible to a specific user (server-side profile/email filtering).
+  async getAccessibleDatasets(email: string, profile: string | undefined): Promise<Dataset[]> {
+    const response = await mcpN8nApi.get<Record<string, unknown>[]>('/datasets', {
+      params: { email, profile }
+    })
+    return (response.data || []).map((row) => ({
+      id: String(row.id ?? row.dataset_id ?? ''),
+      name: String(row.dataset_name ?? row.name ?? ''),
+      description: row.description != null ? String(row.description) : undefined,
+      owner_email: String(row.owner_email ?? ''),
+      created: String(row.created_at ?? row.created ?? ''),
+      updated: String(row.updated_at ?? row.updated ?? ''),
+    }))
+  },
+
   // Fetch ALL datasets directly from postgres (all owners).
-  // Column names are mapped flexibly to handle different naming conventions.
+  // Used by admin Dataset Access Manager. Column names mapped flexibly.
   async getAllDatasets(): Promise<Dataset[]> {
     const response = await mcpN8nApi.get<Record<string, unknown>[]>('/datasets/all')
     return (response.data || []).map((row) => ({

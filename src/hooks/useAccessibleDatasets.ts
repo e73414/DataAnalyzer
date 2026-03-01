@@ -43,8 +43,8 @@ export function canAccessDataset(
 }
 
 /**
- * Fetches datasets for the current user and filters them based on
- * the profile assignments in the template_profiles table.
+ * Fetches datasets the current user is permitted to access.
+ * Filtering is done server-side in postgres.
  */
 export function useAccessibleDatasets(): {
   datasets: Dataset[]
@@ -52,30 +52,16 @@ export function useAccessibleDatasets(): {
   error: Error | null
 } {
   const { session } = useSession()
-  const userProfile = session?.profile
-  const userEmail = session?.email
 
-  const { data: allDatasets = [], isLoading: loadingDatasets, error: datasetsError } = useQuery({
-    queryKey: ['datasets-all'],
-    queryFn: () => pocketbaseService.getAllDatasets(),
+  const { data: datasets = [], isLoading, error } = useQuery({
+    queryKey: ['datasets', session?.email, session?.profile],
+    queryFn: () => pocketbaseService.getAccessibleDatasets(session!.email, session?.profile),
     enabled: !!session?.email,
   })
-
-  const { data: assignments = [], isLoading: loadingAssignments, error: assignmentsError } = useQuery({
-    queryKey: ['dataset-profiles'],
-    queryFn: () => pocketbaseService.listTemplateProfiles(),
-    enabled: !!session?.email,
-  })
-
-  const profileMap = Object.fromEntries(assignments.map((a) => [a.template_id, a.profile_code]))
-
-  const datasets = allDatasets.filter((d) =>
-    canAccessDataset(userProfile, userEmail, profileMap[d.id], d.owner_email)
-  )
 
   return {
     datasets,
-    isLoading: loadingDatasets || loadingAssignments,
-    error: (datasetsError || assignmentsError) as Error | null,
+    isLoading,
+    error: error as Error | null,
   }
 }
