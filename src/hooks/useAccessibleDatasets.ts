@@ -4,26 +4,37 @@ import { useSession } from '../context/SessionContext'
 import type { Dataset } from '../types'
 
 /**
- * Returns true if a user with the given profile can access a dataset
- * restricted to the given profile code.
+ * Returns true if a user can access a dataset.
  *
- * Profile codes are 9 chars: company(3) + bu(3) + team(3).
- * '000' in the BU or team position means "any".
- * No profile_code on the dataset means accessible to all users.
- * Admin profile 'admadmadm' bypasses all restrictions.
+ * Rules:
+ * - Admin (admadmadm) sees everything.
+ * - Dataset WITH a profile_code: user's profile must match hierarchically.
+ *   Profile codes are 9 chars: company(3) + bu(3) + team(3).
+ *   '000' in the dataset's BU or team position means "any".
+ * - Dataset with NO profile_code: only the owner (owner_email) can see it.
  */
-export function canAccessDataset(userProfile: string | undefined, datasetProfileCode: string | null): boolean {
-  if (!datasetProfileCode) return true
+export function canAccessDataset(
+  userProfile: string | undefined,
+  userEmail: string | undefined,
+  datasetProfileCode: string | null | undefined,
+  datasetOwnerEmail: string,
+): boolean {
+  if (userProfile?.trim() === 'admadmadm') return true
+
+  // No profile assigned → owner-only
+  const code = datasetProfileCode?.trim() || null
+  if (!code) return userEmail === datasetOwnerEmail
+
+  // Profile assigned → must match
   if (!userProfile) return false
-  if (userProfile === 'admadmadm') return true
 
-  const dCompany = datasetProfileCode.slice(0, 3)
-  const dBu = datasetProfileCode.slice(3, 6)
-  const dTeam = datasetProfileCode.slice(6, 9)
+  const dCompany = code.slice(0, 3).trim()
+  const dBu      = code.slice(3, 6).trim()
+  const dTeam    = code.slice(6, 9).trim()
 
-  const uCompany = userProfile.slice(0, 3)
-  const uBu = userProfile.slice(3, 6)
-  const uTeam = userProfile.slice(6, 9)
+  const uCompany = userProfile.slice(0, 3).trim()
+  const uBu      = userProfile.slice(3, 6).trim()
+  const uTeam    = userProfile.slice(6, 9).trim()
 
   if (dCompany !== uCompany) return false
   if (dBu !== '000' && dBu !== uBu) return false
@@ -42,6 +53,7 @@ export function useAccessibleDatasets(): {
 } {
   const { session } = useSession()
   const userProfile = session?.profile
+  const userEmail = session?.email
 
   const { data: allDatasets = [], isLoading: loadingDatasets, error: datasetsError } = useQuery({
     queryKey: ['datasets', session?.email],
@@ -58,7 +70,7 @@ export function useAccessibleDatasets(): {
   const profileMap = Object.fromEntries(assignments.map((a) => [a.template_id, a.profile_code]))
 
   const datasets = allDatasets.filter((d) =>
-    canAccessDataset(userProfile, profileMap[d.id] ?? null)
+    canAccessDataset(userProfile, userEmail, profileMap[d.id], d.owner_email)
   )
 
   return {
