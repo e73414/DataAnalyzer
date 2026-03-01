@@ -6,6 +6,27 @@ import { n8nService } from '../services/mcpN8nService'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
 
+type CompatibilityStatus = 'exact' | 'partial' | 'incompatible' | null
+
+// Parses the first CSV line into an array of header strings (handles quoted fields)
+function parseCSVHeaders(line: string): string[] {
+  const headers: string[] = []
+  let current = ''
+  let inQuotes = false
+  for (const char of line) {
+    if (char === '"') {
+      inQuotes = !inQuotes
+    } else if (char === ',' && !inQuotes) {
+      headers.push(current.trim())
+      current = ''
+    } else {
+      current += char
+    }
+  }
+  headers.push(current.trim())
+  return headers.filter(Boolean)
+}
+
 export default function UpdateDatasetPage() {
   const { session } = useSession()
   const [selectedDatasetId, setSelectedDatasetId] = useState('')
@@ -14,6 +35,12 @@ export default function UpdateDatasetPage() {
   const [csvPreview, setCsvPreview] = useState<string[]>([])
   const [datasetDesc, setDatasetDesc] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Compatibility check state
+  const [compatibility, setCompatibility] = useState<CompatibilityStatus>(null)
+  const [addedColumns, setAddedColumns] = useState<string[]>([])
+  const [removedColumns, setRemovedColumns] = useState<string[]>([])
+  const [confirmProceed, setConfirmProceed] = useState(false)
 
   const {
     datasets: datasets = [],
@@ -30,6 +57,55 @@ export default function UpdateDatasetPage() {
   useEffect(() => {
     setDatasetDesc(datasetDetail?.dataset_desc || '')
   }, [datasetDetail])
+
+  // Reset compatibility when dataset changes
+  useEffect(() => {
+    setCompatibility(null)
+    setAddedColumns([])
+    setRemovedColumns([])
+    setConfirmProceed(false)
+  }, [selectedDatasetId])
+
+  // Run compatibility check whenever file or dataset detail changes
+  useEffect(() => {
+    if (!selectedFile || !datasetDetail?.column_mapping) {
+      setCompatibility(null)
+      setConfirmProceed(false)
+      return
+    }
+
+    const mapping = typeof datasetDetail.column_mapping === 'string'
+      ? (() => { try { return JSON.parse(datasetDetail.column_mapping) } catch { return {} } })()
+      : datasetDetail.column_mapping as Record<string, string>
+
+    const existingHeaders = new Set<string>(Object.keys(mapping))
+    if (existingHeaders.size === 0) {
+      // No mapping available — skip check
+      setCompatibility(null)
+      return
+    }
+
+    selectedFile.text().then(text => {
+      const firstLine = text.split('\n')[0] ?? ''
+      const newHeaders = parseCSVHeaders(firstLine)
+      const newHeaderSet = new Set(newHeaders)
+
+      const added = newHeaders.filter(h => !existingHeaders.has(h))
+      const removed = [...existingHeaders].filter(h => !newHeaderSet.has(h))
+
+      setAddedColumns(added)
+      setRemovedColumns(removed)
+      setConfirmProceed(false)
+
+      if (added.length === 0 && removed.length === 0) {
+        setCompatibility('exact')
+      } else if (newHeaders.some(h => existingHeaders.has(h))) {
+        setCompatibility('partial')
+      } else {
+        setCompatibility('incompatible')
+      }
+    })
+  }, [selectedFile, datasetDetail])
 
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -51,6 +127,8 @@ export default function UpdateDatasetPage() {
       toast.success(result.message || 'Dataset updated successfully')
       setSelectedFile(null)
       setCsvPreview([])
+      setCompatibility(null)
+      setConfirmProceed(false)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
@@ -78,6 +156,7 @@ export default function UpdateDatasetPage() {
     if (!file) {
       setSelectedFile(null)
       setCsvPreview([])
+      setCompatibility(null)
       return
     }
 
@@ -110,6 +189,13 @@ export default function UpdateDatasetPage() {
   }
 
   const selectedDataset = datasets?.find((d) => d.id === selectedDatasetId)
+
+  const submitDisabled =
+    updateMutation.isPending ||
+    !selectedDatasetId ||
+    !selectedFile ||
+    compatibility === 'incompatible' ||
+    (compatibility === 'partial' && !confirmProceed)
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
@@ -215,6 +301,109 @@ export default function UpdateDatasetPage() {
                 )}
               </div>
 
+              {/* Compatibility check result */}
+              {selectedFile && selectedDatasetId && compatibility === 'exact' && (
+                <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                  <span className="text-green-600 dark:text-green-400 text-lg">✓</span>
+                  <p className="text-sm text-green-800 dark:text-green-200">
+                    Compatible — all columns match the existing dataset.
+                  </p>
+                </div>
+              )}
+
+              {selectedFile && selectedDatasetId && compatibility === 'partial' && (
+                <div className="p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-orange-500 dark:text-orange-400 text-lg">⚠</span>
+                    <p className="text-sm font-medium text-orange-800 dark:text-orange-200">
+                      Compatible with changes — the new file differs from the existing schema.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    {removedColumns.length > 0 && (
+                      <div>
+                        <p className="font-medium text-orange-700 dark:text-orange-300 mb-1">
+                          Columns that will be removed ({removedColumns.length}):
+                        </p>
+                        <ul className="space-y-0.5">
+                          {removedColumns.map(col => (
+                            <li key={col} className="font-mono text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded">
+                              − {col}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {addedColumns.length > 0 && (
+                      <div>
+                        <p className="font-medium text-orange-700 dark:text-orange-300 mb-1">
+                          New columns that will be added ({addedColumns.length}):
+                        </p>
+                        <ul className="space-y-0.5">
+                          {addedColumns.map(col => (
+                            <li key={col} className="font-mono text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded">
+                              + {col}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                  {!confirmProceed ? (
+                    <div className="flex items-center gap-3 pt-1">
+                      <p className="text-sm text-orange-700 dark:text-orange-300">
+                        Do you want to proceed with these changes?
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmProceed(true)}
+                        className="px-3 py-1.5 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-md transition-colors"
+                      >
+                        Proceed with Changes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedFile(null)
+                          setCsvPreview([])
+                          setCompatibility(null)
+                          if (fileInputRef.current) fileInputRef.current.value = ''
+                        }}
+                        className="px-3 py-1.5 text-sm font-medium text-orange-700 dark:text-orange-300 border border-orange-300 dark:border-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded-md transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 pt-1">
+                      <span className="text-green-600 dark:text-green-400">✓</span>
+                      <p className="text-sm text-green-700 dark:text-green-300">Confirmed — will proceed with schema changes.</p>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmProceed(false)}
+                        className="ml-auto text-xs text-orange-600 dark:text-orange-400 hover:underline"
+                      >
+                        Undo
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedFile && selectedDatasetId && compatibility === 'incompatible' && (
+                <div className="flex items-start gap-2 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <span className="text-red-600 dark:text-red-400 text-lg leading-none mt-0.5">✗</span>
+                  <div>
+                    <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                      Not compatible — no matching columns found.
+                    </p>
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      The uploaded file shares no column names with the existing dataset. Please select a different file.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {csvPreview.length > 0 && (
                 <div>
                   <label className="label">CSV Preview (first 5 rows)</label>
@@ -229,7 +418,7 @@ export default function UpdateDatasetPage() {
               <div className="flex items-center gap-4">
                 <button
                   type="submit"
-                  disabled={updateMutation.isPending || !selectedDatasetId || !selectedFile}
+                  disabled={submitDisabled}
                   className="btn-primary"
                 >
                   {updateMutation.isPending ? (
