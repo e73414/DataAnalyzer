@@ -32,6 +32,8 @@ interface PgConversation {
   duration_seconds: number | null
   report_plan: string | null
   report_id: string | null
+  detail_level: string | null
+  report_detail: string | null
   created_at: string
 }
 
@@ -168,6 +170,8 @@ export const pocketbaseService = {
     durationSeconds?: number
     reportPlan?: string
     reportId?: string
+    detailLevel?: string
+    reportDetail?: string
   }): Promise<ConversationHistory> {
     const now = new Date().toISOString()
     const response = await mcpN8nApi.post<PgConversation>('/conversations', {
@@ -180,6 +184,8 @@ export const pocketbaseService = {
       duration_seconds: data.durationSeconds ?? null,
       report_plan: data.reportPlan ?? null,
       report_id: data.reportId ?? null,
+      detail_level: data.detailLevel ?? null,
+      report_detail: data.reportDetail ?? null,
       created_at: now,
     })
     const record = response.data
@@ -194,6 +200,8 @@ export const pocketbaseService = {
       duration_seconds: record.duration_seconds ?? undefined,
       report_plan: record.report_plan ?? undefined,
       report_id: record.report_id ?? undefined,
+      detail_level: record.detail_level ?? undefined,
+      report_detail: record.report_detail ?? undefined,
       created: record.created_at,
     }
   },
@@ -211,6 +219,8 @@ export const pocketbaseService = {
       duration_seconds: record.duration_seconds ?? undefined,
       report_plan: record.report_plan ?? undefined,
       report_id: record.report_id ?? undefined,
+      detail_level: record.detail_level ?? undefined,
+      report_detail: record.report_detail ?? undefined,
       created: record.created_at,
     }))
   },

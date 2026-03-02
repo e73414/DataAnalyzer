@@ -184,6 +184,8 @@ export interface ConversationHistory {
   duration_seconds?: number
   report_plan?: string
   report_id?: string
+  detail_level?: string
+  report_detail?: string
   created: string // ISO date string from Pocketbase
 }
 
@@ -242,6 +244,7 @@ export interface RunFormatterRequest {
   model?: string
   templateId?: string
   detailLevel?: string
+  reportDetail?: string
 }
 
 export interface ExecutePlanResult {

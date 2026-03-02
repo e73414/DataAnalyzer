@@ -622,6 +622,7 @@ export const n8nService = {
         ...(request.model && { model: request.model }),
         ...(request.templateId && { templateId: request.templateId }),
         ...(request.detailLevel && { detail_level: request.detailLevel }),
+        ...(request.reportDetail && { report_detail: request.reportDetail }),
       },
     })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

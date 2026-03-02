@@ -510,6 +510,8 @@ export default function HistoryPage() {
                         datasetName: conv.dataset_name,
                         aiModel: conv.ai_model,
                         savedRecordId: conv.id,
+                        detailLevel: conv.detail_level,
+                        reportDetail: conv.report_detail,
                       },
                     })
                   }}

@@ -19,6 +19,8 @@ interface LoadedPlanState {
   datasetName: string
   aiModel: string
   savedRecordId: string
+  detailLevel?: string
+  reportDetail?: string
 }
 
 // Topological sort: groups steps into parallel batches by dependency level.
@@ -91,6 +93,7 @@ export default function PlanReportPage() {
   const [datasetSearch, setDatasetSearch] = useState('')
   const [dialogLoading, setDialogLoading] = useState(false)
   const [detailLevel, setDetailLevel] = useState('None')
+  const [reportDetail, setReportDetail] = useState('Simple Report')
   const [previewDatasetId, setPreviewDatasetId] = useState<string | null>(null)
   const [previewAnchorRect, setPreviewAnchorRect] = useState<DOMRect | null>(null)
   const editorRef = useRef<HTMLIFrameElement>(null)
@@ -204,6 +207,10 @@ export default function PlanReportPage() {
       setSelectedModelId(loadedState.aiModel)
       setAIModel(loadedState.aiModel)
     }
+
+    // Restore execution settings
+    if (loadedState.detailLevel) setDetailLevel(loadedState.detailLevel)
+    if (loadedState.reportDetail) setReportDetail(loadedState.reportDetail)
 
     // Mark as already saved (since it came from history)
     setReportSaved(true)
@@ -448,6 +455,8 @@ export default function PlanReportPage() {
           durationSeconds: Math.round((Date.now() - executeStartTime.current) / 1000),
           reportPlan: planJson,
           reportId,
+          detailLevel,
+          reportDetail,
         })
         setSavedRecordId(saved.id)
         toast.success('Report saved to history')
@@ -649,6 +658,7 @@ export default function PlanReportPage() {
         model: selectedModelId,
         templateId: userProfile?.template_id,
         detailLevel,
+        reportDetail,
       })
 
       // Poll for final report using existing mechanism
@@ -664,7 +674,7 @@ export default function PlanReportPage() {
       setExecutionProgress(prev => prev ? { ...prev, status: 'error', error_message: msg } : null)
       toast.error(msg)
     }
-  }, [plan, session, selectedModelId, userProfile, waitForBatchCompletion, stopPolling])
+  }, [plan, session, selectedModelId, userProfile, detailLevel, reportDetail, waitForBatchCompletion, stopPolling])
 
   const handleRetryFailed = useCallback(async () => {
     if (!plan || !session?.email || !reportId || !executionProgress) return
@@ -720,6 +730,7 @@ export default function PlanReportPage() {
         model: selectedModelId,
         templateId: userProfile?.template_id,
         detailLevel,
+        reportDetail,
       })
 
       pollingRef.current = setInterval(() => pollProgressRef.current?.(reportId), 5000)
@@ -733,7 +744,7 @@ export default function PlanReportPage() {
       setExecutionProgress(prev => prev ? { ...prev, status: 'error', error_message: msg } : null)
       toast.error(msg)
     }
-  }, [plan, session, selectedModelId, userProfile, reportId, executionProgress, waitForBatchCompletion, stopPolling])
+  }, [plan, session, selectedModelId, userProfile, reportId, executionProgress, detailLevel, reportDetail, waitForBatchCompletion, stopPolling])
 
   const isWorking = planMutation.isPending || isExecuting
 
@@ -1217,58 +1228,80 @@ export default function PlanReportPage() {
                 </div>
               )}
 
-              <div className="flex items-center gap-4">
-                <select
-                  value={selectedModelId}
-                  onChange={(e) => handleModelChange(e.target.value)}
-                  className="input-field w-auto"
-                  disabled={isWorking}
-                >
-                  {aiModels?.length === 0 ? (
-                    <option value="">No models available</option>
-                  ) : (
-                    aiModels?.map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.name}
-                        {model.provider && ` (${model.provider})`}
-                      </option>
-                    ))
-                  )}
-                </select>
+              <div className="space-y-3 pt-2">
+                {/* Selector row */}
+                <div className="flex flex-wrap items-end gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">AI Model</label>
+                    <select
+                      value={selectedModelId}
+                      onChange={(e) => handleModelChange(e.target.value)}
+                      className="input-field w-auto"
+                      disabled={isWorking}
+                    >
+                      {aiModels?.length === 0 ? (
+                        <option value="">No models available</option>
+                      ) : (
+                        aiModels?.map((model) => (
+                          <option key={model.id} value={model.id}>
+                            {model.name}
+                            {model.provider && ` (${model.provider})`}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                  </div>
 
-                <div className="flex items-center gap-1">
-                  <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">Show steps -</span>
-                  <select
-                    value={detailLevel}
-                    onChange={(e) => setDetailLevel(e.target.value)}
-                    className="input-field w-auto"
-                    disabled={isWorking}
-                  >
-                    <option value="Highly Detailed">Highly Detailed</option>
-                    <option value="Some Detail">Some Detail</option>
-                    <option value="Just Overview">Just Overview</option>
-                    <option value="None">None</option>
-                  </select>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Detail Level:</label>
+                    <select
+                      value={reportDetail}
+                      onChange={(e) => setReportDetail(e.target.value)}
+                      className="input-field w-auto"
+                      disabled={isWorking}
+                    >
+                      <option value="Simple Report">Simple Report</option>
+                      <option value="Detailed Report">Detailed Report</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Show Steps:</label>
+                    <select
+                      value={detailLevel}
+                      onChange={(e) => setDetailLevel(e.target.value)}
+                      className="input-field w-auto"
+                      disabled={isWorking}
+                    >
+                      <option value="Highly Detailed">Highly Detailed</option>
+                      <option value="Some Detail">Some Detail</option>
+                      <option value="Just Overview">Just Overview</option>
+                      <option value="None">None</option>
+                    </select>
+                  </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleExecute}
-                  disabled={isWorking || !plan || !selectedModelId}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium rounded-lg shadow-sm transition-colors disabled:cursor-not-allowed"
-                >
-                  Execute Plan
-                </button>
-
-                {isExecuting && (
+                {/* Action buttons row */}
+                <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={handleStopExecution}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg shadow-sm transition-colors"
+                    onClick={handleExecute}
+                    disabled={isWorking || !plan || !selectedModelId}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium rounded-lg shadow-sm transition-colors disabled:cursor-not-allowed"
                   >
-                    Stop Execution
+                    Execute Plan
                   </button>
-                )}
+
+                  {isExecuting && (
+                    <button
+                      type="button"
+                      onClick={handleStopExecution}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg shadow-sm transition-colors"
+                    >
+                      Stop Execution
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
