@@ -1367,9 +1367,13 @@ export default function PlanReportPage() {
                           {step.status}
                         </span>
                       </div>
-                      {step.status === 'error' && step.step_result && (
-                        <div className="ml-12 mt-1 px-3 py-2 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded text-xs text-red-700 dark:text-red-300 whitespace-pre-wrap">
-                          {step.step_result}
+                      {step.step_result && step.status !== 'started' && (
+                        <div className={`ml-12 mt-1 px-3 py-1.5 rounded text-xs leading-snug ${
+                          step.status === 'error'
+                            ? 'bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+                            : 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400'
+                        }`}>
+                          {step.step_result.length > 200 ? step.step_result.slice(0, 200) + '…' : step.step_result}
                         </div>
                       )}
                     </div>
