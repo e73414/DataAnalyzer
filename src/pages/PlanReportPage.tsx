@@ -90,6 +90,7 @@ export default function PlanReportPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogQuestions, setDialogQuestions] = useState<PromptDialogQuestion[]>([])
   const [dialogAnswers, setDialogAnswers] = useState<Record<string, string>>({})
+  const [openHintDropdown, setOpenHintDropdown] = useState<string | null>(null)
   const [datasetSearch, setDatasetSearch] = useState('')
   const [dialogLoading, setDialogLoading] = useState(false)
   const [detailLevel, setDetailLevel] = useState('None')
@@ -1539,20 +1540,38 @@ export default function PlanReportPage() {
                     {q.question}
                   </label>
                   {q.hints && q.hints.length > 0 && (
-                    <select
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          setDialogAnswers(prev => ({ ...prev, [q.id]: e.target.value }))
-                        }
-                      }}
-                      className="input-field mb-2"
-                    >
-                      <option value="">— select a hint —</option>
-                      {q.hints.map(h => (
-                        <option key={h.label} value={h.text}>{h.label}</option>
-                      ))}
-                    </select>
+                    <div className="relative mb-2">
+                      {openHintDropdown === q.id && (
+                        <div className="fixed inset-0 z-10" onClick={() => setOpenHintDropdown(null)} />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setOpenHintDropdown(openHintDropdown === q.id ? null : q.id)}
+                        className="w-full text-left px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex justify-between items-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
+                      >
+                        <span>— select a hint —</span>
+                        <svg className={`w-4 h-4 flex-shrink-0 transition-transform ${openHintDropdown === q.id ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {openHintDropdown === q.id && (
+                        <div className="absolute z-20 left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                          {q.hints.map((h, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => {
+                                setDialogAnswers(prev => ({ ...prev, [q.id]: h.text }))
+                                setOpenHintDropdown(null)
+                              }}
+                              className="block w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 whitespace-normal leading-snug border-b border-gray-100 dark:border-gray-700 last:border-0"
+                            >
+                              {h.label ? <><span className="font-medium">{h.label}</span><span className="text-gray-400 dark:text-gray-500 ml-1">— {h.text}</span></> : h.text}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
                   <textarea
                     rows={2}

@@ -272,7 +272,7 @@ export interface CheckReportProgressResult {
 }
 
 export interface PromptDialogHint {
-  label: string
+  label?: string
   text: string
 }
 
