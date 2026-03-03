@@ -271,10 +271,16 @@ export interface CheckReportProgressResult {
   error_message?: string | null
 }
 
+export interface PromptDialogHint {
+  label: string
+  text: string
+}
+
 export interface PromptDialogQuestion {
   id: string
   question: string
-  hint: string
+  hint?: string
+  hints?: PromptDialogHint[]
 }
 
 export interface PromptDialogResult {

@@ -1535,11 +1535,27 @@ export default function PlanReportPage() {
             <div className="overflow-y-auto flex-1 px-6 py-4 space-y-5">
               {dialogQuestions.map((q) => (
                 <div key={q.id}>
-                  <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">
+                  <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">
                     {q.question}
                   </label>
+                  {q.hints && q.hints.length > 0 && (
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setDialogAnswers(prev => ({ ...prev, [q.id]: e.target.value }))
+                        }
+                      }}
+                      className="input-field mb-2"
+                    >
+                      <option value="">— select a hint —</option>
+                      {q.hints.map(h => (
+                        <option key={h.label} value={h.text}>{h.label}</option>
+                      ))}
+                    </select>
+                  )}
                   <textarea
-                    rows={1}
+                    rows={2}
                     value={dialogAnswers[q.id] || ''}
                     onChange={(e) => setDialogAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
                     placeholder="Your answer…"
