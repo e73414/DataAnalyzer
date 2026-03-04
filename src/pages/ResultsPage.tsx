@@ -2,11 +2,18 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
 import type { AnalysisResult } from '../types'
+
+function isHtmlContent(text: string): boolean {
+  const t = text.trim()
+  return t.startsWith('<') || /<(p|h[1-6]|table|ul|ol|div|strong|em|br)[\s>]/i.test(t)
+}
 
 const WITTY_PHRASES = [
   'Doodling',
@@ -400,10 +407,19 @@ export default function ResultsPage() {
                 <div className="flex justify-start">
                   <div className="bg-gray-100 dark:bg-gray-700/50 rounded-2xl rounded-tl-md px-4 py-3 w-full shadow-sm overflow-x-auto">
                     <div className="min-w-fit">
-                    <div
-                      className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 [&_*]:text-gray-800 dark:[&_*]:text-gray-200 [&_*]:!bg-transparent"
-                      dangerouslySetInnerHTML={{ __html: item.response }}
-                    />
+                    {isHtmlContent(item.response) ? (
+                      <div
+                        className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 [&_*]:text-gray-800 dark:[&_*]:text-gray-200 [&_*]:!bg-transparent"
+                        dangerouslySetInnerHTML={{ __html: item.response }}
+                      />
+                    ) : (
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 [&_*]:text-gray-800 dark:[&_*]:text-gray-200 [&_*]:!bg-transparent"
+                      >
+                        {item.response}
+                      </ReactMarkdown>
+                    )}
                     </div>
                     {item.durationSeconds != null && (
                       <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">

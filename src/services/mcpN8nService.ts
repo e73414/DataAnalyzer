@@ -29,6 +29,7 @@ const PLAN_REPORT_WEBHOOK_PATH = 'webhook/plan-report'
 const EXECUTE_PLAN_WEBHOOK_PATH = 'webhook/execute-plan'
 const CHECK_REPORT_PROGRESS_WEBHOOK_PATH = 'webhook/check-report-progress'
 const RUN_FORMATTER_WEBHOOK_PATH = 'webhook/run-formatter'
+const SELECT_DATASET_WEBHOOK_PATH = 'webhook/select-dataset'
 
 interface SendReportRequest {
   emails: string[]
@@ -609,6 +610,33 @@ export const n8nService = {
       steps: [],
       final_report: null,
       status: 'starting',
+    }
+  },
+
+  async selectDataset(userPrompt: string, datasetIds: string[]): Promise<{ dataset_id: string; dataset_name?: string; dataset_desc?: string; confidence_level?: string }> {
+    const response = await mcpN8nApi.post('/mcp/execute', {
+      skill: 'n8n-webhook',
+      params: { webhookPath: SELECT_DATASET_WEBHOOK_PATH },
+      input: { user_prompt: userPrompt, user_datasets: datasetIds },
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fullData = response.data as any
+    if (fullData?.status === 'error') {
+      throw new Error(fullData?.error || 'Failed to select dataset')
+    }
+    let raw = fullData?.data
+    if (typeof raw === 'string') { try { raw = JSON.parse(raw) } catch { /* keep */ } }
+    const obj = Array.isArray(raw) ? raw[0] : raw
+    // Payload may be at top level or nested under obj.output
+    const payload = obj?.output ?? obj
+    // Support both dataset_id (singular) and dataset_ids (singular string or first of array)
+    const rawId = payload?.dataset_id || payload?.dataset_ids
+    const resolvedId = Array.isArray(rawId) ? rawId[0] : rawId
+    return {
+      dataset_id: String(resolvedId || ''),
+      dataset_name: payload?.dataset_name ? String(payload.dataset_name) : undefined,
+      dataset_desc: payload?.dataset_desc ? String(payload.dataset_desc) : undefined,
+      confidence_level: payload?.confidence_level != null ? String(payload.confidence_level) : undefined,
     }
   },
 

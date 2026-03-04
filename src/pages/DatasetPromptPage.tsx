@@ -103,6 +103,8 @@ export default function DatasetPromptPage() {
   const [emailResponse, setEmailResponse] = useState(false)
   const [emailSubject, setEmailSubject] = useState('')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isSelectingDataset, setIsSelectingDataset] = useState(false)
+  const [suggestedDataset, setSuggestedDataset] = useState<{ dataset_id: string; dataset_name: string; dataset_desc?: string; confidence_level?: string } | null>(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [shuffledPhrases, setShuffledPhrases] = useState<string[]>([])
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -183,13 +185,7 @@ export default function DatasetPromptPage() {
     setAIModel(modelId)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!selectedDatasetId) {
-      toast.error('Please select a dataset')
-      return
-    }
+  const runAnalysisWithDataset = async (datasetId: string) => {
     if (!selectedModelId) {
       toast.error('Please select an AI model')
       return
@@ -206,7 +202,7 @@ export default function DatasetPromptPage() {
       const result: AnalysisResult = await n8nService.runAnalysis({
         email: session.email,
         model: selectedModelId,
-        datasetId: selectedDatasetId,
+        datasetId,
         prompt: prompt.trim(),
         emailResponse,
         ...(emailSubject.trim() && { emailSubject: emailSubject.trim() }),
@@ -214,14 +210,14 @@ export default function DatasetPromptPage() {
         templateId: userProfile?.template_id,
       })
 
-      const selectedDataset = datasets?.find((d) => d.id === selectedDatasetId)
+      const chosenDataset = datasets?.find((d) => d.id === datasetId)
       const durationSeconds = Math.round((Date.now() - startTime) / 1000)
 
       navigate('/results', {
         state: {
           result,
-          datasetId: selectedDatasetId,
-          datasetName: selectedDataset?.name || 'Unknown Dataset',
+          datasetId,
+          datasetName: chosenDataset?.name || 'Unknown Dataset',
           prompt: prompt.trim(),
           durationSeconds,
         },
@@ -231,6 +227,42 @@ export default function DatasetPromptPage() {
       toast.error(message)
     } finally {
       setIsAnalyzing(false)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedDatasetId) {
+      toast.error('Please select a dataset')
+      return
+    }
+    await runAnalysisWithDataset(selectedDatasetId)
+  }
+
+  const handleSelectDataset = async () => {
+    if (!prompt.trim()) {
+      toast.error('Please enter a prompt first')
+      return
+    }
+    setIsSelectingDataset(true)
+    try {
+      const datasetIds = (datasets ?? []).map(d => d.id)
+      const result = await n8nService.selectDataset(prompt.trim(), datasetIds)
+      if (!result.dataset_id) {
+        toast.error('No suitable dataset found')
+        return
+      }
+      const found = datasets?.find(d => d.id === result.dataset_id)
+      setSuggestedDataset({
+        dataset_id: result.dataset_id,
+        dataset_name: result.dataset_name || found?.name || 'Unknown Dataset',
+        dataset_desc: result.dataset_desc || found?.description,
+        confidence_level: result.confidence_level,
+      })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to select dataset')
+    } finally {
+      setIsSelectingDataset(false)
     }
   }
 
@@ -406,10 +438,10 @@ export default function DatasetPromptPage() {
 
               {/* Analyze Button Row */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <button
                     type="submit"
-                    disabled={isAnalyzing || !selectedDatasetId || !selectedModelId || !prompt.trim()}
+                    disabled={isAnalyzing || isSelectingDataset || !selectedDatasetId || !selectedModelId || !prompt.trim()}
                     className="btn-primary"
                   >
                     {isAnalyzing ? (
@@ -419,6 +451,21 @@ export default function DatasetPromptPage() {
                       </span>
                     ) : (
                       'Analyze'
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSelectDataset}
+                    disabled={isAnalyzing || isSelectingDataset || !prompt.trim()}
+                    className="px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-700 rounded-lg disabled:opacity-50 transition-colors"
+                  >
+                    {isSelectingDataset ? (
+                      <span className="flex items-center gap-2">
+                        <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></span>
+                        Selecting...
+                      </span>
+                    ) : (
+                      'Select Dataset & Analyze'
                     )}
                   </button>
                 </div>
@@ -478,6 +525,48 @@ export default function DatasetPromptPage() {
           )}
         </div>
       </main>
+
+      {/* Dataset Suggestion Modal */}
+      {suggestedDataset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Suggested Dataset</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">The AI selected the following dataset for your prompt. Accept to proceed with analysis, or cancel to choose manually.</p>
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-2 mb-5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{suggestedDataset.dataset_name}</p>
+                {suggestedDataset.confidence_level != null && (
+                  <span className="flex-shrink-0 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                    {suggestedDataset.confidence_level} confidence
+                  </span>
+                )}
+              </div>
+              {suggestedDataset.dataset_desc && (
+                <p className="text-sm text-gray-600 dark:text-gray-400">{suggestedDataset.dataset_desc}</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setSuggestedDataset(null)}
+                className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const id = suggestedDataset.dataset_id
+                  setSelectedDatasetId(id)
+                  setSuggestedDataset(null)
+                  runAnalysisWithDataset(id)
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                Use this Dataset & Analyze
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
