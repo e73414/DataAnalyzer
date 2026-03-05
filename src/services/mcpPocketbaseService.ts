@@ -124,6 +124,7 @@ export const pocketbaseService = {
       owner_email: String(row.owner_email ?? ''),
       created: String(row.created_at ?? row.created ?? ''),
       updated: String(row.updated_at ?? row.updated ?? ''),
+      profile_code: row.profile_code != null ? String(row.profile_code) : null,
     }))
   },
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -102,6 +102,7 @@ export default function DatasetPromptPage() {
   const [captureProcess, setCaptureProcess] = useState(false)
   const [emailResponse, setEmailResponse] = useState(false)
   const [emailSubject, setEmailSubject] = useState('')
+  const [datasetScope, setDatasetScope] = useState<'all' | 'mine' | 'company' | 'unit' | 'team'>('all')
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isSelectingDataset, setIsSelectingDataset] = useState(false)
   const [suggestedDataset, setSuggestedDataset] = useState<{ dataset_id: string; dataset_name: string; dataset_desc?: string; confidence_level?: string } | null>(null)
@@ -185,6 +186,28 @@ export default function DatasetPromptPage() {
     setAIModel(modelId)
   }
 
+  const scopedDatasets = useMemo(() => {
+    const profile = session?.profile?.trim() || ''
+    if (datasetScope === 'all') return datasets
+    if (datasetScope === 'mine') return datasets.filter(d => d.owner_email === session?.email)
+    // Company/Unit/Team scopes require a valid 9-char profile
+    if (profile.length < 9 || profile === 'admadmadm') return datasets
+    const uCo = profile.substring(0, 3)
+    const uBu = profile.substring(3, 6)
+    const uTm = profile.substring(6, 9)
+    return datasets.filter(d => {
+      const pc = (d.profile_code || '').trim()
+      if (!pc) return false
+      const pCo = pc.substring(0, 3)
+      const pBu = pc.substring(3, 6)
+      const pTm = pc.substring(6, 9)
+      if (datasetScope === 'company') return pCo === uCo && pBu === '000' && pTm === '000'
+      if (datasetScope === 'unit')    return pCo === uCo && pBu === uBu  && pTm === '000'
+      if (datasetScope === 'team')    return pCo === uCo && pBu === uBu  && pTm === uTm
+      return false
+    })
+  }, [datasets, datasetScope, session])
+
   const runAnalysisWithDataset = async (datasetId: string) => {
     if (!selectedModelId) {
       toast.error('Please select an AI model')
@@ -246,7 +269,7 @@ export default function DatasetPromptPage() {
     }
     setIsSelectingDataset(true)
     try {
-      const datasetIds = (datasets ?? []).map(d => d.id)
+      const datasetIds = scopedDatasets.map(d => d.id)
       const result = await n8nService.selectDataset(prompt.trim(), datasetIds)
       if (!result.dataset_id) {
         toast.error('No suitable dataset found')
@@ -339,14 +362,28 @@ export default function DatasetPromptPage() {
                 <label htmlFor="dataset" className="label">
                   Select Dataset
                 </label>
-                <input
-                  type="text"
-                  value={datasetSearch}
-                  onChange={(e) => setDatasetSearch(e.target.value)}
-                  placeholder="Search datasets..."
-                  className="input-field mb-2"
-                  disabled={isAnalyzing}
-                />
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={datasetSearch}
+                    onChange={(e) => setDatasetSearch(e.target.value)}
+                    placeholder="Search datasets..."
+                    className="input-field flex-1"
+                    disabled={isAnalyzing}
+                  />
+                  <select
+                    value={datasetScope}
+                    onChange={(e) => setDatasetScope(e.target.value as typeof datasetScope)}
+                    className="input-field flex-1"
+                    disabled={isAnalyzing}
+                  >
+                    <option value="all">All</option>
+                    <option value="mine">My Datasets</option>
+                    <option value="company">Company Datasets</option>
+                    <option value="unit">Unit Datasets</option>
+                    <option value="team">Team Datasets</option>
+                  </select>
+                </div>
                 <select
                   id="dataset"
                   value={selectedDatasetId}
@@ -355,7 +392,7 @@ export default function DatasetPromptPage() {
                   disabled={isAnalyzing}
                 >
                   <option value="">-- Select a dataset --</option>
-                  {[...(datasets ?? [])].sort((a, b) => a.name.localeCompare(b.name)).filter(d => d.name.toLowerCase().includes(datasetSearch.toLowerCase())).map((dataset) => (
+                  {[...scopedDatasets].sort((a, b) => a.name.localeCompare(b.name)).filter(d => d.name.toLowerCase().includes(datasetSearch.toLowerCase())).map((dataset) => (
                     <option key={dataset.id} value={dataset.id}>
                       {dataset.name}
                       {dataset.description && ` - ${dataset.description}`}

@@ -19,6 +19,7 @@ export interface Dataset {
   owner_email: string
   created: string
   updated: string
+  profile_code?: string | null
 }
 
 export interface DatasetDetail extends Dataset {
