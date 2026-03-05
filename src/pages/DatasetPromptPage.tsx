@@ -297,7 +297,7 @@ export default function DatasetPromptPage() {
     }
     setIsSelectingDataset(true)
     try {
-      const datasetIds = scopedDatasets.map(d => d.id)
+      const datasetIds = filteredDatasets.map(d => d.id)
       const result = await n8nService.selectDataset(prompt.trim(), datasetIds)
       if (!result.dataset_id) {
         toast.error('No suitable dataset found')
