@@ -97,6 +97,8 @@ export default function DatasetPromptPage() {
     (location.state as { preSelectedDatasetId?: string } | null)?.preSelectedDatasetId || ''
   )
   const [datasetSearch, setDatasetSearch] = useState('')
+  const [showDatasetDropdown, setShowDatasetDropdown] = useState(false)
+  const datasetDropdownRef = useRef<HTMLDivElement>(null)
   const [selectedModelId, setSelectedModelId] = useState(session?.aiModel || '')
   const [prompt, setPrompt] = useState('')
   const [captureProcess, setCaptureProcess] = useState(false)
@@ -154,6 +156,25 @@ export default function DatasetPromptPage() {
     }
   }, [aiModels, selectedModelId, setAIModel])
 
+  // Sync search field to show selected dataset name
+  useEffect(() => {
+    if (selectedDatasetId && datasets.length > 0) {
+      const found = datasets.find(d => d.id === selectedDatasetId)
+      if (found) setDatasetSearch(found.name)
+    }
+  }, [selectedDatasetId, datasets])
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (datasetDropdownRef.current && !datasetDropdownRef.current.contains(e.target as Node)) {
+        setShowDatasetDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
   // Timer for elapsed time during analysis
   useEffect(() => {
     if (isAnalyzing) {
@@ -207,6 +228,13 @@ export default function DatasetPromptPage() {
       return false
     })
   }, [datasets, datasetScope, session])
+
+  const filteredDatasets = useMemo(() => {
+    const term = datasetSearch.toLowerCase()
+    return [...scopedDatasets]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .filter(d => !term || d.name.toLowerCase().includes(term) || (d.description || '').toLowerCase().includes(term))
+  }, [scopedDatasets, datasetSearch])
 
   const runAnalysisWithDataset = async (datasetId: string) => {
     if (!selectedModelId) {
@@ -359,18 +387,48 @@ export default function DatasetPromptPage() {
 
               {/* Dataset Selection */}
               <div>
-                <label htmlFor="dataset" className="label">
-                  Select Dataset
-                </label>
+                <label className="label">Select Dataset</label>
                 <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={datasetSearch}
-                    onChange={(e) => setDatasetSearch(e.target.value)}
-                    placeholder="Search datasets..."
-                    className="input-field flex-1"
-                    disabled={isAnalyzing}
-                  />
+                  <div className="relative flex-1" ref={datasetDropdownRef}>
+                    <input
+                      type="text"
+                      value={datasetSearch}
+                      onChange={(e) => {
+                        setDatasetSearch(e.target.value)
+                        setSelectedDatasetId('')
+                        setShowDatasetDropdown(true)
+                      }}
+                      onFocus={() => setShowDatasetDropdown(true)}
+                      placeholder="Search datasets..."
+                      className="input-field w-full"
+                      disabled={isAnalyzing}
+                      autoComplete="off"
+                    />
+                    {showDatasetDropdown && !isAnalyzing && (
+                      <div className="absolute z-50 top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+                        {isLoadingDatasets ? (
+                          <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+                        ) : filteredDatasets.length === 0 ? (
+                          <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No datasets found</div>
+                        ) : (
+                          filteredDatasets.map(d => (
+                            <div
+                              key={d.id}
+                              onMouseDown={() => {
+                                setSelectedDatasetId(d.id)
+                                setDatasetSearch(d.name)
+                                setShowDatasetDropdown(false)
+                              }}
+                              className={`px-3 py-2 cursor-pointer text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 ${selectedDatasetId === d.id ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}`}
+                            >
+                              <div className="text-gray-900 dark:text-gray-100">{d.name}</div>
+                              {d.description && <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{d.description}</div>}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <select
                     value={datasetScope}
                     onChange={(e) => setDatasetScope(e.target.value as typeof datasetScope)}
@@ -384,21 +442,6 @@ export default function DatasetPromptPage() {
                     <option value="team">Team Datasets</option>
                   </select>
                 </div>
-                <select
-                  id="dataset"
-                  value={selectedDatasetId}
-                  onChange={(e) => setSelectedDatasetId(e.target.value)}
-                  className="input-field"
-                  disabled={isAnalyzing}
-                >
-                  <option value="">-- Select a dataset --</option>
-                  {[...scopedDatasets].sort((a, b) => a.name.localeCompare(b.name)).filter(d => d.name.toLowerCase().includes(datasetSearch.toLowerCase())).map((dataset) => (
-                    <option key={dataset.id} value={dataset.id}>
-                      {dataset.name}
-                      {dataset.description && ` - ${dataset.description}`}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               {/* Dataset Preview */}
