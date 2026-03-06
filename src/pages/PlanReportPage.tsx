@@ -1510,6 +1510,7 @@ export default function PlanReportPage() {
                 <ReportHtml
                   html={report}
                   className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-6 overflow-auto max-h-[80vh] report-html"
+                  onHtmlChange={(newHtml) => { setReport(newHtml); setReportSaved(false) }}
                 />
               )}
             </div>

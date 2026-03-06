@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   ResponsiveContainer,
   BarChart, Bar,
@@ -13,6 +13,7 @@ type ChartType = 'bar' | 'line' | 'pie'
 interface ChartModalProps {
   data: ChartData
   onClose: () => void
+  onInsert?: (svgHtml: string) => void
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
@@ -36,10 +37,25 @@ function buildRechartsData(data: ChartData): Record<string, string | number>[] {
   })
 }
 
-export default function ChartModal({ data, onClose }: ChartModalProps) {
+export default function ChartModal({ data, onClose, onInsert }: ChartModalProps) {
   const [chartType, setChartType] = useState<ChartType>(() => getDefaultChartType(data))
+  const chartAreaRef = useRef<HTMLDivElement>(null)
   const rechartsData = buildRechartsData(data)
   const numericKeys = data.numericColumnIndices.map(i => data.headers[i])
+
+  const handleInsert = () => {
+    if (!chartAreaRef.current || !onInsert) return
+    const svgEl = chartAreaRef.current.querySelector('svg')
+    if (!svgEl) return
+    const svgClone = svgEl.cloneNode(true) as SVGSVGElement
+    if (!svgClone.getAttribute('xmlns'))
+      svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+    const { width, height } = svgEl.getBoundingClientRect()
+    if (width > 0) svgClone.setAttribute('width', String(Math.round(width)))
+    if (height > 0) svgClone.setAttribute('height', String(Math.round(height)))
+    onInsert(`<div class="report-chart-embed">${svgClone.outerHTML}</div>`)
+    onClose()
+  }
 
   return (
     <div
@@ -49,7 +65,7 @@ export default function ChartModal({ data, onClose }: ChartModalProps) {
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-2xl mx-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {(['bar', 'line', 'pie'] as ChartType[]).map(type => (
               <button
                 key={type}
@@ -63,10 +79,19 @@ export default function ChartModal({ data, onClose }: ChartModalProps) {
                 {type.charAt(0).toUpperCase() + type.slice(1)}
               </button>
             ))}
+            {onInsert && (
+              <button
+                onClick={handleInsert}
+                className="px-3 py-1 text-sm rounded border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
+                title="Embed chart into report"
+              >
+                ↩ Insert
+              </button>
+            )}
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none font-bold"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl leading-none font-bold ml-2"
             aria-label="Close chart"
           >
             ×
@@ -74,7 +99,7 @@ export default function ChartModal({ data, onClose }: ChartModalProps) {
         </div>
 
         {/* Chart */}
-        <div style={{ height: 400 }}>
+        <div ref={chartAreaRef} style={{ height: 400 }}>
           <ResponsiveContainer width="100%" height="100%">
             {chartType === 'bar' ? (
               <BarChart data={rechartsData}>

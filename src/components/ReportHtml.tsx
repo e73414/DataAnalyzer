@@ -25,15 +25,21 @@ function downloadTableAsCSV(table: HTMLTableElement, tableIndex: number) {
 interface ReportHtmlProps {
   html: string
   className?: string
+  onHtmlChange?: (newHtml: string) => void
 }
 
-export default function ReportHtml({ html, className }: ReportHtmlProps) {
+export default function ReportHtml({ html, className, onHtmlChange }: ReportHtmlProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [chartData, setChartData] = useState<ChartData | null>(null)
+  const [chartTableIndex, setChartTableIndex] = useState<number>(0)
 
   // Listen for chart events dispatched by DOM-injected buttons
   useEffect(() => {
-    const handler = (e: Event) => setChartData((e as CustomEvent<ChartData>).detail)
+    const handler = (e: Event) => {
+      const { chartData: cd, tableIndex } = (e as CustomEvent).detail
+      setChartData(cd)
+      setChartTableIndex(tableIndex)
+    }
     window.addEventListener('show-chart', handler)
     return () => window.removeEventListener('show-chart', handler)
   }, [])
@@ -64,7 +70,9 @@ export default function ReportHtml({ html, className }: ReportHtmlProps) {
         chartBtn.innerHTML = '&#9650; Chart'
         chartBtn.setAttribute('aria-label', 'Visualize table as chart')
         chartBtn.addEventListener('click', () =>
-          window.dispatchEvent(new CustomEvent('show-chart', { detail: parsedData }))
+          window.dispatchEvent(new CustomEvent('show-chart', {
+            detail: { chartData: parsedData, tableIndex: index }
+          }))
         )
         wrapper.appendChild(chartBtn)
       }
@@ -74,6 +82,17 @@ export default function ReportHtml({ html, className }: ReportHtmlProps) {
     })
   }, [html])
 
+  const handleInsert = (svgHtml: string) => {
+    const container = containerRef.current
+    if (!container) return
+    const tables = container.querySelectorAll('table')
+    const targetTable = tables[chartTableIndex]
+    if (!targetTable) return
+    const anchor = targetTable.closest('.report-table-wrapper') ?? targetTable
+    anchor.insertAdjacentHTML('afterend', svgHtml)
+    onHtmlChange?.(container.innerHTML)
+  }
+
   return (
     <>
       <div
@@ -81,7 +100,13 @@ export default function ReportHtml({ html, className }: ReportHtmlProps) {
         className={className}
         dangerouslySetInnerHTML={{ __html: html }}
       />
-      {chartData && <ChartModal data={chartData} onClose={() => setChartData(null)} />}
+      {chartData && (
+        <ChartModal
+          data={chartData}
+          onClose={() => setChartData(null)}
+          onInsert={onHtmlChange ? handleInsert : undefined}
+        />
+      )}
     </>
   )
 }

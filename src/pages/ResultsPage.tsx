@@ -413,6 +413,11 @@ export default function ResultsPage() {
                       <ReportHtml
                         html={item.response}
                         className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 [&_*]:text-gray-800 dark:[&_*]:text-gray-200 [&_*]:!bg-transparent"
+                        onHtmlChange={(newHtml) =>
+                          setConversation(prev =>
+                            prev.map((c, i) => i === index ? { ...c, response: newHtml } : c)
+                          )
+                        }
                       />
                     ) : (
                       <ReactMarkdown

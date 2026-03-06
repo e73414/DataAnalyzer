@@ -8,6 +8,7 @@ type VisualizableTableProps = React.HTMLAttributes<HTMLTableElement> & { node?: 
 export default function VisualizableTable({ children, node: _node, ...rest }: VisualizableTableProps) {
   const tableRef = useRef<HTMLTableElement>(null)
   const [chartData, setChartData] = useState<ChartData | null>(null)
+  const [insertedSvg, setInsertedSvg] = useState<string | null>(null)
 
   const handleChartClick = () => {
     if (!tableRef.current) return
@@ -27,7 +28,16 @@ export default function VisualizableTable({ children, node: _node, ...rest }: Vi
       <table ref={tableRef} {...rest}>
         {children}
       </table>
-      {chartData && <ChartModal data={chartData} onClose={() => setChartData(null)} />}
+      {insertedSvg && (
+        <div className="report-chart-embed" dangerouslySetInnerHTML={{ __html: insertedSvg }} />
+      )}
+      {chartData && (
+        <ChartModal
+          data={chartData}
+          onClose={() => setChartData(null)}
+          onInsert={(svgHtml) => { setInsertedSvg(svgHtml); setChartData(null) }}
+        />
+      )}
     </div>
   )
 }
