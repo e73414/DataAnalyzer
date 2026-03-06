@@ -200,7 +200,3 @@
 .report-chart-embed {
   margin: 1.5em 0;
 }
-.report-chart-embed svg {
-  max-width: 100%;
-  height: auto;
-}

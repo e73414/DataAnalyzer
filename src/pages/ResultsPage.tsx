@@ -134,6 +134,7 @@ export default function ResultsPage() {
   const conversationEndRef = useRef<HTMLDivElement>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const initialSavedRef = useRef(false)
+  const savedConversationIds = useRef<Map<number, string>>(new Map())
 
   const state = location.state as LocationState | undefined
 
@@ -185,6 +186,8 @@ export default function ResultsPage() {
           datasetId: state.datasetId,
           datasetName: state.datasetName,
           durationSeconds: state.durationSeconds,
+        }).then((saved) => {
+          savedConversationIds.current.set(0, saved.id)
         }).catch((err) => {
           console.error('Failed to save conversation to history:', err)
         })
@@ -257,6 +260,7 @@ export default function ResultsPage() {
 
       const trimmedPrompt = followUpPrompt.trim()
       const duration = Math.round((Date.now() - startTime) / 1000)
+      const newIndex = conversation.length
       setConversation((prev) => [
         ...prev,
         {
@@ -279,6 +283,8 @@ export default function ResultsPage() {
         datasetId: datasetId,
         datasetName: datasetName,
         durationSeconds: duration,
+      }).then((saved) => {
+        savedConversationIds.current.set(newIndex, saved.id)
       }).catch((err) => {
         console.error('Failed to save conversation to history:', err)
       })
@@ -413,11 +419,16 @@ export default function ResultsPage() {
                       <ReportHtml
                         html={item.response}
                         className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 [&_*]:text-gray-800 dark:[&_*]:text-gray-200 [&_*]:!bg-transparent"
-                        onHtmlChange={(newHtml) =>
+                        onHtmlChange={(newHtml) => {
                           setConversation(prev =>
                             prev.map((c, i) => i === index ? { ...c, response: newHtml } : c)
                           )
-                        }
+                          const savedId = savedConversationIds.current.get(index)
+                          if (savedId) {
+                            pocketbaseService.updateConversation(savedId, { response: newHtml })
+                              .catch(err => console.error('Failed to persist chart to history:', err))
+                          }
+                        }}
                       />
                     ) : (
                       <ReactMarkdown

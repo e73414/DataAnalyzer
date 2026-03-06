@@ -90,7 +90,17 @@ export default function ReportHtml({ html, className, onHtmlChange }: ReportHtml
     if (!targetTable) return
     const anchor = targetTable.closest('.report-table-wrapper') ?? targetTable
     anchor.insertAdjacentHTML('afterend', svgHtml)
-    onHtmlChange?.(container.innerHTML)
+
+    // Serialize a clean copy without the injected .report-table-wrapper divs so
+    // that when the new html prop triggers a re-render, the useEffect re-injects
+    // fresh wrappers with working event listeners (the skip check would otherwise
+    // see already-wrapped tables and leave the buttons without click handlers).
+    const clone = container.cloneNode(true) as HTMLDivElement
+    clone.querySelectorAll('.report-table-wrapper').forEach(wrapper => {
+      const table = wrapper.querySelector('table')
+      if (table) wrapper.replaceWith(table)
+    })
+    onHtmlChange?.(clone.innerHTML)
   }
 
   return (

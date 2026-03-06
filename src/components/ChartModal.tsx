@@ -4,7 +4,7 @@ import {
   BarChart, Bar,
   LineChart, Line,
   PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
 } from 'recharts'
 import type { ChartData } from '../utils/tableToChartData'
 
@@ -27,6 +27,14 @@ function getDefaultChartType(data: ChartData): ChartType {
   return 'bar'
 }
 
+function formatDataLabel(value: unknown): string {
+  if (typeof value !== 'number') return String(value ?? '')
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`
+  if (Number.isInteger(value)) return String(value)
+  return parseFloat(value.toFixed(2)).toString()
+}
+
 function buildRechartsData(data: ChartData): Record<string, string | number>[] {
   return data.rows.map(row => {
     const entry: Record<string, string | number> = { label: String(row[data.labelColumnIndex]) }
@@ -45,15 +53,36 @@ export default function ChartModal({ data, onClose, onInsert }: ChartModalProps)
 
   const handleInsert = () => {
     if (!chartAreaRef.current || !onInsert) return
-    const svgEl = chartAreaRef.current.querySelector('svg')
+    // Target the main recharts chart SVG (direct child of .recharts-wrapper),
+    // not the tiny 14×14 legend-icon SVGs that recharts also renders inside the chart area
+    const svgEl = (
+      chartAreaRef.current.querySelector<SVGSVGElement>('.recharts-wrapper > svg') ??
+      chartAreaRef.current.querySelector<SVGSVGElement>('svg')
+    )
     if (!svgEl) return
     const svgClone = svgEl.cloneNode(true) as SVGSVGElement
     if (!svgClone.getAttribute('xmlns'))
       svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-    const { width, height } = svgEl.getBoundingClientRect()
-    if (width > 0) svgClone.setAttribute('width', String(Math.round(width)))
-    if (height > 0) svgClone.setAttribute('height', String(Math.round(height)))
-    onInsert(`<div class="report-chart-embed">${svgClone.outerHTML}</div>`)
+    const rect = svgEl.getBoundingClientRect()
+    const w = rect.width > 0 ? Math.round(rect.width) : (parseInt(svgEl.getAttribute('width') ?? '0') || 600)
+    const h = rect.height > 0 ? Math.round(rect.height) : (parseInt(svgEl.getAttribute('height') ?? '0') || 400)
+    svgClone.setAttribute('viewBox', `0 0 ${w} ${h}`)
+    // SVG fills its absolutely-positioned slot; outer wrapper enforces aspect ratio
+    // via padding-top trick so height is always correct regardless of browser behaviour
+    svgClone.setAttribute('width', '100%')
+    svgClone.setAttribute('height', '100%')
+    const existingStyle = svgClone.getAttribute('style') ?? ''
+    const styleBase = existingStyle.replace(/\b(?:width|height|overflow)\s*:[^;]*(;|$)/gi, '').replace(/;+$/, '').trim()
+    // overflow:visible overrides recharts' .recharts-surface { overflow:hidden } so
+    // pie/line labels that sit near the SVG edge aren't clipped in the static embed
+    svgClone.setAttribute('style', [styleBase, 'position:absolute;top:0;left:0;display:block;overflow:visible'].filter(Boolean).join(';'))
+    const paddingPct = ((h / w) * 100).toFixed(4)
+    onInsert(
+      `<div class="report-chart-embed">` +
+      `<div style="position:relative;width:${w}px;max-width:100%;padding-top:${paddingPct}%;">` +
+      svgClone.outerHTML +
+      `</div></div>`
+    )
     onClose()
   }
 
@@ -109,7 +138,9 @@ export default function ChartModal({ data, onClose, onInsert }: ChartModalProps)
                 <Tooltip />
                 <Legend />
                 {numericKeys.map((key, i) => (
-                  <Bar key={key} dataKey={key} fill={COLORS[i % COLORS.length]} />
+                  <Bar key={key} dataKey={key} fill={COLORS[i % COLORS.length]}>
+                    <LabelList dataKey={key} position="top" formatter={formatDataLabel} style={{ fill: '#6b7280', fontSize: 11 }} />
+                  </Bar>
                 ))}
               </BarChart>
             ) : chartType === 'line' ? (
@@ -127,7 +158,9 @@ export default function ChartModal({ data, onClose, onInsert }: ChartModalProps)
                     stroke={COLORS[i % COLORS.length]}
                     dot={rechartsData.length <= 30}
                     strokeWidth={2}
-                  />
+                  >
+                    <LabelList dataKey={key} position="top" formatter={formatDataLabel} style={{ fill: '#6b7280', fontSize: 11 }} />
+                  </Line>
                 ))}
               </LineChart>
             ) : (
@@ -138,7 +171,8 @@ export default function ChartModal({ data, onClose, onInsert }: ChartModalProps)
                   nameKey="label"
                   cx="50%"
                   cy="50%"
-                  outerRadius={140}
+                  outerRadius={120}
+                  isAnimationActive={false}
                   label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                 >
                   {rechartsData.map((_, i) => (
