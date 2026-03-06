@@ -169,3 +169,30 @@
 .dark .csv-download-btn:hover {
   background: #4b5563;
 }
+
+.chart-viz-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  margin-bottom: 0.4em;
+  margin-left: 0.5em;
+  padding: 0.25em 0.75em;
+  font-size: 0.75rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #1d4ed8;
+  line-height: 1.5;
+}
+.chart-viz-btn:hover {
+  background: #dbeafe;
+}
+.dark .chart-viz-btn {
+  background: #1e3a5f;
+  border-color: #2563eb;
+  color: #93c5fd;
+}
+.dark .chart-viz-btn:hover {
+  background: #1e40af;
+}

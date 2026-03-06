@@ -8,6 +8,8 @@ import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
+import ReportHtml from '../components/ReportHtml'
+import VisualizableTable from '../components/VisualizableTable'
 import type { AnalysisResult } from '../types'
 
 function isHtmlContent(text: string): boolean {
@@ -408,14 +410,15 @@ export default function ResultsPage() {
                   <div className="bg-gray-100 dark:bg-gray-700/50 rounded-2xl rounded-tl-md px-4 py-3 w-full shadow-sm overflow-x-auto">
                     <div className="min-w-fit">
                     {isHtmlContent(item.response) ? (
-                      <div
+                      <ReportHtml
+                        html={item.response}
                         className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 [&_*]:text-gray-800 dark:[&_*]:text-gray-200 [&_*]:!bg-transparent"
-                        dangerouslySetInnerHTML={{ __html: item.response }}
                       />
                     ) : (
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 [&_*]:text-gray-800 dark:[&_*]:text-gray-200 [&_*]:!bg-transparent"
+                        components={{ table: VisualizableTable }}
                       >
                         {item.response}
                       </ReactMarkdown>

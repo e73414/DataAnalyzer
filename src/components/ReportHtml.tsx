@@ -1,4 +1,7 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
+import { extractTableData } from '../utils/tableToChartData'
+import type { ChartData } from '../utils/tableToChartData'
+import ChartModal from './ChartModal'
 
 function downloadTableAsCSV(table: HTMLTableElement, tableIndex: number) {
   const rows = Array.from(table.querySelectorAll('tr'))
@@ -26,6 +29,14 @@ interface ReportHtmlProps {
 
 export default function ReportHtml({ html, className }: ReportHtmlProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const [chartData, setChartData] = useState<ChartData | null>(null)
+
+  // Listen for chart events dispatched by DOM-injected buttons
+  useEffect(() => {
+    const handler = (e: Event) => setChartData((e as CustomEvent<ChartData>).detail)
+    window.addEventListener('show-chart', handler)
+    return () => window.removeEventListener('show-chart', handler)
+  }, [])
 
   useEffect(() => {
     const container = containerRef.current
@@ -44,17 +55,33 @@ export default function ReportHtml({ html, className }: ReportHtmlProps) {
       btn.title = 'Download table as CSV'
       btn.addEventListener('click', () => downloadTableAsCSV(table, index + 1))
 
-      table.parentNode?.insertBefore(wrapper, table)
       wrapper.appendChild(btn)
+
+      const parsedData = extractTableData(table)
+      if (parsedData && parsedData.numericColumnIndices.length > 0) {
+        const chartBtn = document.createElement('button')
+        chartBtn.className = 'chart-viz-btn'
+        chartBtn.innerHTML = '&#9650; Chart'
+        chartBtn.setAttribute('aria-label', 'Visualize table as chart')
+        chartBtn.addEventListener('click', () =>
+          window.dispatchEvent(new CustomEvent('show-chart', { detail: parsedData }))
+        )
+        wrapper.appendChild(chartBtn)
+      }
+
+      table.parentNode?.insertBefore(wrapper, table)
       wrapper.appendChild(table)
     })
   }, [html])
 
   return (
-    <div
-      ref={containerRef}
-      className={className}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    <>
+      <div
+        ref={containerRef}
+        className={className}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      {chartData && <ChartModal data={chartData} onClose={() => setChartData(null)} />}
+    </>
   )
 }
