@@ -23,20 +23,32 @@ interface LoadedPlanState {
   reportDetail?: string
 }
 
-const CHUNK_THRESHOLD = 10_000 // rows — steps below this run unchanged
-const CHUNK_SIZE = 5_000       // rows per chunk
+const CHUNK_THRESHOLD = 10_000      // rows — steps below this run unchanged
+const TARGET_CELLS_PER_CHUNK = 50_000 // rows × columns target per chunk
+const MAX_CHUNK_ROWS = 10_000
+const MIN_CHUNK_ROWS = 500
+
+// Computes the optimal chunk row count for a dataset based on its column count.
+// Wider datasets get smaller chunks to keep AI context load roughly constant.
+function calcChunkSize(columnCount: number | undefined): number {
+  const cols = columnCount && columnCount > 0 ? columnCount : 10
+  return Math.min(MAX_CHUNK_ROWS, Math.max(MIN_CHUNK_ROWS, Math.floor(TARGET_CELLS_PER_CHUNK / cols)))
+}
 
 // Expands plan steps for datasets exceeding CHUNK_THRESHOLD rows.
 // Each oversized step is replaced with N parallel chunk steps + 1 merge step.
 // All step numbers and dependencies are renumbered consistently.
 function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[]): ReportPlan {
-  const rowCountMap = new Map(datasets.map(d => [d.id, d.row_count ?? 0]))
+  const rowCountMap    = new Map(datasets.map(d => [d.id, d.row_count    ?? 0]))
+  const columnCountMap = new Map(datasets.map(d => [d.id, d.column_count]))
   const mergeStepFor = new Map<number, number>() // old step_number → representative new step_number
   const newSteps: ReportPlanStep[] = []
   let next = 1
 
   for (const step of plan.steps) {
-    const rowCount = rowCountMap.get(step.dataset_id) ?? 0
+    const rowCount    = rowCountMap.get(step.dataset_id)    ?? 0
+    const columnCount = columnCountMap.get(step.dataset_id)
+    const chunkSize   = calcChunkSize(columnCount)
     const remappedDeps = step.dependencies
       .map(d => mergeStepFor.get(d))
       .filter((n): n is number => n !== undefined)
@@ -46,13 +58,13 @@ function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[]): Repo
       mergeStepFor.set(step.step_number, newNum)
       newSteps.push({ ...step, step_number: newNum, dependencies: remappedDeps })
     } else {
-      const numChunks = Math.ceil(rowCount / CHUNK_SIZE)
+      const numChunks = Math.ceil(rowCount / chunkSize)
       const chunkNums: number[] = []
 
       for (let i = 0; i < numChunks; i++) {
         const chunkNum = next++
         chunkNums.push(chunkNum)
-        const offset = i * CHUNK_SIZE
+        const offset = i * chunkSize
         newSteps.push({
           ...step,
           step_number: chunkNum,
@@ -60,7 +72,7 @@ function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[]): Repo
           purpose: `${step.purpose} (chunk ${i + 1} of ${numChunks})`,
           query_strategy: {
             ...step.query_strategy,
-            logic: `PAGINATED CHUNK ${i + 1} OF ${numChunks}: Your SQL MUST include LIMIT ${CHUNK_SIZE} OFFSET ${offset} - do not alter these values. ${step.query_strategy.logic}`,
+            logic: `PAGINATED CHUNK ${i + 1} OF ${numChunks}: Your SQL MUST include LIMIT ${chunkSize} OFFSET ${offset} - do not alter these values. ${step.query_strategy.logic}`,
           },
         })
       }

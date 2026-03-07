@@ -126,6 +126,7 @@ export const pocketbaseService = {
       updated: String(row.updated_at ?? row.updated ?? ''),
       profile_code: row.profile_code != null ? String(row.profile_code) : null,
       row_count: row.row_count != null ? Number(row.row_count) : undefined,
+      column_count: Array.isArray(row.dataset_headers) ? (row.dataset_headers as unknown[]).length : undefined,
     }))
   },
 
@@ -141,6 +142,7 @@ export const pocketbaseService = {
       created: String(row.created ?? row.created_at ?? ''),
       updated: String(row.updated ?? row.updated_at ?? ''),
       row_count: row.row_count != null ? Number(row.row_count) : undefined,
+      column_count: Array.isArray(row.dataset_headers) ? (row.dataset_headers as unknown[]).length : undefined,
     }))
   },
 

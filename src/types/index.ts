@@ -21,6 +21,7 @@ export interface Dataset {
   updated: string
   profile_code?: string | null
   row_count?: number
+  column_count?: number
 }
 
 export interface DatasetDetail extends Dataset {
