@@ -23,7 +23,7 @@ interface LoadedPlanState {
   reportDetail?: string
 }
 
-const CHUNK_THRESHOLD_OPTIONS = [10_000, 15_000, 20_000] as const
+const CHUNK_THRESHOLD_OPTIONS = [5_000, 10_000, 15_000, 20_000] as const
 const CHUNK_THRESHOLD = Math.min(...CHUNK_THRESHOLD_OPTIONS) // fixed trigger threshold (lowest option)
 const BASELINE_COLUMNS = 10  // column count at which maxChunkRows applies 1:1
 const MIN_CHUNK_ROWS = 500
