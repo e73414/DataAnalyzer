@@ -23,7 +23,8 @@ interface LoadedPlanState {
   reportDetail?: string
 }
 
-const CHUNK_THRESHOLD = 10_000      // rows — steps below this run unchanged
+const CHUNK_THRESHOLD_OPTIONS = [10_000, 15_000, 20_000] as const
+const CHUNK_THRESHOLD = Math.min(...CHUNK_THRESHOLD_OPTIONS) // default (lowest option)
 const TARGET_CELLS_PER_CHUNK = 50_000 // rows × columns target per chunk
 const MAX_CHUNK_ROWS = 10_000
 const MIN_CHUNK_ROWS = 500
@@ -1098,17 +1099,6 @@ export default function PlanReportPage() {
                   )}
                 </select>
 
-                <select
-                  value={chunkThreshold}
-                  onChange={(e) => setChunkThreshold(Number(e.target.value))}
-                  className="input-field w-auto"
-                  disabled={isWorking}
-                >
-                  <option value={10_000}>Chunk: 10k rows</option>
-                  <option value={15_000}>Chunk: 15k rows</option>
-                  <option value={20_000}>Chunk: 20k rows</option>
-                </select>
-
                 {planMutation.isPending && (
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     This may take a moment...
@@ -1338,19 +1328,21 @@ export default function PlanReportPage() {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Chunk Threshold</label>
-                    <select
-                      value={chunkThreshold}
-                      onChange={(e) => setChunkThreshold(Number(e.target.value))}
-                      className="input-field w-auto"
-                      disabled={isWorking}
-                    >
-                      <option value={10_000}>10,000 rows</option>
-                      <option value={15_000}>15,000 rows</option>
-                      <option value={20_000}>20,000 rows</option>
-                    </select>
-                  </div>
+                  {plan.steps.some(s => (datasets.find(d => d.id === s.dataset_id)?.row_count ?? 0) > CHUNK_THRESHOLD) && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Chunk Threshold</label>
+                      <select
+                        value={chunkThreshold}
+                        onChange={(e) => setChunkThreshold(Number(e.target.value))}
+                        className="input-field w-auto"
+                        disabled={isWorking}
+                      >
+                        {CHUNK_THRESHOLD_OPTIONS.map(v => (
+                          <option key={v} value={v}>{v.toLocaleString()} rows</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Detail Level:</label>
