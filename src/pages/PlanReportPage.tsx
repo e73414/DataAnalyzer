@@ -60,7 +60,7 @@ function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[]): Repo
           purpose: `${step.purpose} (chunk ${i + 1} of ${numChunks})`,
           query_strategy: {
             ...step.query_strategy,
-            logic: `${step.query_strategy.logic} Use OFFSET ${offset} LIMIT ${CHUNK_SIZE} (chunk ${i + 1} of ${numChunks} — do not change this range).`,
+            logic: `PAGINATED CHUNK ${i + 1} OF ${numChunks}: Your SQL MUST include LIMIT ${CHUNK_SIZE} OFFSET ${offset} - do not alter these values. ${step.query_strategy.logic}`,
           },
         })
       }
@@ -74,8 +74,7 @@ function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[]): Repo
         purpose: `Merge: ${step.purpose}`,
         query_strategy: {
           ...step.query_strategy,
-          filters: {},
-          logic: `Aggregate and combine the results from the previous ${numChunks} chunk steps (steps ${chunkNums.join(', ')}). Do not query the dataset directly — summarise the partial results into a final consolidated answer for: ${step.purpose}`,
+          logic: `DO NOT run a new database query. Read the results already returned by the previous ${numChunks} chunk steps (step numbers: ${chunkNums.join(', ')}) and aggregate them into a single consolidated answer for: ${step.purpose}`,
         },
       })
     }
@@ -737,7 +736,7 @@ export default function PlanReportPage() {
       setExecutionProgress(prev => prev ? { ...prev, status: 'error', error_message: msg } : null)
       toast.error(msg)
     }
-  }, [plan, session, selectedModelId, userProfile, detailLevel, reportDetail, waitForBatchCompletion, stopPolling])
+  }, [plan, session, selectedModelId, userProfile, detailLevel, reportDetail, datasets, waitForBatchCompletion, stopPolling])
 
   const handleRetryFailed = useCallback(async () => {
     if (!plan || !session?.email || !reportId || !executionProgress) return
