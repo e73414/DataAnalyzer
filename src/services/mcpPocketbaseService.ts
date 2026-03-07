@@ -125,6 +125,7 @@ export const pocketbaseService = {
       created: String(row.created_at ?? row.created ?? ''),
       updated: String(row.updated_at ?? row.updated ?? ''),
       profile_code: row.profile_code != null ? String(row.profile_code) : null,
+      row_count: row.row_count != null ? Number(row.row_count) : undefined,
     }))
   },
 
@@ -139,6 +140,7 @@ export const pocketbaseService = {
       owner_email: String(row.owner_email ?? ''),
       created: String(row.created ?? row.created_at ?? ''),
       updated: String(row.updated ?? row.updated_at ?? ''),
+      row_count: row.row_count != null ? Number(row.row_count) : undefined,
     }))
   },
 

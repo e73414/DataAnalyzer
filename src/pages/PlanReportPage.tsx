@@ -8,7 +8,7 @@ import { n8nService } from '../services/mcpN8nService'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
 import ReportHtml from '../components/ReportHtml'
-import type { ReportPlan, ReportPlanStep, CheckReportProgressResult, PromptDialogQuestion, DatasetPreview, DatasetDetail } from '../types'
+import type { ReportPlan, ReportPlanStep, CheckReportProgressResult, PromptDialogQuestion, DatasetPreview, DatasetDetail, Dataset } from '../types'
 
 interface LoadedPlanState {
   prompt: string
@@ -21,6 +21,67 @@ interface LoadedPlanState {
   savedRecordId: string
   detailLevel?: string
   reportDetail?: string
+}
+
+const CHUNK_THRESHOLD = 10_000 // rows — steps below this run unchanged
+const CHUNK_SIZE = 5_000       // rows per chunk
+
+// Expands plan steps for datasets exceeding CHUNK_THRESHOLD rows.
+// Each oversized step is replaced with N parallel chunk steps + 1 merge step.
+// All step numbers and dependencies are renumbered consistently.
+function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[]): ReportPlan {
+  const rowCountMap = new Map(datasets.map(d => [d.id, d.row_count ?? 0]))
+  const mergeStepFor = new Map<number, number>() // old step_number → representative new step_number
+  const newSteps: ReportPlanStep[] = []
+  let next = 1
+
+  for (const step of plan.steps) {
+    const rowCount = rowCountMap.get(step.dataset_id) ?? 0
+    const remappedDeps = step.dependencies
+      .map(d => mergeStepFor.get(d))
+      .filter((n): n is number => n !== undefined)
+
+    if (rowCount <= CHUNK_THRESHOLD) {
+      const newNum = next++
+      mergeStepFor.set(step.step_number, newNum)
+      newSteps.push({ ...step, step_number: newNum, dependencies: remappedDeps })
+    } else {
+      const numChunks = Math.ceil(rowCount / CHUNK_SIZE)
+      const chunkNums: number[] = []
+
+      for (let i = 0; i < numChunks; i++) {
+        const chunkNum = next++
+        chunkNums.push(chunkNum)
+        const offset = i * CHUNK_SIZE
+        newSteps.push({
+          ...step,
+          step_number: chunkNum,
+          dependencies: remappedDeps,
+          purpose: `${step.purpose} (chunk ${i + 1} of ${numChunks})`,
+          query_strategy: {
+            ...step.query_strategy,
+            logic: `${step.query_strategy.logic} Use OFFSET ${offset} LIMIT ${CHUNK_SIZE} (chunk ${i + 1} of ${numChunks} — do not change this range).`,
+          },
+        })
+      }
+
+      const mergeNum = next++
+      mergeStepFor.set(step.step_number, mergeNum)
+      newSteps.push({
+        ...step,
+        step_number: mergeNum,
+        dependencies: chunkNums,
+        purpose: `Merge: ${step.purpose}`,
+        query_strategy: {
+          ...step.query_strategy,
+          filters: {},
+          logic: `Aggregate and combine the results from the previous ${numChunks} chunk steps (steps ${chunkNums.join(', ')}). Do not query the dataset directly — summarise the partial results into a final consolidated answer for: ${step.purpose}`,
+        },
+      })
+    }
+  }
+
+  return { ...plan, total_steps: newSteps.length, steps: newSteps }
 }
 
 // Topological sort: groups steps into parallel batches by dependency level.
@@ -598,7 +659,8 @@ export default function PlanReportPage() {
 
     executionCancelledRef.current = false
     const sharedReportId = 'rpt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)
-    const batches = groupStepsByBatch(plan.steps)
+    const expandedPlan = expandPlanForLargeDatasets(plan, datasets)
+    const batches = groupStepsByBatch(expandedPlan.steps)
     const hasParallelism = batches.some(b => b.length > 1)
 
     setReportId(sharedReportId)
@@ -636,7 +698,7 @@ export default function PlanReportPage() {
         await Promise.all(
           batch.map(step =>
             n8nService.executePlan({
-              plan: JSON.stringify({ ...plan, steps: [step] }),
+              plan: JSON.stringify({ ...expandedPlan, steps: [step] }),
               email: session.email,
               model: selectedModelId,
               templateId: userProfile?.template_id,
