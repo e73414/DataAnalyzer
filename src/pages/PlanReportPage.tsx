@@ -155,6 +155,7 @@ export default function PlanReportPage() {
   const [jsonText, setJsonText] = useState('')
   const [jsonError, setJsonError] = useState('')
   const [isExecuting, setIsExecuting] = useState(false)
+  const [formatterTriggered, setFormatterTriggered] = useState(false)
   const [executionProgress, setExecutionProgress] = useState<CheckReportProgressResult | null>(null)
   const [isSavingReport, setIsSavingReport] = useState(false)
   const [reportSaved, setReportSaved] = useState(false)
@@ -679,6 +680,7 @@ export default function PlanReportPage() {
 
     setReportId(sharedReportId)
     setIsExecuting(true)
+    setFormatterTriggered(false)
     setReport('')
     setReportSaved(false)
     setSavedRecordId(null)
@@ -729,6 +731,7 @@ export default function PlanReportPage() {
       if (executionCancelledRef.current) return
 
       // All batches done — trigger the formatter
+      setFormatterTriggered(true)
       await n8nService.runFormatter({
         reportId: sharedReportId,
         email: session.email,
@@ -771,6 +774,7 @@ export default function PlanReportPage() {
 
     executionCancelledRef.current = false
     setIsExecuting(true)
+    setFormatterTriggered(false)
     setExecutionProgress(prev => prev ? {
       ...prev,
       status: 'in_progress',
@@ -801,6 +805,7 @@ export default function PlanReportPage() {
 
       if (executionCancelledRef.current) return
 
+      setFormatterTriggered(true)
       await n8nService.runFormatter({
         reportId,
         email: session.email,
@@ -1471,8 +1476,8 @@ export default function PlanReportPage() {
                     </div>
                   ))}
 
-                  {/* Consolidation indicator — only after ALL planned steps have completed */}
-                  {plan && plan.steps.every(ps => executionProgress.steps.find(s => s.step_number === ps.step_number)?.status === 'completed') && !executionProgress.final_report && executionProgress.status !== 'error' && (
+                  {/* Consolidation indicator — only after formatter has been triggered */}
+                  {formatterTriggered && !executionProgress.final_report && executionProgress.status !== 'error' && (
                     <div className="flex items-center gap-3 px-4 py-3 border rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800">
                       <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-indigo-500 border-t-transparent"></span>
                       <span className="text-sm text-indigo-700 dark:text-indigo-300 font-medium">
