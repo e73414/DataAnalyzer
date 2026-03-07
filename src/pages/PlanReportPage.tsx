@@ -1098,6 +1098,17 @@ export default function PlanReportPage() {
                   )}
                 </select>
 
+                <select
+                  value={chunkThreshold}
+                  onChange={(e) => setChunkThreshold(Number(e.target.value))}
+                  className="input-field w-auto"
+                  disabled={isWorking}
+                >
+                  <option value={10_000}>Chunk: 10k rows</option>
+                  <option value={15_000}>Chunk: 15k rows</option>
+                  <option value={20_000}>Chunk: 20k rows</option>
+                </select>
+
                 {planMutation.isPending && (
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     This may take a moment...
