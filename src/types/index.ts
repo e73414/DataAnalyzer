@@ -26,6 +26,7 @@ export interface DatasetDetail extends Dataset {
   summary?: string
   column_mapping?: Record<string, string> | string
   dataset_desc?: string
+  sample_questions?: { questions: { id: string; question: string }[] }
 }
 
 export interface UpdateSummaryRequest {

@@ -7,13 +7,14 @@
 #   dataset_record_manager, profile_business_units, profile_companies,
 #   profile_teams, template_profiles, users
 #
-# Usage: bash SyncData.sh
+# Usage: bash SyncData.
+# Or bash /c/Users/Ed/Claude/DataAnalyzer/SyncData.sh  (with Git Bash)
 
 set -euo pipefail
 
 # ── Config ───────────────────────────────────────────────────────────────────
 SSH_HOST="elee@elee-AG2"
-SERVER_PG_CONTAINER="mcp-n8n-postgres-1"
+SERVER_PG_CONTAINER="postgres"
 LOCAL_PG_CONTAINER="mcp-n8n-postgres-1"
 PG_USER="n8n"
 PG_DB="n8n"

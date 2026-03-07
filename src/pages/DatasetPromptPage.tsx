@@ -500,10 +500,30 @@ export default function DatasetPromptPage() {
                 </div>
               )}
 
+              {/* Sample Questions */}
+              {datasetDetail?.sample_questions?.questions && datasetDetail.sample_questions.questions.length > 0 && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 font-normal">
+                  <span className="font-medium">Sample questions:</span>
+                  <ul className="mt-1 space-y-0.5 list-disc pl-5">
+                    {datasetDetail.sample_questions.questions.map((q) => (
+                      <li key={q.id}>
+                        <button
+                          type="button"
+                          className="text-left text-gray-500 dark:text-gray-400 hover:underline font-normal text-xs"
+                          onClick={() => setPrompt(q.question)}
+                        >
+                          {q.question}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {/* Prompt Input */}
               <div>
                 <label htmlFor="prompt" className="label">
-                  Enter your analysis prompt
+                  Enter your question or query about the data
                 </label>
                 <textarea
                   id="prompt"
