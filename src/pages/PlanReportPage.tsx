@@ -38,7 +38,7 @@ function calcChunkSize(columnCount: number | undefined): number {
 // Expands plan steps for datasets exceeding CHUNK_THRESHOLD rows.
 // Each oversized step is replaced with N parallel chunk steps + 1 merge step.
 // All step numbers and dependencies are renumbered consistently.
-function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[]): ReportPlan {
+function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[], threshold = CHUNK_THRESHOLD): ReportPlan {
   const rowCountMap    = new Map(datasets.map(d => [d.id, d.row_count    ?? 0]))
   const columnCountMap = new Map(datasets.map(d => [d.id, d.column_count]))
   const mergeStepFor = new Map<number, number>() // old step_number → representative new step_number
@@ -53,7 +53,7 @@ function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[]): Repo
       .map(d => mergeStepFor.get(d))
       .filter((n): n is number => n !== undefined)
 
-    if (rowCount <= CHUNK_THRESHOLD) {
+    if (rowCount <= threshold) {
       const newNum = next++
       mergeStepFor.set(step.step_number, newNum)
       newSteps.push({ ...step, step_number: newNum, dependencies: remappedDeps })
@@ -167,6 +167,7 @@ export default function PlanReportPage() {
   const [dialogLoading, setDialogLoading] = useState(false)
   const [detailLevel, setDetailLevel] = useState('None')
   const [reportDetail, setReportDetail] = useState('Simple Report')
+  const [chunkThreshold, setChunkThreshold] = useState(10_000)
   const [previewDatasetId, setPreviewDatasetId] = useState<string | null>(null)
   const [previewAnchorRect, setPreviewAnchorRect] = useState<DOMRect | null>(null)
   const editorRef = useRef<HTMLIFrameElement>(null)
@@ -670,7 +671,7 @@ export default function PlanReportPage() {
 
     executionCancelledRef.current = false
     const sharedReportId = 'rpt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)
-    const expandedPlan = expandPlanForLargeDatasets(plan, datasets)
+    const expandedPlan = expandPlanForLargeDatasets(plan, datasets, chunkThreshold)
     const batches = groupStepsByBatch(expandedPlan.steps)
     const hasParallelism = batches.some(b => b.length > 1)
 
@@ -748,7 +749,7 @@ export default function PlanReportPage() {
       setExecutionProgress(prev => prev ? { ...prev, status: 'error', error_message: msg } : null)
       toast.error(msg)
     }
-  }, [plan, session, selectedModelId, userProfile, detailLevel, reportDetail, datasets, waitForBatchCompletion, stopPolling])
+  }, [plan, session, selectedModelId, userProfile, detailLevel, reportDetail, chunkThreshold, datasets, waitForBatchCompletion, stopPolling])
 
   const handleRetryFailed = useCallback(async () => {
     if (!plan || !session?.email || !reportId || !executionProgress) return
@@ -1323,6 +1324,20 @@ export default function PlanReportPage() {
                           </option>
                         ))
                       )}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Chunk Threshold</label>
+                    <select
+                      value={chunkThreshold}
+                      onChange={(e) => setChunkThreshold(Number(e.target.value))}
+                      className="input-field w-auto"
+                      disabled={isWorking}
+                    >
+                      <option value={10_000}>10,000 rows</option>
+                      <option value={15_000}>15,000 rows</option>
+                      <option value={20_000}>20,000 rows</option>
                     </select>
                   </div>
 
