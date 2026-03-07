@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { n8nService } from '../services/mcpN8nService'
+import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
 import type { DatasetDetail } from '../types'
@@ -19,6 +20,8 @@ export default function EditSummaryPage() {
   const [datasetDesc, setDatasetDesc] = useState('')
   const [hasChanges, setHasChanges] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [sampleQuestions, setSampleQuestions] = useState<{ id: string; question: string }[]>([])
+  const [newQuestion, setNewQuestion] = useState('')
 
   const {
     datasets: datasets = [],
@@ -34,6 +37,15 @@ export default function EditSummaryPage() {
     queryKey: ['dataset-detail', selectedDatasetId],
     queryFn: () => n8nService.getDatasetDetail(selectedDatasetId, session!.email),
     enabled: !!selectedDatasetId && !!session?.email,
+  })
+
+  const sampleQuestionsMutation = useMutation({
+    mutationFn: (questions: { id: string; question: string }[]) =>
+      pocketbaseService.updateSampleQuestions(selectedDatasetId, questions),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dataset-detail', selectedDatasetId] })
+    },
+    onError: () => toast.error('Failed to update sample questions'),
   })
 
   const updateMutation = useMutation({
@@ -61,6 +73,7 @@ export default function EditSummaryPage() {
       setDatasetName(datasetDetail.name || '')
       setEditedSummary(datasetDetail.summary || '')
       setDatasetDesc(datasetDetail.dataset_desc || '')
+      setSampleQuestions(datasetDetail.sample_questions?.questions ?? [])
       setHasChanges(false)
     }
   }, [datasetDetail])
@@ -75,6 +88,8 @@ export default function EditSummaryPage() {
     setDatasetName('')
     setEditedSummary('')
     setDatasetDesc('')
+    setSampleQuestions([])
+    setNewQuestion('')
     setHasChanges(false)
   }
 
@@ -96,6 +111,21 @@ export default function EditSummaryPage() {
   const handleDatasetDescChange = (value: string) => {
     setDatasetDesc(value)
     setHasChanges(checkHasChanges(datasetName, editedSummary, value))
+  }
+
+  const handleAddQuestion = () => {
+    const text = newQuestion.trim()
+    if (!text) return
+    const updated = [...sampleQuestions, { id: crypto.randomUUID(), question: text }]
+    setSampleQuestions(updated)
+    setNewQuestion('')
+    sampleQuestionsMutation.mutate(updated)
+  }
+
+  const handleDeleteQuestion = (id: string) => {
+    const updated = sampleQuestions.filter(q => q.id !== id)
+    setSampleQuestions(updated)
+    sampleQuestionsMutation.mutate(updated)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -279,6 +309,46 @@ export default function EditSummaryPage() {
                           placeholder="Provide context about your data to help AI understand it better (e.g., what the columns represent, time periods, business context...)"
                           disabled={updateMutation.isPending}
                         />
+                      </div>
+
+                      <div>
+                        <label className="label">Sample Questions</label>
+                        {sampleQuestions.length > 0 && (
+                          <ul className="mb-3 space-y-1.5">
+                            {sampleQuestions.map(q => (
+                              <li key={q.id} className="flex items-start justify-between gap-3 text-sm text-gray-700 dark:text-gray-300">
+                                <span className="flex-1">{q.question}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteQuestion(q.id)}
+                                  disabled={sampleQuestionsMutation.isPending}
+                                  className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 shrink-0 disabled:opacity-50"
+                                >
+                                  Delete
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newQuestion}
+                            onChange={(e) => setNewQuestion(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddQuestion() } }}
+                            placeholder="Add a sample question..."
+                            className="input-field flex-1"
+                            disabled={sampleQuestionsMutation.isPending || updateMutation.isPending}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddQuestion}
+                            disabled={!newQuestion.trim() || sampleQuestionsMutation.isPending || updateMutation.isPending}
+                            className="btn-primary shrink-0"
+                          >
+                            Add
+                          </button>
+                        </div>
                       </div>
 
                       <div>

@@ -146,6 +146,15 @@ export const pocketbaseService = {
     }))
   },
 
+  async updateSampleQuestions(
+    datasetId: string,
+    questions: { id: string; question: string }[]
+  ): Promise<void> {
+    await mcpN8nApi.patch(`/datasets/${datasetId}/sample-questions`, {
+      sample_questions: { questions },
+    })
+  },
+
   // Save analysis result to PostgreSQL via n8n webhook (unchanged)
   async saveAnalysisResult(data: {
     datasetId: string
