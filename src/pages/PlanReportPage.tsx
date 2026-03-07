@@ -24,22 +24,23 @@ interface LoadedPlanState {
 }
 
 const CHUNK_THRESHOLD_OPTIONS = [10_000, 15_000, 20_000] as const
-const CHUNK_THRESHOLD = Math.min(...CHUNK_THRESHOLD_OPTIONS) // default (lowest option)
-const TARGET_CELLS_PER_CHUNK = 50_000 // rows × columns target per chunk
-const MAX_CHUNK_ROWS = 10_000
+const CHUNK_THRESHOLD = Math.min(...CHUNK_THRESHOLD_OPTIONS) // fixed trigger threshold (lowest option)
+const BASELINE_COLUMNS = 10  // column count at which maxChunkRows applies 1:1
 const MIN_CHUNK_ROWS = 500
 
-// Computes the optimal chunk row count for a dataset based on its column count.
-// Wider datasets get smaller chunks to keep AI context load roughly constant.
-function calcChunkSize(columnCount: number | undefined): number {
-  const cols = columnCount && columnCount > 0 ? columnCount : 10
-  return Math.min(MAX_CHUNK_ROWS, Math.max(MIN_CHUNK_ROWS, Math.floor(TARGET_CELLS_PER_CHUNK / cols)))
+// Computes the effective chunk row count for a dataset.
+// maxChunkRows = user-selected limit for a baseline-column dataset;
+// wider datasets get proportionally fewer rows to keep AI context load roughly constant.
+function calcChunkSize(columnCount: number | undefined, maxChunkRows: number): number {
+  const cols = columnCount && columnCount > 0 ? columnCount : BASELINE_COLUMNS
+  const target = maxChunkRows * BASELINE_COLUMNS
+  return Math.min(maxChunkRows, Math.max(MIN_CHUNK_ROWS, Math.floor(target / cols)))
 }
 
 // Expands plan steps for datasets exceeding CHUNK_THRESHOLD rows.
 // Each oversized step is replaced with N parallel chunk steps + 1 merge step.
 // All step numbers and dependencies are renumbered consistently.
-function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[], threshold = CHUNK_THRESHOLD): ReportPlan {
+function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[], threshold = CHUNK_THRESHOLD, maxChunkRows = CHUNK_THRESHOLD): ReportPlan {
   const rowCountMap    = new Map(datasets.map(d => [d.id, d.row_count    ?? 0]))
   const columnCountMap = new Map(datasets.map(d => [d.id, d.column_count]))
   const mergeStepFor = new Map<number, number>() // old step_number → representative new step_number
@@ -49,7 +50,7 @@ function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[], thres
   for (const step of plan.steps) {
     const rowCount    = rowCountMap.get(step.dataset_id)    ?? 0
     const columnCount = columnCountMap.get(step.dataset_id)
-    const chunkSize   = calcChunkSize(columnCount)
+    const chunkSize   = calcChunkSize(columnCount, maxChunkRows)
     const remappedDeps = step.dependencies
       .map(d => mergeStepFor.get(d))
       .filter((n): n is number => n !== undefined)
@@ -672,7 +673,7 @@ export default function PlanReportPage() {
 
     executionCancelledRef.current = false
     const sharedReportId = 'rpt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)
-    const expandedPlan = expandPlanForLargeDatasets(plan, datasets, chunkThreshold)
+    const expandedPlan = expandPlanForLargeDatasets(plan, datasets, CHUNK_THRESHOLD, chunkThreshold)
     const batches = groupStepsByBatch(expandedPlan.steps)
     const hasParallelism = batches.some(b => b.length > 1)
 
@@ -1330,7 +1331,7 @@ export default function PlanReportPage() {
 
                   {plan.steps.some(s => (datasets.find(d => d.id === s.dataset_id)?.row_count ?? 0) > CHUNK_THRESHOLD) && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Chunk Threshold</label>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Rows Per Chunk</label>
                       <select
                         value={chunkThreshold}
                         onChange={(e) => setChunkThreshold(Number(e.target.value))}
