@@ -25,7 +25,7 @@ export default function EditSummaryPage() {
   const [sampleQuestions, setSampleQuestions] = useState<{ id: string; question: string }[]>([])
   const [newQuestion, setNewQuestion] = useState('')
   const [columnMappingExpanded, setColumnMappingExpanded] = useState(false)
-  const [summaryTab, setSummaryTab] = useState<'edit' | 'preview'>('edit')
+  const [summaryTab, setSummaryTab] = useState<'edit' | 'preview'>('preview')
   const summaryTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   const {
