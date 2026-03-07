@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -22,6 +24,9 @@ export default function EditSummaryPage() {
   const [isDownloading, setIsDownloading] = useState(false)
   const [sampleQuestions, setSampleQuestions] = useState<{ id: string; question: string }[]>([])
   const [newQuestion, setNewQuestion] = useState('')
+  const [columnMappingExpanded, setColumnMappingExpanded] = useState(false)
+  const [summaryTab, setSummaryTab] = useState<'edit' | 'preview'>('edit')
+  const summaryTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   const {
     datasets: datasets = [],
@@ -126,6 +131,25 @@ export default function EditSummaryPage() {
     const updated = sampleQuestions.filter(q => q.id !== id)
     setSampleQuestions(updated)
     sampleQuestionsMutation.mutate(updated)
+  }
+
+  const insertMarkdown = (prefix: string, suffix = '') => {
+    const ta = summaryTextareaRef.current
+    if (!ta) return
+    const start = ta.selectionStart
+    const end = ta.selectionEnd
+    const selected = editedSummary.slice(start, end)
+    handleSummaryChange(editedSummary.slice(0, start) + prefix + selected + suffix + editedSummary.slice(end))
+    setTimeout(() => { ta.focus(); ta.setSelectionRange(start + prefix.length, end + prefix.length) }, 0)
+  }
+
+  const insertLinePrefix = (prefix: string) => {
+    const ta = summaryTextareaRef.current
+    if (!ta) return
+    const start = ta.selectionStart
+    const lineStart = editedSummary.lastIndexOf('\n', start - 1) + 1
+    handleSummaryChange(editedSummary.slice(0, lineStart) + prefix + editedSummary.slice(lineStart))
+    setTimeout(() => { ta.focus(); ta.setSelectionRange(start + prefix.length, start + prefix.length) }, 0)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -288,12 +312,19 @@ export default function EditSummaryPage() {
                       </div>
 
                       <div>
-                        <label className="label">
+                        <button
+                          type="button"
+                          onClick={() => setColumnMappingExpanded(v => !v)}
+                          className="flex items-center gap-1.5 label mb-0 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        >
+                          <span className="text-xs">{columnMappingExpanded ? '▾' : '▸'}</span>
                           Column Mapping (Read-only)
-                        </label>
-                        <pre className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-md text-sm font-mono whitespace-pre-wrap text-gray-700 dark:text-gray-300">
-                          {formatColumnMapping(datasetDetail.column_mapping)}
-                        </pre>
+                        </button>
+                        {columnMappingExpanded && (
+                          <pre className="mt-2 w-full px-3 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-md text-sm font-mono whitespace-pre-wrap text-gray-700 dark:text-gray-300">
+                            {formatColumnMapping(datasetDetail.column_mapping)}
+                          </pre>
+                        )}
                       </div>
 
                       <div>
@@ -317,7 +348,7 @@ export default function EditSummaryPage() {
                           <ul className="mb-3 space-y-1.5">
                             {sampleQuestions.map(q => (
                               <li key={q.id} className="flex items-start justify-between gap-3 text-sm text-gray-700 dark:text-gray-300">
-                                <span className="flex-1">{q.question}</span>
+                                <span className="flex-1"><span className="mr-1.5 text-gray-400">•</span>{q.question}</span>
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteQuestion(q.id)}
@@ -352,21 +383,72 @@ export default function EditSummaryPage() {
                       </div>
 
                       <div>
-                        <label htmlFor="summary" className="label">
-                          Summary
-                          {hasChanges && (
-                            <span className="ml-2 text-orange-500 dark:text-orange-400 text-xs">(unsaved changes)</span>
-                          )}
-                        </label>
-                        <textarea
-                          id="summary"
-                          value={editedSummary}
-                          onChange={(e) => handleSummaryChange(e.target.value)}
-                          rows={10}
-                          className="input-field resize-y font-mono text-sm"
-                          placeholder="Enter dataset summary..."
-                          disabled={updateMutation.isPending}
-                        />
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="label mb-0">
+                            Summary
+                            {hasChanges && (
+                              <span className="ml-2 text-orange-500 dark:text-orange-400 text-xs">(unsaved changes)</span>
+                            )}
+                          </label>
+                          <div className="flex rounded border border-gray-200 dark:border-gray-600 overflow-hidden text-xs">
+                            <button type="button" onClick={() => setSummaryTab('edit')}
+                              className={`px-3 py-1 ${summaryTab === 'edit' ? 'bg-blue-500 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}`}>
+                              Edit
+                            </button>
+                            <button type="button" onClick={() => setSummaryTab('preview')}
+                              className={`px-3 py-1 ${summaryTab === 'preview' ? 'bg-blue-500 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}`}>
+                              Preview
+                            </button>
+                          </div>
+                        </div>
+                        {summaryTab === 'edit' ? (
+                          <>
+                            <div className="flex flex-wrap gap-1 p-1.5 bg-gray-50 dark:bg-gray-700/50 border border-b-0 border-gray-200 dark:border-gray-600 rounded-t-md">
+                              {[
+                                { label: 'B', title: 'Bold', cls: 'font-bold', action: () => insertMarkdown('**', '**') },
+                                { label: 'I', title: 'Italic', cls: 'italic', action: () => insertMarkdown('*', '*') },
+                              ].map(btn => (
+                                <button key={btn.label} type="button" title={btn.title} onClick={btn.action}
+                                  className={`px-2 py-0.5 text-sm ${btn.cls} rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200`}>
+                                  {btn.label}
+                                </button>
+                              ))}
+                              <span className="w-px bg-gray-300 dark:bg-gray-600 my-0.5" />
+                              {['H1', 'H2', 'H3'].map((h, i) => (
+                                <button key={h} type="button" title={h} onClick={() => insertLinePrefix('#'.repeat(i + 1) + ' ')}
+                                  className="px-2 py-0.5 text-xs rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200">
+                                  {h}
+                                </button>
+                              ))}
+                              <span className="w-px bg-gray-300 dark:bg-gray-600 my-0.5" />
+                              <button type="button" title="Bullet list" onClick={() => insertLinePrefix('- ')}
+                                className="px-2 py-0.5 text-xs rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200">
+                                • List
+                              </button>
+                              <button type="button" title="Numbered list" onClick={() => insertLinePrefix('1. ')}
+                                className="px-2 py-0.5 text-xs rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200">
+                                1. List
+                              </button>
+                            </div>
+                            <textarea
+                              ref={summaryTextareaRef}
+                              id="summary"
+                              value={editedSummary}
+                              onChange={(e) => handleSummaryChange(e.target.value)}
+                              rows={10}
+                              className="input-field resize-y font-mono text-sm rounded-t-none border-t-0"
+                              placeholder="Enter dataset summary..."
+                              disabled={updateMutation.isPending}
+                            />
+                          </>
+                        ) : (
+                          <div className="w-full min-h-48 px-3 py-2 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-md prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
+                            {editedSummary
+                              ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{editedSummary}</ReactMarkdown>
+                              : <p className="text-gray-400 dark:text-gray-500 italic">Nothing to preview</p>
+                            }
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-4">
