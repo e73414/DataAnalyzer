@@ -16,6 +16,7 @@ import ExcelUploadPage from './pages/ExcelUploadPage'
 import ProfileManagerPage from './pages/admin/ProfileManagerPage'
 import UserManagerPage from './pages/admin/UserManagerPage'
 import TemplateManagerPage from './pages/admin/TemplateManagerPage'
+import AppSettingsPage from './pages/admin/AppSettingsPage'
 
 function UnauthorizedPage() {
   const navigate = useNavigate()
@@ -186,6 +187,14 @@ function App() {
         element={
           <AdminProtectedRoute>
             <TemplateManagerPage />
+          </AdminProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/settings"
+        element={
+          <AdminProtectedRoute>
+            <AppSettingsPage />
           </AdminProtectedRoute>
         }
       />

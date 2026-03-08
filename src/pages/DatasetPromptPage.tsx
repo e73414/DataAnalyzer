@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
+import { useAppSettings } from '../context/AppSettingsContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
@@ -93,6 +94,7 @@ export default function DatasetPromptPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { session, setAIModel } = useSession()
+  const { appSettings } = useAppSettings()
   const [selectedDatasetId, setSelectedDatasetId] = useState(
     (location.state as { preSelectedDatasetId?: string } | null)?.preSelectedDatasetId || ''
   )
@@ -236,8 +238,10 @@ export default function DatasetPromptPage() {
       .filter(d => !term || d.name.toLowerCase().includes(term) || (d.description || '').toLowerCase().includes(term))
   }, [scopedDatasets, datasetSearch])
 
+  const effectiveAnalyzeModel = appSettings?.analyze_model || selectedModelId
+
   const runAnalysisWithDataset = async (datasetId: string) => {
-    if (!selectedModelId) {
+    if (!effectiveAnalyzeModel) {
       toast.error('Please select an AI model')
       return
     }
@@ -252,7 +256,7 @@ export default function DatasetPromptPage() {
     try {
       const result: AnalysisResult = await n8nService.runAnalysis({
         email: session.email,
-        model: selectedModelId,
+        model: effectiveAnalyzeModel,
         datasetId,
         prompt: prompt.trim(),
         emailResponse,
@@ -360,30 +364,32 @@ export default function DatasetPromptPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* AI Model Selection */}
-              <div>
-                <label htmlFor="aiModel" className="label">
-                  AI Model
-                </label>
-                <select
-                  id="aiModel"
-                  value={selectedModelId}
-                  onChange={(e) => handleModelChange(e.target.value)}
-                  className="input-field"
-                  disabled={isAnalyzing}
-                >
-                  {aiModels?.length === 0 ? (
-                    <option value="">No models available</option>
-                  ) : (
-                    aiModels?.map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.name}
-                        {model.provider && ` (${model.provider})`}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
+              {/* AI Model Selection — hidden when admin has locked the model */}
+              {!appSettings?.analyze_model && (
+                <div>
+                  <label htmlFor="aiModel" className="label">
+                    AI Model
+                  </label>
+                  <select
+                    id="aiModel"
+                    value={selectedModelId}
+                    onChange={(e) => handleModelChange(e.target.value)}
+                    className="input-field"
+                    disabled={isAnalyzing}
+                  >
+                    {aiModels?.length === 0 ? (
+                      <option value="">No models available</option>
+                    ) : (
+                      aiModels?.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.name}
+                          {model.provider && ` (${model.provider})`}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+              )}
 
               {/* Dataset Selection */}
               <div>
@@ -542,7 +548,7 @@ export default function DatasetPromptPage() {
                 <div className="flex items-center gap-3">
                   <button
                     type="submit"
-                    disabled={isAnalyzing || isSelectingDataset || !selectedDatasetId || !selectedModelId || !prompt.trim()}
+                    disabled={isAnalyzing || isSelectingDataset || !selectedDatasetId || !effectiveAnalyzeModel || !prompt.trim()}
                     className="btn-primary"
                   >
                     {isAnalyzing ? (

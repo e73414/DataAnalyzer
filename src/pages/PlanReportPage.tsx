@@ -3,6 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
+import { useAppSettings } from '../context/AppSettingsContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
@@ -142,11 +143,13 @@ function groupRetryStepsByBatch(failedSteps: ReportPlanStep[], alreadyCompleted:
 
 export default function PlanReportPage() {
   const { session, setAIModel } = useSession()
+  const { appSettings } = useAppSettings()
   const location = useLocation()
   const loadedState = location.state as LoadedPlanState | null
   const [prompt, setPrompt] = useState(loadedState?.prompt || '')
   const [selectedDatasetIds, setSelectedDatasetIds] = useState<Set<string>>(new Set())
-  const [selectedModelId, setSelectedModelId] = useState(session?.aiModel || '')
+  const [selectedPlanModelId, setSelectedPlanModelId] = useState(session?.aiModel || '')
+  const [selectedExecuteModelId, setSelectedExecuteModelId] = useState(session?.aiModel || '')
   const [plan, setPlan] = useState<ReportPlan | null>(null)
   const [report, setReport] = useState('')
   const [reportId, setReportId] = useState(loadedState?.reportId || '')
@@ -217,12 +220,12 @@ export default function PlanReportPage() {
   })
 
   useEffect(() => {
-    if (aiModels && aiModels.length > 0 && !selectedModelId) {
+    if (aiModels && aiModels.length > 0) {
       const defaultModel = aiModels[0].id
-      setSelectedModelId(defaultModel)
-      setAIModel(defaultModel)
+      if (!selectedPlanModelId) { setSelectedPlanModelId(defaultModel); setAIModel(defaultModel) }
+      if (!selectedExecuteModelId) setSelectedExecuteModelId(defaultModel)
     }
-  }, [aiModels, selectedModelId, setAIModel])
+  }, [aiModels, selectedPlanModelId, selectedExecuteModelId, setAIModel])
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -281,7 +284,8 @@ export default function PlanReportPage() {
 
     // Set the AI model
     if (loadedState.aiModel) {
-      setSelectedModelId(loadedState.aiModel)
+      setSelectedPlanModelId(loadedState.aiModel)
+      setSelectedExecuteModelId(loadedState.aiModel)
       setAIModel(loadedState.aiModel)
     }
 
@@ -298,8 +302,24 @@ export default function PlanReportPage() {
     toast.success('Plan and report loaded from history')
   }, [loadedState, setAIModel])
 
-  const handleModelChange = (modelId: string) => {
-    setSelectedModelId(modelId)
+  // Sync admin-controlled defaults from app settings
+  useEffect(() => {
+    if (!appSettings) return
+    if (appSettings.chunk_threshold) setChunkThreshold(Number(appSettings.chunk_threshold))
+    if (appSettings.detail_level) setDetailLevel(appSettings.detail_level)
+    if (appSettings.report_detail) setReportDetail(appSettings.report_detail)
+  }, [appSettings])
+
+  const effectivePlanModel = appSettings?.plan_model || selectedPlanModelId
+  const effectiveExecuteModel = appSettings?.execute_model || selectedExecuteModelId
+
+  const handlePlanModelChange = (modelId: string) => {
+    setSelectedPlanModelId(modelId)
+    setAIModel(modelId)
+  }
+
+  const handleExecuteModelChange = (modelId: string) => {
+    setSelectedExecuteModelId(modelId)
     setAIModel(modelId)
   }
 
@@ -526,7 +546,7 @@ export default function PlanReportPage() {
           email: session.email,
           prompt: `[Execute Plan] ${prompt}`,
           response: content,
-          aiModel: selectedModelId,
+          aiModel: effectiveExecuteModel,
           datasetId: Array.from(selectedDatasetIds).join(',') || 'all',
           datasetName: selectedNames || 'All Datasets',
           durationSeconds: Math.round((Date.now() - executeStartTime.current) / 1000),
@@ -646,7 +666,7 @@ export default function PlanReportPage() {
         prompt: promptOverride ?? prompt,
         email: session!.email,
         datasetIds: Array.from(selectedDatasetIds),
-        model: selectedModelId,
+        model: effectivePlanModel,
       }),
     onSuccess: (result) => {
       setPlan(result.plan || null)
@@ -716,7 +736,7 @@ export default function PlanReportPage() {
             n8nService.executePlan({
               plan: JSON.stringify({ ...expandedPlan, steps: [step] }),
               email: session.email,
-              model: selectedModelId,
+              model: effectiveExecuteModel,
               templateId: userProfile?.template_id,
               reportId: sharedReportId,
               stepsOnly: true,
@@ -735,7 +755,7 @@ export default function PlanReportPage() {
       await n8nService.runFormatter({
         reportId: sharedReportId,
         email: session.email,
-        model: selectedModelId,
+        model: effectiveExecuteModel,
         templateId: userProfile?.template_id,
         detailLevel,
         reportDetail,
@@ -754,7 +774,7 @@ export default function PlanReportPage() {
       setExecutionProgress(prev => prev ? { ...prev, status: 'error', error_message: msg } : null)
       toast.error(msg)
     }
-  }, [plan, session, selectedModelId, userProfile, detailLevel, reportDetail, chunkThreshold, datasets, waitForBatchCompletion, stopPolling])
+  }, [plan, session, effectivePlanModel, effectiveExecuteModel, userProfile, detailLevel, reportDetail, chunkThreshold, datasets, waitForBatchCompletion, stopPolling])
 
   const handleRetryFailed = useCallback(async () => {
     if (!plan || !session?.email || !reportId || !executionProgress) return
@@ -793,7 +813,7 @@ export default function PlanReportPage() {
             n8nService.executePlan({
               plan: JSON.stringify({ ...plan, steps: [step] }),
               email: session.email,
-              model: selectedModelId,
+              model: effectiveExecuteModel,
               templateId: userProfile?.template_id,
               reportId,
               stepsOnly: true,
@@ -809,7 +829,7 @@ export default function PlanReportPage() {
       await n8nService.runFormatter({
         reportId,
         email: session.email,
-        model: selectedModelId,
+        model: effectiveExecuteModel,
         templateId: userProfile?.template_id,
         detailLevel,
         reportDetail,
@@ -826,7 +846,7 @@ export default function PlanReportPage() {
       setExecutionProgress(prev => prev ? { ...prev, status: 'error', error_message: msg } : null)
       toast.error(msg)
     }
-  }, [plan, session, selectedModelId, userProfile, reportId, executionProgress, detailLevel, reportDetail, waitForBatchCompletion, stopPolling])
+  }, [plan, session, effectiveExecuteModel, userProfile, reportId, executionProgress, detailLevel, reportDetail, waitForBatchCompletion, stopPolling])
 
   const isWorking = planMutation.isPending || isExecuting
 
@@ -872,7 +892,7 @@ export default function PlanReportPage() {
         prompt,
         email: session!.email,
         datasetIds: Array.from(selectedDatasetIds),
-        model: selectedModelId,
+        model: effectivePlanModel,
       })
       setDialogQuestions(result.questions)
       setDialogAnswers({})
@@ -1087,23 +1107,25 @@ export default function PlanReportPage() {
                   )}
                 </button>
 
-                <select
-                  value={selectedModelId}
-                  onChange={(e) => handleModelChange(e.target.value)}
-                  className="input-field w-auto"
-                  disabled={isWorking}
-                >
-                  {aiModels?.length === 0 ? (
-                    <option value="">No models available</option>
-                  ) : (
-                    aiModels?.map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.name}
-                        {model.provider && ` (${model.provider})`}
-                      </option>
-                    ))
-                  )}
-                </select>
+                {!appSettings?.plan_model && (
+                  <select
+                    value={selectedPlanModelId}
+                    onChange={(e) => handlePlanModelChange(e.target.value)}
+                    className="input-field w-auto"
+                    disabled={isWorking}
+                  >
+                    {aiModels?.length === 0 ? (
+                      <option value="">No models available</option>
+                    ) : (
+                      aiModels?.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.name}
+                          {model.provider && ` (${model.provider})`}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                )}
 
                 {planMutation.isPending && (
                   <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -1313,28 +1335,52 @@ export default function PlanReportPage() {
               <div className="space-y-3 pt-2">
                 {/* Selector row */}
                 <div className="flex flex-wrap items-end gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">AI Model</label>
-                    <select
-                      value={selectedModelId}
-                      onChange={(e) => handleModelChange(e.target.value)}
-                      className="input-field w-auto"
-                      disabled={isWorking}
-                    >
-                      {aiModels?.length === 0 ? (
-                        <option value="">No models available</option>
-                      ) : (
-                        aiModels?.map((model) => (
-                          <option key={model.id} value={model.id}>
-                            {model.name}
-                            {model.provider && ` (${model.provider})`}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                  </div>
+                  {!appSettings?.plan_model && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Plan AI Model</label>
+                      <select
+                        value={selectedPlanModelId}
+                        onChange={(e) => handlePlanModelChange(e.target.value)}
+                        className="input-field w-auto"
+                        disabled={isWorking}
+                      >
+                        {aiModels?.length === 0 ? (
+                          <option value="">No models available</option>
+                        ) : (
+                          aiModels?.map((model) => (
+                            <option key={model.id} value={model.id}>
+                              {model.name}
+                              {model.provider && ` (${model.provider})`}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                  )}
+                  {!appSettings?.execute_model && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Execute AI Model</label>
+                      <select
+                        value={selectedExecuteModelId}
+                        onChange={(e) => handleExecuteModelChange(e.target.value)}
+                        className="input-field w-auto"
+                        disabled={isWorking}
+                      >
+                        {aiModels?.length === 0 ? (
+                          <option value="">No models available</option>
+                        ) : (
+                          aiModels?.map((model) => (
+                            <option key={model.id} value={model.id}>
+                              {model.name}
+                              {model.provider && ` (${model.provider})`}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                  )}
 
-                  {plan.steps.some(s => (datasets.find(d => d.id === s.dataset_id)?.row_count ?? 0) > CHUNK_THRESHOLD) && (
+                  {!appSettings?.chunk_threshold && plan.steps.some(s => (datasets.find(d => d.id === s.dataset_id)?.row_count ?? 0) > CHUNK_THRESHOLD) && (
                     <div>
                       <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Rows Per Chunk</label>
                       <select
@@ -1350,33 +1396,37 @@ export default function PlanReportPage() {
                     </div>
                   )}
 
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Detail Level:</label>
-                    <select
-                      value={reportDetail}
-                      onChange={(e) => setReportDetail(e.target.value)}
-                      className="input-field w-auto"
-                      disabled={isWorking}
-                    >
-                      <option value="Simple Report">Simple Report</option>
-                      <option value="Detailed Report">Detailed Report</option>
-                    </select>
-                  </div>
+                  {!appSettings?.report_detail && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Detail Level:</label>
+                      <select
+                        value={reportDetail}
+                        onChange={(e) => setReportDetail(e.target.value)}
+                        className="input-field w-auto"
+                        disabled={isWorking}
+                      >
+                        <option value="Simple Report">Simple Report</option>
+                        <option value="Detailed Report">Detailed Report</option>
+                      </select>
+                    </div>
+                  )}
 
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Show Steps:</label>
-                    <select
-                      value={detailLevel}
-                      onChange={(e) => setDetailLevel(e.target.value)}
-                      className="input-field w-auto"
-                      disabled={isWorking}
-                    >
-                      <option value="Highly Detailed">Highly Detailed</option>
-                      <option value="Some Detail">Some Detail</option>
-                      <option value="Just Overview">Just Overview</option>
-                      <option value="None">None</option>
-                    </select>
-                  </div>
+                  {!appSettings?.detail_level && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Show Steps:</label>
+                      <select
+                        value={detailLevel}
+                        onChange={(e) => setDetailLevel(e.target.value)}
+                        className="input-field w-auto"
+                        disabled={isWorking}
+                      >
+                        <option value="Highly Detailed">Highly Detailed</option>
+                        <option value="Some Detail">Some Detail</option>
+                        <option value="Just Overview">Just Overview</option>
+                        <option value="None">None</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 {/* Action buttons row */}
@@ -1384,7 +1434,7 @@ export default function PlanReportPage() {
                   <button
                     type="button"
                     onClick={handleExecute}
-                    disabled={isWorking || !plan || !selectedModelId}
+                    disabled={isWorking || !plan || !effectiveExecuteModel}
                     className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium rounded-lg shadow-sm transition-colors disabled:cursor-not-allowed"
                   >
                     Execute Plan

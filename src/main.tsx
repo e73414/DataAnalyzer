@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast'
 import App from './App'
 import { SessionProvider } from './context/SessionContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { AppSettingsProvider } from './context/AppSettingsContext'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -20,6 +21,7 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
+      <AppSettingsProvider>
       <BrowserRouter>
         <ThemeProvider>
           <SessionProvider>
@@ -33,6 +35,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           </SessionProvider>
         </ThemeProvider>
       </BrowserRouter>
+      </AppSettingsProvider>
     </QueryClientProvider>
   </React.StrictMode>,
 )

@@ -1,7 +1,7 @@
 import { mcpN8nApi } from './api'
 import type {
   Dataset, AIModel, NavLink, ConversationHistory, UserProfile,
-  ProfileCompany, ProfileBusinessUnit, ProfileTeam, TemplateProfileAssignment, AdminUser
+  ProfileCompany, ProfileBusinessUnit, ProfileTeam, TemplateProfileAssignment, AdminUser, AppSettings
 } from '../types'
 
 // ── Types for Postgres REST responses ─────────────────────────────────────────
@@ -364,5 +364,24 @@ export const pocketbaseService = {
 
   async updateDatasetOwner(datasetId: string, ownerEmail: string): Promise<void> {
     await mcpN8nApi.patch(`/datasets/${encodeURIComponent(datasetId)}`, { owner_email: ownerEmail })
+  },
+
+  // ── App Settings ─────────────────────────────────────────────────────────────
+
+  async getAppSettings(): Promise<AppSettings> {
+    const response = await mcpN8nApi.get<Record<string, string | null>>('/app-settings')
+    const d = response.data ?? {}
+    return {
+      analyze_model:   d.analyze_model   ?? null,
+      plan_model:      d.plan_model      ?? null,
+      execute_model:   d.execute_model   ?? null,
+      chunk_threshold: d.chunk_threshold ?? null,
+      detail_level:    d.detail_level    ?? null,
+      report_detail:   d.report_detail   ?? null,
+    }
+  },
+
+  async updateAppSetting(key: string, value: string | null): Promise<void> {
+    await mcpN8nApi.put(`/app-settings/${encodeURIComponent(key)}`, { value })
   },
 }
