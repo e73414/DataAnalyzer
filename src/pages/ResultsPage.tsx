@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useSession } from '../context/SessionContext'
+import { useAppSettings } from '../context/AppSettingsContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
@@ -117,6 +118,7 @@ export default function ResultsPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { session, setAIModel } = useSession()
+  const { appSettings } = useAppSettings()
   const [conversation, setConversation] = useState<ConversationItem[]>([])
   const [followUpPrompt, setFollowUpPrompt] = useState('')
   const [selectedModelId, setSelectedModelId] = useState(session?.aiModel || '')
@@ -234,6 +236,8 @@ export default function ResultsPage() {
     return null
   }
 
+  const effectiveAnalyzeModel = appSettings?.analyze_model || selectedModelId
+
   const handleModelChange = (modelId: string) => {
     setSelectedModelId(modelId)
     setAIModel(modelId)
@@ -249,7 +253,7 @@ export default function ResultsPage() {
     try {
       const result = await n8nService.runAnalysis({
         email: session.email,
-        model: selectedModelId || session.aiModel,
+        model: effectiveAnalyzeModel || session.aiModel,
         datasetId: datasetId,
         prompt: followUpPrompt.trim(),
         emailResponse,
@@ -279,7 +283,7 @@ export default function ResultsPage() {
         email: session.email,
         prompt: `[Conversation] ${trimmedPrompt}`,
         response: result.result,
-        aiModel: selectedModelId || session.aiModel,
+        aiModel: effectiveAnalyzeModel || session.aiModel,
         datasetId: datasetId,
         datasetName: datasetName,
         durationSeconds: duration,
@@ -312,7 +316,7 @@ export default function ResultsPage() {
         datasetId,
         conversation: conversationData,
         email: session.email,
-        aiModel: selectedModelId || session.aiModel,
+        aiModel: effectiveAnalyzeModel || session.aiModel,
       })
       setHasSaved(true)
       toast.success('Conversation saved successfully!')
@@ -526,25 +530,27 @@ export default function ResultsPage() {
             {/* AI Model Dropdown, Elapsed Time, and Email Checkbox */}
             <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <label htmlFor="model-select" className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                    AI Model:
-                  </label>
-                  <select
-                    id="model-select"
-                    value={selectedModelId}
-                    onChange={(e) => handleModelChange(e.target.value)}
-                    disabled={isAnalyzing || isSaving}
-                    className="input-field max-w-xs py-1.5 text-sm"
-                  >
-                    {aiModels?.map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.name}
-                        {model.provider && ` (${model.provider})`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {!appSettings?.analyze_model && (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <label htmlFor="model-select" className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                      AI Model:
+                    </label>
+                    <select
+                      id="model-select"
+                      value={selectedModelId}
+                      onChange={(e) => handleModelChange(e.target.value)}
+                      disabled={isAnalyzing || isSaving}
+                      className="input-field max-w-xs py-1.5 text-sm"
+                    >
+                      {aiModels?.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.name}
+                          {model.provider && ` (${model.provider})`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
               </div>
 
