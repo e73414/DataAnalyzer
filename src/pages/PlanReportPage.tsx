@@ -49,8 +49,8 @@ function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[], thres
   let next = 1
 
   for (const step of plan.steps) {
-    const rowCount    = rowCountMap.get(step.dataset_id)    ?? 0
-    const columnCount = columnCountMap.get(step.dataset_id)
+    const rowCount    = rowCountMap.get(step.dataset_id ?? '')    ?? 0
+    const columnCount = columnCountMap.get(step.dataset_id ?? '')
     const chunkSize   = calcChunkSize(columnCount, maxChunkRows)
     const remappedDeps = step.dependencies
       .map(d => mergeStepFor.get(d))
@@ -393,7 +393,7 @@ export default function PlanReportPage() {
       if (!prev) return prev
       const steps = [...prev.steps]
       const qs = { ...steps[stepIndex].query_strategy }
-      const { [filterKey]: _, ...rest } = qs.filters
+      const { [filterKey]: _, ...rest } = (qs.filters ?? {})
       qs.filters = rest
       steps[stepIndex] = { ...steps[stepIndex], query_strategy: qs }
       return { ...prev, steps }
@@ -408,10 +408,10 @@ export default function PlanReportPage() {
       // Find a unique key name
       let keyName = 'new_filter'
       let counter = 1
-      while (keyName in qs.filters) {
+      while (keyName in (qs.filters ?? {})) {
         keyName = `new_filter_${counter++}`
       }
-      qs.filters = { ...qs.filters, [keyName]: '' }
+      qs.filters = { ...(qs.filters ?? {}), [keyName]: '' }
       steps[stepIndex] = { ...steps[stepIndex], query_strategy: qs }
       return { ...prev, steps }
     })
@@ -423,8 +423,8 @@ export default function PlanReportPage() {
       if (!prev) return prev
       const steps = [...prev.steps]
       const qs = { ...steps[stepIndex].query_strategy }
-      const value = qs.filters[oldKey]
-      const { [oldKey]: _, ...rest } = qs.filters
+      const value = (qs.filters ?? {})[oldKey]
+      const { [oldKey]: _, ...rest } = (qs.filters ?? {})
       qs.filters = { ...rest, [newKey.trim()]: value }
       steps[stepIndex] = { ...steps[stepIndex], query_strategy: qs }
       return { ...prev, steps }
@@ -718,7 +718,7 @@ export default function PlanReportPage() {
       steps: firstBatch.map(s => ({
         step_number: s.step_number,
         purpose: s.purpose,
-        dataset_id: s.dataset_id,
+        dataset_id: s.dataset_id ?? '',
         status: 'started' as const,
       })),
       final_report: null,
@@ -1204,8 +1204,8 @@ export default function PlanReportPage() {
                         {/* Dataset */}
                         <div className="flex items-center gap-2 text-sm">
                           <span className="text-gray-500 dark:text-gray-400 font-medium w-20 flex-shrink-0">Dataset:</span>
-                          <span className="text-blue-600 dark:text-blue-400">{getDatasetName(step.dataset_id)}</span>
-                          <span className="text-gray-400 dark:text-gray-500 text-xs font-mono">({step.dataset_id})</span>
+                          <span className="text-blue-600 dark:text-blue-400">{step.dataset_id ? getDatasetName(step.dataset_id) : '—'}</span>
+                          <span className="text-gray-400 dark:text-gray-500 text-xs font-mono">{step.dataset_id ? `(${step.dataset_id})` : ''}</span>
                         </div>
 
                         {/* Dependencies */}
@@ -1240,9 +1240,9 @@ export default function PlanReportPage() {
                                 </button>
                               )}
                             </div>
-                            {Object.keys(step.query_strategy.filters).length > 0 ? (
+                            {Object.keys(step.query_strategy.filters ?? {}).length > 0 ? (
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                                {Object.entries(step.query_strategy.filters).map(([key, val]) => {
+                                {Object.entries(step.query_strategy.filters ?? {}).map(([key, val]) => {
                                   const displayVal = renderFilterValue(val)
                                   return (
                                     <div key={key} className="flex items-center gap-1 text-xs">
@@ -1289,7 +1289,7 @@ export default function PlanReportPage() {
                             <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Columns:</p>
                             <input
                               type="text"
-                              value={step.query_strategy.columns.join(', ')}
+                              value={(step.query_strategy.columns ?? []).join(', ')}
                               onChange={(e) => updateQueryField(idx, 'columns', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
                               className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-mono text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
                               disabled={isWorking}
@@ -1495,43 +1495,67 @@ export default function PlanReportPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {executionProgress.steps.map((step) => (
-                    <div key={step.step_number}>
-                      <div
-                        className={`flex items-center gap-3 px-4 py-3 border rounded-lg transition-colors ${getStepStatusColor(step.status)}`}
-                      >
-                        <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
-                          {getStepStatusIcon(step.status)}
+                  {(() => {
+                    const planStepMap = new Map(plan?.steps.map(s => [s.step_number, s]) ?? [])
+                    return executionProgress.steps.map((step) => {
+                      const planStep = planStepMap.get(step.step_number)
+                      const sql = planStep?.query_strategy?.sql
+                      const pseudoSql = planStep?.query_strategy?.pseudo_sql
+                      const stepSql = sql || pseudoSql
+                      return (
+                        <div key={step.step_number}>
+                          <div
+                            className={`flex items-center gap-3 px-4 py-3 border rounded-lg transition-colors ${getStepStatusColor(step.status)}`}
+                          >
+                            <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+                              {getStepStatusIcon(step.status)}
+                            </div>
+                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs font-bold flex items-center justify-center">
+                              {step.step_number}
+                            </span>
+                            <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">
+                              {step.purpose || `Step ${step.step_number}`}
+                            </span>
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                              step.status === 'completed'
+                                ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
+                                : step.status === 'started'
+                                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                                : step.status === 'error'
+                                ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                            }`}>
+                              {step.status}
+                            </span>
+                          </div>
+                          {/* SQL — shown expanded while running, collapsed after */}
+                          {stepSql && step.status === 'started' && (
+                            <div className="ml-12 mt-1 px-3 py-2 rounded bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800">
+                              <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">{sql ? 'SQL' : 'Pseudo SQL'}</p>
+                              <pre className="text-xs text-blue-800 dark:text-blue-200 whitespace-pre-wrap break-all font-mono">{stepSql}</pre>
+                            </div>
+                          )}
+                          {stepSql && (step.status === 'completed' || step.status === 'error') && (
+                            <details className="ml-12 mt-1">
+                              <summary className="cursor-pointer text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 px-1">
+                                {sql ? 'View SQL' : 'View pseudo SQL'}
+                              </summary>
+                              <pre className="mt-1 px-3 py-2 rounded bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-all font-mono">{stepSql}</pre>
+                            </details>
+                          )}
+                          {step.step_result && step.status !== 'started' && (
+                            <div className={`ml-12 mt-1 px-3 py-1.5 rounded text-xs leading-snug ${
+                              step.status === 'error'
+                                ? 'bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+                                : 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400'
+                            }`}>
+                              {step.step_result.length > 200 ? step.step_result.slice(0, 200) + '…' : step.step_result}
+                            </div>
+                          )}
                         </div>
-                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs font-bold flex items-center justify-center">
-                          {step.step_number}
-                        </span>
-                        <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">
-                          {step.purpose || `Step ${step.step_number}`}
-                        </span>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                          step.status === 'completed'
-                            ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
-                            : step.status === 'started'
-                            ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                            : step.status === 'error'
-                            ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                        }`}>
-                          {step.status}
-                        </span>
-                      </div>
-                      {step.step_result && step.status !== 'started' && (
-                        <div className={`ml-12 mt-1 px-3 py-1.5 rounded text-xs leading-snug ${
-                          step.status === 'error'
-                            ? 'bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
-                            : 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400'
-                        }`}>
-                          {step.step_result.length > 200 ? step.step_result.slice(0, 200) + '…' : step.step_result}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                      )
+                    })
+                  })()}
 
                   {/* Consolidation indicator — only after formatter has been triggered */}
                   {formatterTriggered && !executionProgress.final_report && executionProgress.status !== 'error' && (

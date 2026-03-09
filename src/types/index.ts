@@ -199,15 +199,20 @@ export interface ConversationsByDate {
 }
 
 export interface ReportPlanQueryStrategy {
-  filters: Record<string, string | string[]>
-  columns: string[]
-  logic: string
-  join_on: string
+  filters?: Record<string, string | string[]>
+  columns?: string[]
+  logic?: string
+  join_on?: string
+  sql?: string        // query steps
+  pseudo_sql?: string // aggregate steps
+  join_type?: string
+  filter_note?: string
 }
 
 export interface ReportPlanStep {
   step_number: number
-  dataset_id: string
+  step_type?: 'query' | 'aggregate'
+  dataset_id: string | null
   purpose: string
   query_strategy: ReportPlanQueryStrategy
   dependencies: number[]

@@ -610,8 +610,8 @@ export default function HistoryPage() {
                           </div>
                           <div className="px-3 py-2 space-y-1 text-xs">
                             <p><span className="text-gray-500 dark:text-gray-400">Dataset:</span> <span className="font-mono text-gray-700 dark:text-gray-300">{step.dataset_id}</span></p>
-                            {step.query_strategy.columns.length > 0 && (
-                              <p><span className="text-gray-500 dark:text-gray-400">Columns:</span> <span className="font-mono text-gray-700 dark:text-gray-300">{step.query_strategy.columns.join(', ')}</span></p>
+                            {(step.query_strategy.columns ?? []).length > 0 && (
+                              <p><span className="text-gray-500 dark:text-gray-400">Columns:</span> <span className="font-mono text-gray-700 dark:text-gray-300">{(step.query_strategy.columns ?? []).join(', ')}</span></p>
                             )}
                             <p><span className="text-gray-500 dark:text-gray-400">Logic:</span> <span className="text-gray-700 dark:text-gray-300">{step.query_strategy.logic}</span></p>
                             {step.dependencies.length > 0 && (
