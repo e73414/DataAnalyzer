@@ -8,7 +8,10 @@ const MCP_N8N_BASE_URL = import.meta.env.VITE_MCP_N8N_URL || '/mcp-n8n'
 export const mcpN8nApi = axios.create({
   baseURL: MCP_N8N_BASE_URL,
   timeout: 300000, // 5 minutes for AI processing
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    'x-api-secret': import.meta.env.VITE_API_SECRET || '',
+  },
   maxContentLength: Infinity,
   maxBodyLength: Infinity,
 })
