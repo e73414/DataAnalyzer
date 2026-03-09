@@ -406,10 +406,20 @@ export default function DatasetPromptPage() {
                       }}
                       onFocus={() => setShowDatasetDropdown(true)}
                       placeholder="Search datasets..."
-                      className="input-field w-full"
+                      className="input-field w-full pr-8"
                       disabled={isAnalyzing}
                       autoComplete="off"
                     />
+                    {datasetSearch && !isAnalyzing && (
+                      <button
+                        type="button"
+                        onMouseDown={(e) => { e.preventDefault(); setDatasetSearch(''); setSelectedDatasetId(''); setShowDatasetDropdown(true) }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700"
+                        tabIndex={-1}
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    )}
                     {showDatasetDropdown && !isAnalyzing && (
                       <div className="absolute z-50 top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
                         {isLoadingDatasets ? (
