@@ -4,6 +4,7 @@
 # Deletes local data first, then loads from server.
 #
 # Tables synced:
+#   app_settings, nav_links,
 #   dataset_record_manager, profile_business_units, profile_companies,
 #   profile_teams, template_profiles, users
 #
@@ -26,6 +27,8 @@ ssh "$SSH_HOST" \
   "docker exec $SERVER_PG_CONTAINER pg_dump \
     -U $PG_USER -d $PG_DB \
     --data-only --no-privileges \
+    -t n8n_data.app_settings \
+    -t n8n_data.nav_links \
     -t n8n_data.dataset_record_manager \
     -t n8n_data.profile_business_units \
     -t n8n_data.profile_companies \
@@ -38,6 +41,8 @@ echo "→ Deleting local table data..."
 docker exec -i "$LOCAL_PG_CONTAINER" psql -U "$PG_USER" -d "$PG_DB" -v ON_ERROR_STOP=1 << 'SQL'
 -- Disable FK checks so we can delete in any order
 SET session_replication_role = replica;
+DELETE FROM n8n_data.app_settings;
+DELETE FROM n8n_data.nav_links;
 DELETE FROM n8n_data.template_profiles;
 DELETE FROM n8n_data.profile_teams;
 DELETE FROM n8n_data.profile_business_units;
