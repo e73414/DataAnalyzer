@@ -569,6 +569,8 @@ export default function PlanReportPage() {
 
   // Track how many consecutive polls returned all-steps-done but no terminal state
   const stallCountRef = useRef(0)
+  // Ref mirror of formatterTriggered so pollProgress callback can read it without stale closure
+  const formatterTriggeredRef = useRef(false)
 
   // Poll for progress — stored in ref to avoid stale closures in setInterval
   const pollProgress = useCallback(async (rptId: string) => {
@@ -589,10 +591,11 @@ export default function PlanReportPage() {
         toast.error(progress.error_message || 'Execution failed — one or more steps encountered an error')
       } else {
         // Check for stalled execution: all steps finished but no terminal state
+        // Skip stall check while formatter is running — it can take several minutes
         const allStepsDone = progress.steps.length > 0 && progress.steps.every(
           s => s.status === 'completed' || s.status === 'error'
         )
-        if (allStepsDone) {
+        if (allStepsDone && !formatterTriggeredRef.current) {
           stallCountRef.current++
           // If stalled for ~2 minutes (24 polls x 5s), treat as error
           if (stallCountRef.current >= 24) {
@@ -701,6 +704,7 @@ export default function PlanReportPage() {
     setReportId(sharedReportId)
     setIsExecuting(true)
     setFormatterTriggered(false)
+    formatterTriggeredRef.current = false
     setReport('')
     setReportSaved(false)
     setSavedRecordId(null)
@@ -752,6 +756,7 @@ export default function PlanReportPage() {
 
       // All batches done — trigger the formatter
       setFormatterTriggered(true)
+      formatterTriggeredRef.current = true
       await n8nService.runFormatter({
         reportId: sharedReportId,
         email: session.email,
@@ -795,6 +800,7 @@ export default function PlanReportPage() {
     executionCancelledRef.current = false
     setIsExecuting(true)
     setFormatterTriggered(false)
+    formatterTriggeredRef.current = false
     setExecutionProgress(prev => prev ? {
       ...prev,
       status: 'in_progress',
@@ -826,6 +832,7 @@ export default function PlanReportPage() {
       if (executionCancelledRef.current) return
 
       setFormatterTriggered(true)
+      formatterTriggeredRef.current = true
       await n8nService.runFormatter({
         reportId,
         email: session.email,
