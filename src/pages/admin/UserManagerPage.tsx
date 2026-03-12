@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { pocketbaseService } from '../../services/mcpPocketbaseService'
+import { ProfilePicker, composeProfile } from '../../components/ProfilePicker'
 import type { AdminUser } from '../../types'
 import Navigation from '../../components/Navigation'
 
@@ -128,100 +129,18 @@ async function sha256(message: string): Promise<string> {
   return [h0,h1,h2,h3,h4,h5,h6,h7].map(x=>('00000000'+x.toString(16)).slice(-8)).join('')
 }
 
-// ── Profile picker ────────────────────────────────────────────────────────────
+// ── User Modal ────────────────────────────────────────────────────────────────
 
-function composeProfile(companyCode: string, buCode: string, teamCode: string): string {
-  return `${companyCode}${buCode || '000'}${teamCode || '000'}`
-}
-
-interface ProfilePickerProps {
+interface ProfileEntry {
   companyCode: string
   buCode: string
   teamCode: string
-  onChange: (companyCode: string, buCode: string, teamCode: string) => void
 }
-
-function ProfilePicker({ companyCode, buCode, teamCode, onChange }: ProfilePickerProps) {
-  const { data: companies = [] } = useQuery({
-    queryKey: ['admin-companies'],
-    queryFn: () => pocketbaseService.listCompanies(),
-  })
-  const { data: bus = [] } = useQuery({
-    queryKey: ['admin-bus', companyCode],
-    queryFn: () => pocketbaseService.listBusinessUnits(companyCode),
-    enabled: !!companyCode,
-  })
-  const { data: teams = [] } = useQuery({
-    queryKey: ['admin-teams', companyCode, buCode],
-    queryFn: () => pocketbaseService.listTeams(companyCode, buCode),
-    enabled: !!companyCode && !!buCode,
-  })
-
-  return (
-    <div className="space-y-3">
-      <div>
-        <label className="label">Company</label>
-        <select
-          className="input-field"
-          value={companyCode}
-          onChange={(e) => onChange(e.target.value, '', '')}
-        >
-          <option value="">— select company —</option>
-          {companies.map((c) => (
-            <option key={c.id} value={c.code}>{c.name} ({c.code})</option>
-          ))}
-        </select>
-      </div>
-      {companyCode && (
-        <div>
-          <label className="label">Business Unit <span className="text-gray-400">(optional)</span></label>
-          <select
-            className="input-field"
-            value={buCode}
-            onChange={(e) => onChange(companyCode, e.target.value, '')}
-          >
-            <option value="">— none —</option>
-            {bus.map((bu) => (
-              <option key={bu.id} value={bu.code}>{bu.name} ({bu.code})</option>
-            ))}
-          </select>
-        </div>
-      )}
-      {companyCode && buCode && (
-        <div>
-          <label className="label">Team <span className="text-gray-400">(optional)</span></label>
-          <select
-            className="input-field"
-            value={teamCode}
-            onChange={(e) => onChange(companyCode, buCode, e.target.value)}
-          >
-            <option value="">— none —</option>
-            {teams.map((t) => (
-              <option key={t.id} value={t.code}>{t.name} ({t.code})</option>
-            ))}
-          </select>
-        </div>
-      )}
-      {companyCode && (
-        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-          <span>Profile code:</span>
-          <span className="font-mono font-semibold text-blue-600 dark:text-blue-400">
-            {composeProfile(companyCode, buCode, teamCode)}
-          </span>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── User Modal ────────────────────────────────────────────────────────────────
 
 interface UserFormData {
   user_email: string
   password: string
-  companyCode: string
-  buCode: string
-  teamCode: string
+  profileEntries: ProfileEntry[]
   user_timezone: string
 }
 
@@ -233,28 +152,32 @@ interface UserModalProps {
 }
 
 function UserModal({ user, onClose, onSave, isSaving }: UserModalProps) {
-  const [form, setForm] = useState<UserFormData>(() => {
-    const profile = user?.profile || ''
-    return {
-      user_email: user?.user_email || '',
-      password: '',
-      companyCode: profile.slice(0, 3).trim() === '000' ? '' : profile.slice(0, 3).trim(),
-      buCode: profile.slice(3, 6).trim() === '000' ? '' : profile.slice(3, 6).trim(),
-      teamCode: profile.slice(6, 9).trim() === '000' ? '' : profile.slice(6, 9).trim(),
-      user_timezone: user?.user_timezone || 'America/Los_Angeles',
-    }
-  })
+  const [form, setForm] = useState<UserFormData>(() => ({
+    user_email: user?.user_email || '',
+    password: '',
+    profileEntries: (user?.profiles ?? []).map(p => ({
+      companyCode: p.slice(0, 3).trim() === '000' ? '' : p.slice(0, 3).trim(),
+      buCode:      p.slice(3, 6).trim() === '000' ? '' : p.slice(3, 6).trim(),
+      teamCode:    p.slice(6, 9).trim() === '000' ? '' : p.slice(6, 9).trim(),
+    })),
+    user_timezone: user?.user_timezone || 'America/Los_Angeles',
+  }))
 
   const isNew = !user
+
+  const addProfile = () =>
+    setForm(f => ({ ...f, profileEntries: [...f.profileEntries, { companyCode: '', buCode: '', teamCode: '' }] }))
+
+  const removeProfile = (i: number) =>
+    setForm(f => ({ ...f, profileEntries: f.profileEntries.filter((_, idx) => idx !== i) }))
+
+  const updateProfile = (i: number, c: string, b: string, t: string) =>
+    setForm(f => ({ ...f, profileEntries: f.profileEntries.map((e, idx) => idx === i ? { companyCode: c, buCode: b, teamCode: t } : e) }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (isNew && !form.password.trim()) {
       toast.error('Password is required for new users')
-      return
-    }
-    if (!form.companyCode) {
-      toast.error('Company is required')
       return
     }
     await onSave(form)
@@ -306,13 +229,31 @@ function UserModal({ user, onClose, onSave, isSaving }: UserModalProps) {
               </select>
             </div>
             <div className="pt-1">
-              <label className="label mb-2 block">Profile Assignment</label>
-              <ProfilePicker
-                companyCode={form.companyCode}
-                buCode={form.buCode}
-                teamCode={form.teamCode}
-                onChange={(c, b, t) => setForm((f) => ({ ...f, companyCode: c, buCode: b, teamCode: t }))}
-              />
+              <label className="label mb-2 block">Profile Assignments</label>
+              {form.profileEntries.map((entry, i) => (
+                <div key={i} className="relative border border-gray-200 dark:border-gray-700 rounded-lg p-3 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => removeProfile(i)}
+                    className="absolute top-2 right-2 text-xs text-red-500 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                  <ProfilePicker
+                    companyCode={entry.companyCode}
+                    buCode={entry.buCode}
+                    teamCode={entry.teamCode}
+                    onChange={(c, b, t) => updateProfile(i, c, b, t)}
+                  />
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={addProfile}
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline mt-1"
+              >
+                + Add Profile
+              </button>
             </div>
             <div className="flex gap-3 pt-2">
               <button type="button" className="btn-secondary flex-1" onClick={onClose} disabled={isSaving}>
@@ -344,10 +285,13 @@ export default function UserManagerPage() {
   const createMutation = useMutation({
     mutationFn: async (form: UserFormData) => {
       const hash = await sha256(form.password)
+      const profiles = form.profileEntries
+        .filter(e => e.companyCode)
+        .map(e => composeProfile(e.companyCode, e.buCode, e.teamCode))
       return pocketbaseService.createUser({
         user_email: form.user_email,
         password_hash: hash,
-        profile: composeProfile(form.companyCode, form.buCode, form.teamCode),
+        profiles,
         user_timezone: form.user_timezone,
       })
     },
@@ -361,8 +305,11 @@ export default function UserManagerPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ user, form }: { user: AdminUser; form: UserFormData }) => {
+      const profiles = form.profileEntries
+        .filter(e => e.companyCode)
+        .map(e => composeProfile(e.companyCode, e.buCode, e.teamCode))
       const updates: Parameters<typeof pocketbaseService.updateUser>[1] = {
-        profile: composeProfile(form.companyCode, form.buCode, form.teamCode),
+        profiles,
         user_timezone: form.user_timezone,
       }
       if (form.password.trim()) {
@@ -424,7 +371,7 @@ export default function UserManagerPage() {
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
                   <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Email</th>
-                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Profile</th>
+                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Profiles</th>
                   <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Timezone</th>
                   <th className="px-4 py-3 w-32"></th>
                 </tr>
@@ -434,13 +381,14 @@ export default function UserManagerPage() {
                   <tr key={u.id} className="border-t border-gray-100 dark:border-gray-800">
                     <td className="px-4 py-3 text-gray-800 dark:text-gray-200">{u.user_email}</td>
                     <td className="px-4 py-3">
-                      {u.profile ? (
-                        <span className="font-mono text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded">
-                          {u.profile}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">—</span>
-                      )}
+                      {(u.profiles ?? []).length > 0
+                        ? u.profiles!.map(p => (
+                            <span key={p} className="font-mono text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded mr-1">
+                              {p.trim()}
+                            </span>
+                          ))
+                        : <span className="text-gray-400 text-xs">—</span>
+                      }
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">{u.user_timezone || '—'}</td>
                     <td className="px-4 py-3">

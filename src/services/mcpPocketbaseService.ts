@@ -19,6 +19,7 @@ interface PgUser {
   template_id: string | null
   user_timezone: string | null
   profile: string | null
+  profiles: string[]
 }
 
 interface PgConversation {
@@ -68,6 +69,7 @@ export const pocketbaseService = {
       user_timezone: record.user_timezone ?? undefined,
       password_hash: record.password_hash ?? undefined,
       profile: record.profile ?? undefined,
+      profiles: record.profiles ?? [],
     }
   },
 
@@ -113,9 +115,9 @@ export const pocketbaseService = {
   },
 
   // Fetch datasets accessible to a specific user (server-side profile/email filtering).
-  async getAccessibleDatasets(email: string, profile: string | undefined): Promise<Dataset[]> {
+  async getAccessibleDatasets(email: string, profile: string | undefined, profiles: string[] = []): Promise<Dataset[]> {
     const response = await mcpN8nApi.get<Record<string, unknown>[]>('/datasets', {
-      params: { email, profile }
+      params: { email, profile, profiles: profiles.join(',') }
     })
     return (response.data || []).map((row) => ({
       id: String(row.id ?? row.dataset_id ?? ''),
@@ -264,6 +266,7 @@ export const pocketbaseService = {
     user_email: string
     password_hash: string
     profile?: string
+    profiles?: string[]
     user_timezone?: string
     template_id?: string
   }): Promise<AdminUser> {
@@ -274,6 +277,7 @@ export const pocketbaseService = {
   async updateUser(id: string, data: {
     password_hash?: string
     profile?: string
+    profiles?: string[]
     user_timezone?: string
     template_id?: string
   }): Promise<void> {

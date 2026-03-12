@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { n8nService } from '../services/mcpN8nService'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
+import { ProfilePicker, composeProfile } from '../components/ProfilePicker'
 import Navigation from '../components/Navigation'
 
 interface IncomingFileState {
@@ -25,6 +26,10 @@ export default function UploadDatasetPage() {
   const [datasetDesc, setDatasetDesc] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [csvPreview, setCsvPreview] = useState<string[]>([])
+  const [selectedProfileCode, setSelectedProfileCode] = useState('')
+  const [datasetProfileCompanyCode, setDatasetProfileCompanyCode] = useState('')
+  const [datasetProfileBuCode, setDatasetProfileBuCode] = useState('')
+  const [datasetProfileTeamCode, setDatasetProfileTeamCode] = useState('')
 
   // Accept pre-populated file from CSV Optimizer
   useEffect(() => {
@@ -68,9 +73,15 @@ export default function UploadDatasetPage() {
         ...(datasetDesc.trim() && { datasetDesc: datasetDesc.trim() }),
       })
 
-      const profile = session.profile?.trim()
-      if (profile && profile !== 'admadmadm' && result.datasetId) {
-        await pocketbaseService.setTemplateProfile(result.datasetId, profile)
+      const isAdmin = session.profile?.trim() === 'admadmadm'
+      const chosenProfile = isAdmin
+        ? (datasetProfileCompanyCode
+            ? composeProfile(datasetProfileCompanyCode, datasetProfileBuCode, datasetProfileTeamCode)
+            : null)
+        : (selectedProfileCode || null)
+
+      if (chosenProfile && result.datasetId) {
+        await pocketbaseService.setTemplateProfile(result.datasetId, chosenProfile)
       }
 
       return result
@@ -243,6 +254,53 @@ export default function UploadDatasetPage() {
                 )}
               </div>
             )}
+
+            {(() => {
+              const isAdmin = session?.profile?.trim() === 'admadmadm'
+              const userProfiles = session?.profiles ?? []
+              if (!isAdmin && userProfiles.length > 0) {
+                return (
+                  <div>
+                    <label className="label">Dataset Access</label>
+                    <select
+                      className="input-field"
+                      value={selectedProfileCode}
+                      onChange={(e) => setSelectedProfileCode(e.target.value)}
+                      disabled={uploadMutation.isPending}
+                    >
+                      <option value="">Private (only me)</option>
+                      {userProfiles.map(p => (
+                        <option key={p} value={p}>{p.trim()}</option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Select a profile to share with others, or keep private.
+                    </p>
+                  </div>
+                )
+              }
+              if (isAdmin) {
+                return (
+                  <div>
+                    <label className="label">Dataset Access (Profile)</label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      Leave blank for admin-only. Assign a profile to share with users.
+                    </p>
+                    <ProfilePicker
+                      companyCode={datasetProfileCompanyCode}
+                      buCode={datasetProfileBuCode}
+                      teamCode={datasetProfileTeamCode}
+                      onChange={(c, b, t) => {
+                        setDatasetProfileCompanyCode(c)
+                        setDatasetProfileBuCode(b)
+                        setDatasetProfileTeamCode(t)
+                      }}
+                    />
+                  </div>
+                )
+              }
+              return null
+            })()}
 
             <div className="flex items-center gap-4">
               <button

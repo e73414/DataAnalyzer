@@ -3,6 +3,7 @@ export interface Session {
   aiModel: string
   loginTime: number
   profile?: string
+  profiles?: string[]
 }
 
 export interface AIModel {
@@ -65,6 +66,7 @@ export interface UserProfile {
   user_timezone?: string
   password_hash?: string
   profile?: string
+  profiles?: string[]
 }
 
 export interface ProfileCompany {
@@ -104,6 +106,7 @@ export interface AdminUser {
   template_id: string | null
   user_timezone: string | null
   profile: string | null
+  profiles: string[]
   created_at: string
 }
 
