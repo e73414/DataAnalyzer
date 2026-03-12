@@ -764,6 +764,7 @@ export default function PlanReportPage() {
         templateId: userProfile?.template_id,
         detailLevel,
         reportDetail,
+        prompt,
       })
 
       // Poll for final report using existing mechanism
@@ -840,6 +841,7 @@ export default function PlanReportPage() {
         templateId: userProfile?.template_id,
         detailLevel,
         reportDetail,
+        prompt,
       })
 
       pollingRef.current = setInterval(() => pollProgressRef.current?.(reportId), 5000)

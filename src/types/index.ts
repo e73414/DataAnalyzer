@@ -257,6 +257,7 @@ export interface RunFormatterRequest {
   templateId?: string
   detailLevel?: string
   reportDetail?: string
+  prompt?: string
 }
 
 export interface ExecutePlanResult {
