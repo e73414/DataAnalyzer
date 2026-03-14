@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { n8nService } from '../services/mcpN8nService'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
+import { ProfilePicker, composeProfile } from '../components/ProfilePicker'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
 import type { DatasetDetail } from '../types'
@@ -27,6 +28,10 @@ export default function EditSummaryPage() {
   const [columnMappingExpanded, setColumnMappingExpanded] = useState(false)
   const [summaryTab, setSummaryTab] = useState<'edit' | 'preview'>('preview')
   const summaryTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const [datasetProfileCompanyCode, setDatasetProfileCompanyCode] = useState('')
+  const [datasetProfileBuCode, setDatasetProfileBuCode] = useState('')
+  const [datasetProfileTeamCode, setDatasetProfileTeamCode] = useState('')
+  const [selectedProfileCode, setSelectedProfileCode] = useState('')
 
   const {
     datasets: datasets = [],
@@ -73,6 +78,17 @@ export default function EditSummaryPage() {
     },
   })
 
+  const profileMutation = useMutation({
+    mutationFn: (profileCode: string | null) =>
+      pocketbaseService.setTemplateProfile(selectedDatasetId, profileCode),
+    onSuccess: () => {
+      toast.success('Dataset access updated')
+      queryClient.invalidateQueries({ queryKey: ['datasets'] })
+      queryClient.invalidateQueries({ queryKey: ['dataset-detail', selectedDatasetId] })
+    },
+    onError: () => toast.error('Failed to update dataset access'),
+  })
+
   useEffect(() => {
     if (datasetDetail) {
       setDatasetName(datasetDetail.name || '')
@@ -80,6 +96,19 @@ export default function EditSummaryPage() {
       setDatasetDesc(datasetDetail.dataset_desc || '')
       setSampleQuestions(datasetDetail.sample_questions?.questions ?? [])
       setHasChanges(false)
+      // Initialize profile pickers from current profile_code
+      const code = datasetDetail.profile_code?.trim() || ''
+      if (code && code !== 'admadmadm') {
+        setDatasetProfileCompanyCode(code.slice(0, 3).trim() === '000' ? '' : code.slice(0, 3).trim())
+        setDatasetProfileBuCode(code.slice(3, 6).trim() === '000' ? '' : code.slice(3, 6).trim())
+        setDatasetProfileTeamCode(code.slice(6, 9).trim() === '000' ? '' : code.slice(6, 9).trim())
+        setSelectedProfileCode(code)
+      } else {
+        setDatasetProfileCompanyCode('')
+        setDatasetProfileBuCode('')
+        setDatasetProfileTeamCode('')
+        setSelectedProfileCode('')
+      }
     }
   }, [datasetDetail])
 
@@ -96,6 +125,10 @@ export default function EditSummaryPage() {
     setSampleQuestions([])
     setNewQuestion('')
     setHasChanges(false)
+    setDatasetProfileCompanyCode('')
+    setDatasetProfileBuCode('')
+    setDatasetProfileTeamCode('')
+    setSelectedProfileCode('')
   }
 
   const checkHasChanges = (name: string, summary: string, desc: string) =>
@@ -381,6 +414,64 @@ export default function EditSummaryPage() {
                           </button>
                         </div>
                       </div>
+
+                      {(() => {
+                        const isAdmin = session?.profile?.trim() === 'admadmadm'
+                        const userProfiles = session?.profiles ?? []
+                        const canChangeProfile = isAdmin || datasetDetail.owner_email === session?.email
+                        if (!canChangeProfile) return null
+                        const handleSaveProfile = () => {
+                          const chosenProfile = isAdmin
+                            ? (datasetProfileCompanyCode ? composeProfile(datasetProfileCompanyCode, datasetProfileBuCode, datasetProfileTeamCode) : null)
+                            : (selectedProfileCode || null)
+                          profileMutation.mutate(chosenProfile)
+                        }
+                        return (
+                          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <label className="label mb-0">Dataset Access</label>
+                              <button
+                                type="button"
+                                onClick={handleSaveProfile}
+                                disabled={profileMutation.isPending}
+                                className="btn-secondary px-3 py-1 text-xs"
+                              >
+                                {profileMutation.isPending ? 'Saving…' : 'Update Access'}
+                              </button>
+                            </div>
+                            {isAdmin ? (
+                              <>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                  Leave company blank to make admin-only. Assign a profile to share with users.
+                                </p>
+                                <ProfilePicker
+                                  companyCode={datasetProfileCompanyCode}
+                                  buCode={datasetProfileBuCode}
+                                  teamCode={datasetProfileTeamCode}
+                                  onChange={(c, b, t) => { setDatasetProfileCompanyCode(c); setDatasetProfileBuCode(b); setDatasetProfileTeamCode(t) }}
+                                />
+                              </>
+                            ) : (
+                              <>
+                                <select
+                                  className="input-field"
+                                  value={selectedProfileCode}
+                                  onChange={(e) => setSelectedProfileCode(e.target.value)}
+                                  disabled={profileMutation.isPending}
+                                >
+                                  <option value="">Private (only me)</option>
+                                  {userProfiles.map(p => (
+                                    <option key={p} value={p}>{p.trim()}</option>
+                                  ))}
+                                </select>
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                  Select a profile to share with others, or keep private.
+                                </p>
+                              </>
+                            )}
+                          </div>
+                        )
+                      })()}
 
                       <div>
                         <div className="flex items-center justify-between mb-1">
