@@ -96,21 +96,27 @@ export default function EditSummaryPage() {
       setDatasetDesc(datasetDetail.dataset_desc || '')
       setSampleQuestions(datasetDetail.sample_questions?.questions ?? [])
       setHasChanges(false)
-      // Initialize profile pickers from current profile_code
-      const code = datasetDetail.profile_code?.trim() || ''
-      if (code && code !== 'admadmadm') {
-        setDatasetProfileCompanyCode(code.slice(0, 3).trim() === '000' ? '' : code.slice(0, 3).trim())
-        setDatasetProfileBuCode(code.slice(3, 6).trim() === '000' ? '' : code.slice(3, 6).trim())
-        setDatasetProfileTeamCode(code.slice(6, 9).trim() === '000' ? '' : code.slice(6, 9).trim())
-        setSelectedProfileCode(code)
-      } else {
-        setDatasetProfileCompanyCode('')
-        setDatasetProfileBuCode('')
-        setDatasetProfileTeamCode('')
-        setSelectedProfileCode('')
-      }
     }
   }, [datasetDetail])
+
+  // profile_code lives on the dataset list (from GET /datasets JOIN template_profiles),
+  // not on getDatasetDetail — initialize profile pickers from datasets list
+  useEffect(() => {
+    if (!selectedDatasetId) return
+    const selectedDataset = datasets.find(d => d.id === selectedDatasetId)
+    const code = selectedDataset?.profile_code?.trim() || ''
+    if (code && code !== 'admadmadm') {
+      setDatasetProfileCompanyCode(code.slice(0, 3).trim() === '000' ? '' : code.slice(0, 3).trim())
+      setDatasetProfileBuCode(code.slice(3, 6).trim() === '000' ? '' : code.slice(3, 6).trim())
+      setDatasetProfileTeamCode(code.slice(6, 9).trim() === '000' ? '' : code.slice(6, 9).trim())
+      setSelectedProfileCode(code)
+    } else {
+      setDatasetProfileCompanyCode('')
+      setDatasetProfileBuCode('')
+      setDatasetProfileTeamCode('')
+      setSelectedProfileCode('')
+    }
+  }, [selectedDatasetId, datasets])
 
   const handleDatasetChange = (datasetId: string) => {
     if (hasChanges) {
