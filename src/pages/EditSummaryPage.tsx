@@ -8,6 +8,7 @@ import { useSession } from '../context/SessionContext'
 import { n8nService } from '../services/mcpN8nService'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { ProfilePicker, composeProfile } from '../components/ProfilePicker'
+import DatasetSearchSelect from '../components/DatasetSearchSelect'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
 import type { DatasetDetail } from '../types'
@@ -17,7 +18,6 @@ export default function EditSummaryPage() {
   const queryClient = useQueryClient()
   const { session } = useSession()
   const [selectedDatasetId, setSelectedDatasetId] = useState('')
-  const [datasetSearch, setDatasetSearch] = useState('')
   const [datasetName, setDatasetName] = useState('')
   const [editedSummary, setEditedSummary] = useState('')
   const [datasetDesc, setDatasetDesc] = useState('')
@@ -312,34 +312,13 @@ export default function EditSummaryPage() {
             </div>
           ) : (
             <div className="space-y-6">
-              <div>
-                <label htmlFor="dataset" className="label">
-                  Select Dataset
-                </label>
-                <input
-                  type="text"
-                  value={datasetSearch}
-                  onChange={(e) => setDatasetSearch(e.target.value)}
-                  placeholder="Search datasets..."
-                  className="input-field mb-2"
-                  disabled={updateMutation.isPending}
-                />
-                <select
-                  id="dataset"
-                  value={selectedDatasetId}
-                  onChange={(e) => handleDatasetChange(e.target.value)}
-                  className="input-field"
-                  disabled={updateMutation.isPending}
-                >
-                  <option value="">-- Select a dataset --</option>
-                  {[...(datasets ?? [])].sort((a, b) => a.name.localeCompare(b.name)).filter(d => d.name.toLowerCase().includes(datasetSearch.toLowerCase())).map((dataset) => (
-                    <option key={dataset.id} value={dataset.id}>
-                      {dataset.name}
-                      {dataset.description && ` - ${dataset.description}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <DatasetSearchSelect
+                datasets={datasets ?? []}
+                value={selectedDatasetId}
+                onChange={handleDatasetChange}
+                disabled={updateMutation.isPending}
+                label="Select Dataset"
+              />
 
               {selectedDatasetId && (
                 <>
