@@ -270,6 +270,81 @@ function UserModal({ user, onClose, onSave, isSaving }: UserModalProps) {
   )
 }
 
+// ── Inline Email Cell ─────────────────────────────────────────────────────────
+
+interface EmailCellProps {
+  userId: string
+  email: string
+  onSave: (id: string, email: string) => Promise<void>
+  isSaving: boolean
+}
+
+function EmailCell({ userId, email, onSave, isSaving }: EmailCellProps) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(email)
+
+  const handleDoubleClick = () => {
+    setValue(email)
+    setEditing(true)
+  }
+
+  const handleSave = async () => {
+    const trimmed = value.trim()
+    if (!trimmed || trimmed === email) { setEditing(false); return }
+    await onSave(userId, trimmed)
+    setEditing(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSave()
+    if (e.key === 'Escape') { setValue(email); setEditing(false) }
+  }
+
+  if (!editing) {
+    return (
+      <span
+        onDoubleClick={handleDoubleClick}
+        className="cursor-default select-none text-gray-800 dark:text-gray-200"
+        title="Double-click to edit"
+      >
+        {email}
+      </span>
+    )
+  }
+
+  return (
+    <span className="flex items-center gap-1.5">
+      <input
+        autoFocus
+        type="email"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        disabled={isSaving}
+        className="input-field py-0.5 text-sm w-48"
+      />
+      {value.trim() !== email && (
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={isSaving || !value.trim()}
+          className="px-2 py-0.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded disabled:opacity-50"
+        >
+          {isSaving ? '…' : 'Save'}
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => { setValue(email); setEditing(false) }}
+        disabled={isSaving}
+        className="px-2 py-0.5 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+      >
+        ✕
+      </button>
+    </span>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function UserManagerPage() {
@@ -335,6 +410,16 @@ export default function UserManagerPage() {
     onError: (err: Error) => toast.error(err.message),
   })
 
+  const updateEmailMutation = useMutation({
+    mutationFn: ({ id, user_email }: { id: string; user_email: string }) =>
+      pocketbaseService.updateUser(id, { user_email }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] })
+      toast.success('Email updated')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
   const handleSave = async (form: UserFormData) => {
     if (modalUser === null) {
       await createMutation.mutateAsync(form)
@@ -379,7 +464,14 @@ export default function UserManagerPage() {
               <tbody>
                 {users.map((u) => (
                   <tr key={u.id} className="border-t border-gray-100 dark:border-gray-800">
-                    <td className="px-4 py-3 text-gray-800 dark:text-gray-200">{u.user_email}</td>
+                    <td className="px-4 py-3">
+                      <EmailCell
+                        userId={u.id}
+                        email={u.user_email}
+                        onSave={(id, email) => updateEmailMutation.mutateAsync({ id, user_email: email })}
+                        isSaving={updateEmailMutation.isPending}
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       {(u.profiles ?? []).length > 0
                         ? u.profiles!.map(p => (

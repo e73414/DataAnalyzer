@@ -85,7 +85,7 @@ function DatasetRow({ dataset, assignment, onSave, onDelete, isSaving, isDeletin
           <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1">{dataset.description}</div>
         )}
       </td>
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 w-44">
         {editing ? (
           <input
             type="text"
@@ -94,13 +94,18 @@ function DatasetRow({ dataset, assignment, onSave, onDelete, isSaving, isDeletin
             onChange={(e) => setOwnerEmail(e.target.value)}
             placeholder="owner email"
           />
-        ) : currentCode ? (
+        ) : (
+          <span className="text-xs text-gray-600 dark:text-gray-400">{dataset.owner_email}</span>
+        )}
+      </td>
+      <td className="px-4 py-3 w-32">
+        {!editing && (currentCode ? (
           <span className="font-mono text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded">
             {currentCode}
           </span>
         ) : (
-          <span className="text-xs text-gray-500 dark:text-gray-400">{dataset.owner_email}</span>
-        )}
+          <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
+        ))}
       </td>
       <td className="px-4 py-3">
         {editing ? (
@@ -294,7 +299,8 @@ export default function TemplateManagerPage() {
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
                   <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Dataset</th>
-                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium w-36">Profile</th>
+                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium w-44">Owner</th>
+                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium w-32">Profile</th>
                   <th className="px-4 py-3 text-gray-500 dark:text-gray-400 font-medium text-left">Assignment</th>
                   <th className="px-4 py-3 text-gray-500 dark:text-gray-400 font-medium w-28"></th>
                 </tr>

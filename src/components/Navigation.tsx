@@ -130,7 +130,10 @@ export default function Navigation() {
     }
   }
 
-  const currentPageTitle = navLinks?.find((link) => link.path === location.pathname)?.name || 'Menu'
+  const currentPageTitle = (() => {
+    const name = navLinks?.find((link) => link.path === location.pathname)?.name || 'Menu'
+    return name.startsWith('Admin:') ? name.slice(6).trimStart() : name
+  })()
 
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm dark:shadow-gray-900/50 transition-colors duration-200">
@@ -183,7 +186,11 @@ export default function Navigation() {
                   {isLoadingNavLinks ? (
                     <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">Loading...</div>
                   ) : (
-                    navLinks?.filter((link) => !link.path.startsWith('/admin') || session?.profile?.trim() === 'admadmadm').map((link) => (
+                    navLinks?.filter((link) => {
+                      const isAdmin = session?.profile?.trim() === 'admadmadm'
+                      if (link.name.startsWith('Admin:')) return isAdmin
+                      return true
+                    }).map((link) => (
                       <div key={link.id}>
                         {link.separator_before && (
                           <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
@@ -198,7 +205,7 @@ export default function Navigation() {
                                 : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                           }`}
                         >
-                          {link.name}
+                          {link.name.startsWith('Admin:') ? link.name.slice(6).trimStart() : link.name}
                         </button>
                       </div>
                     ))

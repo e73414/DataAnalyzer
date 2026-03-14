@@ -31,7 +31,9 @@ export default function EditSummaryPage() {
   const [datasetProfileCompanyCode, setDatasetProfileCompanyCode] = useState('')
   const [datasetProfileBuCode, setDatasetProfileBuCode] = useState('')
   const [datasetProfileTeamCode, setDatasetProfileTeamCode] = useState('')
-  const [selectedProfileCode, setSelectedProfileCode] = useState('')
+
+  const [profileChanged, setProfileChanged] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const {
     datasets: datasets = [],
@@ -59,15 +61,20 @@ export default function EditSummaryPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: (data: { summary: string; datasetDesc: string; datasetName: string }) =>
-      n8nService.updateSummary({
+    mutationFn: async (data: { summary: string; datasetDesc: string; datasetName: string; profileCode?: string | null }) => {
+      await n8nService.updateSummary({
         datasetId: selectedDatasetId,
         summary: data.summary,
         email: session!.email,
         datasetDesc: data.datasetDesc,
         datasetName: data.datasetName,
-      }),
+      })
+      if (data.profileCode !== undefined) {
+        await pocketbaseService.setTemplateProfile(selectedDatasetId, data.profileCode)
+      }
+    },
     onSuccess: () => {
+      setProfileChanged(false)
       toast.success('Dataset updated successfully')
       queryClient.invalidateQueries({ queryKey: ['dataset-detail', selectedDatasetId] })
       queryClient.invalidateQueries({ queryKey: ['datasets', session?.email] })
@@ -82,11 +89,22 @@ export default function EditSummaryPage() {
     mutationFn: (profileCode: string | null) =>
       pocketbaseService.setTemplateProfile(selectedDatasetId, profileCode),
     onSuccess: () => {
+      setProfileChanged(false)
       toast.success('Dataset access updated')
       queryClient.invalidateQueries({ queryKey: ['datasets'] })
       queryClient.invalidateQueries({ queryKey: ['dataset-detail', selectedDatasetId] })
     },
     onError: () => toast.error('Failed to update dataset access'),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => n8nService.deleteDataset({ datasetId: selectedDatasetId, email: session!.email }),
+    onSuccess: (result) => {
+      toast.success(`"${result.datasetName}" deleted`)
+      queryClient.invalidateQueries({ queryKey: ['datasets'] })
+      navigate('/edit-summary')
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to delete dataset'),
   })
 
   useEffect(() => {
@@ -109,13 +127,12 @@ export default function EditSummaryPage() {
       setDatasetProfileCompanyCode(code.slice(0, 3).trim() === '000' ? '' : code.slice(0, 3).trim())
       setDatasetProfileBuCode(code.slice(3, 6).trim() === '000' ? '' : code.slice(3, 6).trim())
       setDatasetProfileTeamCode(code.slice(6, 9).trim() === '000' ? '' : code.slice(6, 9).trim())
-      setSelectedProfileCode(code)
     } else {
       setDatasetProfileCompanyCode('')
       setDatasetProfileBuCode('')
       setDatasetProfileTeamCode('')
-      setSelectedProfileCode('')
     }
+    setProfileChanged(false)
   }, [selectedDatasetId, datasets])
 
   const handleDatasetChange = (datasetId: string) => {
@@ -131,10 +148,11 @@ export default function EditSummaryPage() {
     setSampleQuestions([])
     setNewQuestion('')
     setHasChanges(false)
+    setProfileChanged(false)
+    setConfirmDelete(false)
     setDatasetProfileCompanyCode('')
     setDatasetProfileBuCode('')
     setDatasetProfileTeamCode('')
-    setSelectedProfileCode('')
   }
 
   const checkHasChanges = (name: string, summary: string, desc: string) =>
@@ -201,7 +219,10 @@ export default function EditSummaryPage() {
       toast.error('Summary cannot be empty')
       return
     }
-    updateMutation.mutate({ summary: editedSummary, datasetDesc: datasetDesc.trim(), datasetName: datasetName.trim() })
+    const profileCode = profileChanged
+      ? (datasetProfileCompanyCode ? composeProfile(datasetProfileCompanyCode, datasetProfileBuCode, datasetProfileTeamCode) : null)
+      : undefined
+    updateMutation.mutate({ summary: editedSummary, datasetDesc: datasetDesc.trim(), datasetName: datasetName.trim(), profileCode })
   }
 
   const handleDownloadCsv = async () => {
@@ -422,14 +443,13 @@ export default function EditSummaryPage() {
                       </div>
 
                       {(() => {
-                        const isAdmin = session?.profile?.trim() === 'admadmadm'
-                        const userProfiles = session?.profiles ?? []
-                        const canChangeProfile = isAdmin || datasetDetail.owner_email === session?.email
+                        const ownerEmail = datasets.find(d => d.id === selectedDatasetId)?.owner_email
+                        const canChangeProfile = session?.profile?.trim() === 'admadmadm' || ownerEmail === session?.email
                         if (!canChangeProfile) return null
                         const handleSaveProfile = () => {
-                          const chosenProfile = isAdmin
-                            ? (datasetProfileCompanyCode ? composeProfile(datasetProfileCompanyCode, datasetProfileBuCode, datasetProfileTeamCode) : null)
-                            : (selectedProfileCode || null)
+                          const chosenProfile = datasetProfileCompanyCode
+                            ? composeProfile(datasetProfileCompanyCode, datasetProfileBuCode, datasetProfileTeamCode)
+                            : null
                           profileMutation.mutate(chosenProfile)
                         }
                         return (
@@ -440,41 +460,20 @@ export default function EditSummaryPage() {
                                 type="button"
                                 onClick={handleSaveProfile}
                                 disabled={profileMutation.isPending}
-                                className="btn-secondary px-3 py-1 text-xs"
+                                className="px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
                               >
                                 {profileMutation.isPending ? 'Saving…' : 'Update Access'}
                               </button>
                             </div>
-                            {isAdmin ? (
-                              <>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                                  Leave company blank to make admin-only. Assign a profile to share with users.
-                                </p>
-                                <ProfilePicker
-                                  companyCode={datasetProfileCompanyCode}
-                                  buCode={datasetProfileBuCode}
-                                  teamCode={datasetProfileTeamCode}
-                                  onChange={(c, b, t) => { setDatasetProfileCompanyCode(c); setDatasetProfileBuCode(b); setDatasetProfileTeamCode(t) }}
-                                />
-                              </>
-                            ) : (
-                              <>
-                                <select
-                                  className="input-field"
-                                  value={selectedProfileCode}
-                                  onChange={(e) => setSelectedProfileCode(e.target.value)}
-                                  disabled={profileMutation.isPending}
-                                >
-                                  <option value="">Private (only me)</option>
-                                  {userProfiles.map(p => (
-                                    <option key={p} value={p}>{p.trim()}</option>
-                                  ))}
-                                </select>
-                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                  Select a profile to share with others, or keep private.
-                                </p>
-                              </>
-                            )}
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                              Leave company blank to keep private. Assign a profile to share with users.
+                            </p>
+                            <ProfilePicker
+                              companyCode={datasetProfileCompanyCode}
+                              buCode={datasetProfileBuCode}
+                              teamCode={datasetProfileTeamCode}
+                              onChange={(c, b, t) => { setDatasetProfileCompanyCode(c); setDatasetProfileBuCode(b); setDatasetProfileTeamCode(t); setProfileChanged(true) }}
+                            />
                           </div>
                         )
                       })()}
@@ -551,7 +550,7 @@ export default function EditSummaryPage() {
                       <div className="flex items-center gap-4">
                         <button
                           type="submit"
-                          disabled={updateMutation.isPending || !hasChanges}
+                          disabled={updateMutation.isPending || (!hasChanges && !profileChanged)}
                           className="btn-primary"
                         >
                           {updateMutation.isPending ? (
@@ -571,8 +570,13 @@ export default function EditSummaryPage() {
                             setEditedSummary(datasetDetail.summary || '')
                             setDatasetDesc(datasetDetail.dataset_desc || '')
                             setHasChanges(false)
+                            const code = datasets.find(d => d.id === selectedDatasetId)?.profile_code?.trim() || ''
+                            setDatasetProfileCompanyCode(code.slice(0, 3).trim() === '000' ? '' : code.slice(0, 3).trim())
+                            setDatasetProfileBuCode(code.slice(3, 6).trim() === '000' ? '' : code.slice(3, 6).trim())
+                            setDatasetProfileTeamCode(code.slice(6, 9).trim() === '000' ? '' : code.slice(6, 9).trim())
+                            setProfileChanged(false)
                           }}
-                          disabled={updateMutation.isPending || !hasChanges}
+                          disabled={updateMutation.isPending || (!hasChanges && !profileChanged)}
                           className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Reset
@@ -593,6 +597,39 @@ export default function EditSummaryPage() {
                             'Download CSV'
                           )}
                         </button>
+
+                        {(session?.profile?.trim() === 'admadmadm' || datasets.find(d => d.id === selectedDatasetId)?.owner_email === session?.email) && (
+                          confirmDelete ? (
+                            <span className="flex items-center gap-2">
+                              <span className="text-sm text-gray-600 dark:text-gray-400">Delete this dataset?</span>
+                              <button
+                                type="button"
+                                onClick={() => deleteMutation.mutate()}
+                                disabled={deleteMutation.isPending}
+                                className="px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-50"
+                              >
+                                {deleteMutation.isPending ? 'Deleting…' : 'Yes, Delete'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDelete(false)}
+                                disabled={deleteMutation.isPending}
+                                className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDelete(true)}
+                              disabled={updateMutation.isPending}
+                              className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-200 disabled:opacity-50"
+                            >
+                              Delete Dataset
+                            </button>
+                          )
+                        )}
                       </div>
                     </form>
                   ) : null}

@@ -275,6 +275,7 @@ export const pocketbaseService = {
   },
 
   async updateUser(id: string, data: {
+    user_email?: string
     password_hash?: string
     profile?: string
     profiles?: string[]
