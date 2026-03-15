@@ -163,6 +163,9 @@ export default function PlanReportPage() {
   const [isSavingReport, setIsSavingReport] = useState(false)
   const [reportSaved, setReportSaved] = useState(false)
   const [savedRecordId, setSavedRecordId] = useState<string | null>(loadedState?.savedRecordId || null)
+  const [isValidating, setIsValidating] = useState(false)
+  const [validationResult, setValidationResult] = useState<string | null>(null)
+  const [validationOpen, setValidationOpen] = useState(true)
 const [isEditingReport, setIsEditingReport] = useState(false)
   const [iframeKey, setIframeKey] = useState(0)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -507,6 +510,7 @@ const [isEditingReport, setIsEditingReport] = useState(false)
       setReportSaved(false)
       setSavedRecordId(null)
       setIsEditingReport(false)
+      setValidationResult(null)
       editorContentRef.current = ''
       toast.success('Report generated successfully')
       setTimeout(() => {
@@ -517,6 +521,26 @@ const [isEditingReport, setIsEditingReport] = useState(false)
       toast.error('Report completed but the formatter returned empty content. Check the run-formatter workflow in n8n.')
     }
   }, [stopPolling])
+
+const handleValidateReport = async () => {
+    if (!report || !reportId) return
+    setIsValidating(true)
+    setValidationResult(null)
+    setValidationOpen(true)
+    try {
+      const result = await n8nService.validateReport({
+        reportId,
+        reportHtml: report,
+        email: session!.email,
+        model: appSettings?.execute_model || undefined,
+      })
+      setValidationResult(result.validationResult ?? 'No result returned')
+    } catch (err) {
+      setValidationResult(err instanceof Error ? err.message : 'Validation failed')
+    } finally {
+      setIsValidating(false)
+    }
+  }
 
 const handleSaveReport = async () => {
     if (!session?.email) {
@@ -1663,6 +1687,21 @@ const handleSaveReport = async () => {
                       'Save Report'
                     )}
                   </button>
+                  <button
+                    type="button"
+                    onClick={handleValidateReport}
+                    disabled={isValidating || isExecuting}
+                    className="px-3 py-1.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-lg shadow-sm transition-colors flex items-center gap-2"
+                  >
+                    {isValidating ? (
+                      <>
+                        <span className="inline-block animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
+                        Validating...
+                      </>
+                    ) : (
+                      'Validate Report'
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -1692,6 +1731,29 @@ const handleSaveReport = async () => {
                   className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-6 overflow-auto max-h-[80vh] report-html"
                   onHtmlChange={(newHtml) => { setReport(newHtml); setReportSaved(false) }}
                 />
+              )}
+
+              {/* Validation Result */}
+              {(validationResult !== null || isValidating) && (
+                <div className="mt-6 border border-purple-200 dark:border-purple-800 rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    className="w-full flex justify-between items-center px-4 py-3 bg-purple-50 dark:bg-purple-900/20 text-sm font-medium text-purple-800 dark:text-purple-200 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
+                    onClick={() => setValidationOpen(v => !v)}
+                  >
+                    <span>Validation Result</span>
+                    <svg className={`w-4 h-4 transition-transform duration-200 ${validationOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {validationOpen && (
+                    <div className="px-4 py-4 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-mono bg-white dark:bg-gray-900">
+                      {isValidating
+                        ? <span className="text-gray-400 dark:text-gray-500">Running validation...</span>
+                        : validationResult}
+                    </div>
+                  )}
+                </div>
               )}
 
             </div>
