@@ -323,5 +323,4 @@ export interface AppSettings {
   chunk_threshold: string | null  // stored as TEXT, parse to number where needed
   detail_level: string | null
   report_detail: string | null
-  validate_prompt: string | null
 }

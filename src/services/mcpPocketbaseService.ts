@@ -383,7 +383,6 @@ export const pocketbaseService = {
       chunk_threshold: d.chunk_threshold ?? null,
       detail_level:    d.detail_level    ?? null,
       report_detail:   d.report_detail   ?? null,
-      validate_prompt: d.validate_prompt ?? null,
     }
   },
 

@@ -32,8 +32,6 @@ export default function AppSettingsPage() {
   const [chunkThreshold, setChunkThreshold] = useState('')
   const [detailLevel,    setDetailLevel]    = useState('')
   const [reportDetail,   setReportDetail]   = useState('')
-  const [validatePrompt, setValidatePrompt] = useState('')
-
   // Seed form from loaded settings
   useEffect(() => {
     if (!appSettings) return
@@ -43,7 +41,6 @@ export default function AppSettingsPage() {
     setChunkThreshold(appSettings.chunk_threshold ?? '')
     setDetailLevel(appSettings.detail_level ?? '')
     setReportDetail(appSettings.report_detail ?? '')
-    setValidatePrompt(appSettings.validate_prompt ?? '')
   }, [appSettings])
 
   const saveMutation = useMutation({
@@ -55,7 +52,6 @@ export default function AppSettingsPage() {
         pocketbaseService.updateAppSetting('chunk_threshold', chunkThreshold || null),
         pocketbaseService.updateAppSetting('detail_level',    detailLevel    || null),
         pocketbaseService.updateAppSetting('report_detail',   reportDetail   || null),
-        pocketbaseService.updateAppSetting('validate_prompt', validatePrompt || null),
       ])
     },
     onSuccess: () => {
@@ -156,27 +152,6 @@ export default function AppSettingsPage() {
                   ))}
                 </select>
               </div>
-            </div>
-          </div>
-
-          {/* Section: Report Validation */}
-          <div className="px-6 py-5">
-            <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-4">
-              Report Validation
-            </h2>
-            <div>
-              <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Validation Prompt</label>
-              <textarea
-                value={validatePrompt}
-                onChange={(e) => setValidatePrompt(e.target.value)}
-                rows={8}
-                className="input-field resize-y font-mono text-xs"
-                placeholder="Instructions appended to the AI validation agent's system prompt. Leave blank to use the default behaviour."
-                disabled={saveMutation.isPending}
-              />
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Appended to the system prompt when validating a report. Leave blank to rely on the workflow default.
-              </p>
             </div>
           </div>
 

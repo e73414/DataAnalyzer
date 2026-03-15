@@ -646,17 +646,15 @@ export const n8nService = {
     reportHtml: string
     email: string
     model?: string
-    validationPrompt?: string
   }): Promise<{ status: 'ok' | 'error'; validationResult?: string; message?: string }> {
     const response = await mcpN8nApi.post('/mcp/execute', {
       skill: 'n8n-webhook',
       params: { webhookPath: VALIDATE_REPORT_WEBHOOK_PATH },
       input: {
-        report_id:         request.reportId,
-        report_html:       request.reportHtml,
-        email:             request.email,
-        ...(request.model             && { model:             request.model }),
-        ...(request.validationPrompt  && { validation_prompt: request.validationPrompt }),
+        report_id:   request.reportId,
+        report_html: request.reportHtml,
+        email:       request.email,
+        ...(request.model && { model: request.model }),
       },
     })
 
