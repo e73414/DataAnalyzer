@@ -103,14 +103,18 @@ ${step.query_strategy.logic}`,
 The dataset was split into ${numChunks} non-overlapping chunks (steps ${chunkNums.join(', ')}), each covering a distinct OFFSET window with no row appearing in more than one chunk.
 Your job is to consolidate the already-returned chunk results into one final answer for: ${step.purpose}
 
-Aggregation rules (mandatory):
+DUPLICATE SCAN DETECTION (check this first, before any summing):
+Compare the per-group values across all chunks. If every chunk returns the same or nearly identical values for every group (within 2%), it means the chunk SQL did not apply the OFFSET correctly and each chunk scanned the full dataset.
+In that case: use ONLY the values from chunk 1 (step ${chunkNums[0]}) as the final result — do NOT sum across chunks.
+If chunks have clearly different per-group values, proceed with the aggregation rules below.
+
+Aggregation rules (when chunks have different values):
 - COUNTS / TOTALS: add the values from each chunk (e.g. chunk1_count + chunk2_count + ...).
 - SUMS: add the sums from each chunk.
 - AVERAGES / MEANS: compute as (sum of all chunk sums) / (sum of all chunk counts) — never average the per-chunk averages.
 - PERCENTAGES / RATES: recompute from the merged totals — never average per-chunk percentages.
 - GROUP-BY results: union the rows from all chunks; if the same group key appears in multiple chunks, SUM their counts/totals and recompute derived metrics.
-- TOP-N / RANKINGS: re-rank after merging all group totals.
-- The merged total must equal the sum of all individual chunk results — any shortfall or excess indicates incorrect aggregation.`,
+- TOP-N / RANKINGS: re-rank after merging all group totals.`,
         },
       })
     }
