@@ -75,7 +75,17 @@ function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[], thres
           purpose: `${step.purpose} (chunk ${i + 1} of ${numChunks})`,
           query_strategy: {
             ...step.query_strategy,
-            logic: `PAGINATED CHUNK ${i + 1} OF ${numChunks} (rows ${offset + 1}–${offset + chunkSize}): Your SQL MUST include LIMIT ${chunkSize} OFFSET ${offset} — do not alter these values. Return raw counts and sums (not percentages or averages) so the merge step can aggregate correctly across all chunks. ${step.query_strategy.logic}`,
+            logic: `PAGINATED CHUNK ${i + 1} OF ${numChunks} (source rows ${offset + 1}–${offset + chunkSize}):
+CRITICAL — LIMIT/OFFSET must scope the SOURCE ROWS before any filtering or aggregation, not the output rows. Use this CTE pattern — do not deviate:
+
+  WITH chunk_src AS (
+    SELECT * FROM <dataset_view> ORDER BY 1 LIMIT ${chunkSize} OFFSET ${offset}
+  )
+  SELECT ... FROM chunk_src WHERE ... GROUP BY ...
+
+Replace <dataset_view> with the actual view name. Do NOT add LIMIT or OFFSET anywhere outside the CTE. This ensures this chunk only processes rows ${offset + 1}–${offset + chunkSize} of the source data.
+Return raw counts and sums (not percentages or averages) so the merge step can aggregate correctly across all chunks.
+${step.query_strategy.logic}`,
           },
         })
       }
