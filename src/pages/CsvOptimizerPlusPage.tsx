@@ -1,6 +1,7 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import * as XLSX from 'xlsx'
 import JSZip from 'jszip'
 import toast from 'react-hot-toast'
 import Navigation from '../components/Navigation'
@@ -23,7 +24,7 @@ interface ConversionResult {
 }
 
 interface ConvertOptions {
-  sheet: string
+  sheet: string       // used for CSV files only
   no_unpivot: boolean
   keep_dupes: boolean
   header_row: string
@@ -33,6 +34,13 @@ interface AggregateRow {
   rowIndex: number   // 0-based index into parsed rows array
   row: string[]
   reason: string
+}
+
+interface SheetConversion {
+  sheet: string       // sheet name passed to API
+  result: ConversionResult
+  aggregateRows: AggregateRow[]
+  excludedRows: Set<number>
 }
 
 // --- CSV Parsing ---
@@ -122,184 +130,233 @@ export default function CsvOptimizerPlusPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [sourceName, setSourceName] = useState('')
   const [isConverting, setIsConverting] = useState(false)
-  const [result, setResult] = useState<ConversionResult | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    profile: false,
-    schema: false,
-    relationships: false,
-    aggregates: true,
-  })
+
+  // Sheet detection (Excel only)
+  const [sheetNames, setSheetNames] = useState<string[]>([])
+  const [selectedSheets, setSelectedSheets] = useState<string[]>([])
+
+  // Per-sheet results (replaces single result/aggregateRows/excludedRows)
+  const [sheetConversions, setSheetConversions] = useState<SheetConversion[]>([])
+
+  // Expanded sections keyed by "<sheet>.<section>"
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
+
   const [options, setOptions] = useState<ConvertOptions>({
     sheet: '0',
     no_unpivot: false,
     keep_dupes: false,
     header_row: '',
   })
-  const [aggregateRows, setAggregateRows] = useState<AggregateRow[]>([])
-  const [excludedRows, setExcludedRows] = useState<Set<number>>(new Set())
+
+  const isExcel = selectedFile ? /\.(xlsx?|xlsm)$/i.test(selectedFile.name) : false
+  const hasResults = sheetConversions.length > 0
 
   const toggleSection = (key: string) =>
     setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }))
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setSelectedFile(file)
     setSourceName(file.name.replace(/\.(csv|xlsx?|xlsm)$/i, ''))
-    setResult(null)
-    setAggregateRows([])
-    setExcludedRows(new Set())
+    setSheetConversions([])
+    setExpandedSections({})
+
+    if (/\.(xlsx?|xlsm)$/i.test(file.name)) {
+      const buffer = await file.arrayBuffer()
+      const workbook = XLSX.read(buffer, { bookSheets: true })
+      setSheetNames(workbook.SheetNames)
+      setSelectedSheets([...workbook.SheetNames])
+    } else {
+      setSheetNames([])
+      setSelectedSheets([])
+    }
+  }
+
+  const toggleSheetSelected = (name: string) => {
+    setSelectedSheets(prev =>
+      prev.includes(name) ? prev.filter(s => s !== name) : [...prev, name]
+    )
+  }
+
+  const toggleAllSheets = () => {
+    setSelectedSheets(prev => prev.length === sheetNames.length ? [] : [...sheetNames])
   }
 
   const handleConvert = async () => {
     if (!selectedFile) return
+
+    // For CSV files fall back to the manual sheet option; for Excel use checkboxes
+    const sheets = sheetNames.length > 0 ? selectedSheets : [options.sheet || '0']
+
     setIsConverting(true)
-    setResult(null)
-    setAggregateRows([])
-    setExcludedRows(new Set())
+    setSheetConversions([])
+    setExpandedSections({})
 
-    try {
-      const formData = new FormData()
-      formData.append('file', selectedFile)
+    const newConversions: SheetConversion[] = []
 
-      const params = new URLSearchParams()
-      params.set('sheet', options.sheet || '0')
-      if (options.no_unpivot) params.set('no_unpivot', 'true')
-      if (options.keep_dupes) params.set('keep_dupes', 'true')
-      if (options.header_row !== '') params.set('header_row', options.header_row)
+    for (const sheet of sheets) {
+      try {
+        const formData = new FormData()
+        formData.append('file', selectedFile)
 
-      const response = await axios.post(`/excel-to-sql/convert?${params.toString()}`, formData, {
-        responseType: 'arraybuffer',
-        timeout: 120000,
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+        const params = new URLSearchParams()
+        params.set('sheet', sheet)
+        if (options.no_unpivot) params.set('no_unpivot', 'true')
+        if (options.keep_dupes) params.set('keep_dupes', 'true')
+        if (options.header_row !== '') params.set('header_row', options.header_row)
 
-      const zip = await JSZip.loadAsync(response.data)
+        const response = await axios.post(`/excel-to-sql/convert?${params.toString()}`, formData, {
+          responseType: 'arraybuffer',
+          timeout: 120000,
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
 
-      let cleanCsv = ''
-      let profileJson: ProfileData = {}
-      let schemaSql = ''
-      let relationshipsJson: unknown | null = null
+        const zip = await JSZip.loadAsync(response.data)
 
-      for (const [filename, fileObj] of Object.entries(zip.files)) {
-        if (filename.endsWith('_clean.csv')) {
-          cleanCsv = await fileObj.async('string')
-        } else if (filename.endsWith('_profile.json')) {
-          const text = await fileObj.async('string')
-          try { profileJson = JSON.parse(text) } catch { profileJson = {} }
-        } else if (filename.endsWith('_schema.sql')) {
-          schemaSql = await fileObj.async('string')
-        } else if (filename.endsWith('_relationships.json')) {
-          const text = await fileObj.async('string')
-          try { relationshipsJson = JSON.parse(text) } catch { relationshipsJson = null }
-        }
-      }
+        let cleanCsv = ''
+        let profileJson: ProfileData = {}
+        let schemaSql = ''
+        let relationshipsJson: unknown | null = null
 
-      const zipBlob = new Blob([response.data], { type: 'application/zip' })
-      const stem = selectedFile.name.replace(/\.(csv|xlsx?|xlsm)$/i, '')
-
-      setResult({ cleanCsv, profileJson, schemaSql, relationshipsJson, zipBlob, zipFileName: `${stem}_sql_ready.zip` })
-      setExpandedSections({ profile: false, schema: false, relationships: false, aggregates: true })
-
-      // Detect aggregate rows in the clean CSV
-      const { headers, rows } = parseCSV(cleanCsv)
-      const detected = detectAggregateRows(headers, rows)
-      setAggregateRows(detected)
-      // Pre-check all detected rows for exclusion
-      setExcludedRows(new Set(detected.map(r => r.rowIndex)))
-    } catch (err: unknown) {
-      let message = 'Conversion failed. Make sure the Docker API is running on port 8000.'
-      if (axios.isAxiosError(err)) {
-        if (err.response) {
-          try {
-            const text = new TextDecoder().decode(err.response.data as ArrayBuffer)
-            const parsed = JSON.parse(text)
-            message = parsed.detail || message
-          } catch {
-            message = `Server error ${err.response.status}`
+        for (const [filename, fileObj] of Object.entries(zip.files)) {
+          if (filename.endsWith('_clean.csv')) {
+            cleanCsv = await fileObj.async('string')
+          } else if (filename.endsWith('_profile.json')) {
+            const text = await fileObj.async('string')
+            try { profileJson = JSON.parse(text) } catch { profileJson = {} }
+          } else if (filename.endsWith('_schema.sql')) {
+            schemaSql = await fileObj.async('string')
+          } else if (filename.endsWith('_relationships.json')) {
+            const text = await fileObj.async('string')
+            try { relationshipsJson = JSON.parse(text) } catch { relationshipsJson = null }
           }
-        } else if (err.code === 'ECONNREFUSED' || err.message.includes('Network')) {
-          message = 'Cannot connect to the converter API. Start it with: docker compose up -d'
         }
+
+        const zipBlob = new Blob([response.data], { type: 'application/zip' })
+        const stem = selectedFile.name.replace(/\.(csv|xlsx?|xlsm)$/i, '')
+        const sheetSuffix = sheets.length > 1 ? `_${sheet.replace(/[^a-zA-Z0-9]/g, '_')}` : ''
+
+        const convResult: ConversionResult = {
+          cleanCsv, profileJson, schemaSql, relationshipsJson, zipBlob,
+          zipFileName: `${stem}${sheetSuffix}_sql_ready.zip`,
+        }
+
+        const { headers, rows } = parseCSV(cleanCsv)
+        const aggregateRows = detectAggregateRows(headers, rows)
+
+        newConversions.push({
+          sheet,
+          result: convResult,
+          aggregateRows,
+          excludedRows: new Set(aggregateRows.map(r => r.rowIndex)),
+        })
+
+        // Show progress as each sheet completes
+        setSheetConversions([...newConversions])
+        setExpandedSections(prev => ({
+          ...prev,
+          [`${sheet}.profile`]: false,
+          [`${sheet}.schema`]: false,
+          [`${sheet}.relationships`]: false,
+          [`${sheet}.aggregates`]: true,
+        }))
+      } catch (err: unknown) {
+        let message = sheets.length > 1
+          ? `Sheet "${sheet}": conversion failed.`
+          : 'Conversion failed. Make sure the Docker API is running on port 8000.'
+        if (axios.isAxiosError(err)) {
+          if (err.response) {
+            try {
+              const text = new TextDecoder().decode(err.response.data as ArrayBuffer)
+              const parsed = JSON.parse(text)
+              message = parsed.detail || message
+            } catch {
+              message = sheets.length > 1
+                ? `Sheet "${sheet}": server error ${err.response.status}`
+                : `Server error ${err.response.status}`
+            }
+          } else if (err.code === 'ECONNREFUSED' || err.message.includes('Network')) {
+            message = 'Cannot connect to the converter API. Start it with: docker compose up -d'
+          }
+        }
+        toast.error(message, { duration: 6000 })
       }
-      toast.error(message, { duration: 6000 })
-    } finally {
-      setIsConverting(false)
     }
+
+    setIsConverting(false)
   }
 
-  // Clean CSV with excluded rows removed
-  const activeCleanCsv = useMemo(() => {
-    if (!result?.cleanCsv) return ''
-    if (excludedRows.size === 0) return result.cleanCsv
-    const { headers, rows } = parseCSV(result.cleanCsv)
-    const filtered = rows.filter((_, i) => !excludedRows.has(i))
+  // --- Per-sheet helpers ---
+
+  const getActiveCleanCsv = (conv: SheetConversion): string => {
+    if (!conv.result.cleanCsv) return ''
+    if (conv.excludedRows.size === 0) return conv.result.cleanCsv
+    const { headers, rows } = parseCSV(conv.result.cleanCsv)
+    const filtered = rows.filter((_, i) => !conv.excludedRows.has(i))
     return toCSVString(headers, filtered)
-  }, [result?.cleanCsv, excludedRows])
+  }
 
-  const toggleExcluded = (rowIndex: number) => {
-    setExcludedRows(prev => {
-      const next = new Set(prev)
+  const toggleExcluded = (sheetIdx: number, rowIndex: number) => {
+    setSheetConversions(prev => prev.map((sc, i) => {
+      if (i !== sheetIdx) return sc
+      const next = new Set(sc.excludedRows)
       next.has(rowIndex) ? next.delete(rowIndex) : next.add(rowIndex)
-      return next
-    })
+      return { ...sc, excludedRows: next }
+    }))
   }
 
-  const toggleAllExcluded = () => {
-    if (excludedRows.size === aggregateRows.length) {
-      setExcludedRows(new Set())
-    } else {
-      setExcludedRows(new Set(aggregateRows.map(r => r.rowIndex)))
-    }
+  const toggleAllExcluded = (sheetIdx: number) => {
+    setSheetConversions(prev => prev.map((sc, i) => {
+      if (i !== sheetIdx) return sc
+      const allSelected = sc.excludedRows.size === sc.aggregateRows.length
+      return { ...sc, excludedRows: allSelected ? new Set() : new Set(sc.aggregateRows.map(r => r.rowIndex)) }
+    }))
   }
 
-  const handleDownloadZip = () => {
-    if (!result) return
-    const url = URL.createObjectURL(result.zipBlob)
+  const handleDownloadZip = (conv: SheetConversion) => {
+    const url = URL.createObjectURL(conv.result.zipBlob)
     const a = document.createElement('a')
     a.href = url
-    a.download = result.zipFileName
+    a.download = conv.result.zipFileName
     a.click()
     URL.revokeObjectURL(url)
   }
 
-  const handleDownloadCleanCsv = () => {
-    if (!activeCleanCsv) return
-    const blob = new Blob([activeCleanCsv], { type: 'text/csv' })
+  const handleDownloadCleanCsv = (conv: SheetConversion) => {
+    const csv = getActiveCleanCsv(conv)
+    if (!csv) return
+    const sheetSuffix = sheetConversions.length > 1 ? `_${conv.sheet.replace(/[^a-zA-Z0-9]/g, '_')}` : ''
+    const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${sourceName}_clean.csv`
+    a.download = `${sourceName}${sheetSuffix}_clean.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
 
-  const handleUploadAsDataset = () => {
-    if (!activeCleanCsv) return
-    const fileName = `${sourceName}_clean.csv`
-    const blob = new Blob([activeCleanCsv], { type: 'text/csv' })
+  const handleUploadAsDataset = (conv: SheetConversion) => {
+    const csv = getActiveCleanCsv(conv)
+    if (!csv) return
+    const sheetSuffix = sheetConversions.length > 1 ? ` - ${conv.sheet}` : ''
+    const displayName = `${sourceName}${sheetSuffix}`
+    const fileName = `${displayName}_clean.csv`
+    const blob = new Blob([csv], { type: 'text/csv' })
     const file = new File([blob], fileName, { type: 'text/csv' })
-    navigate('/upload-dataset', { state: { csvFile: file, fileName: sourceName } })
+    navigate('/upload-dataset', { state: { csvFile: file, fileName: displayName } })
   }
 
   const handleReset = () => {
     setSelectedFile(null)
     setSourceName('')
-    setResult(null)
-    setAggregateRows([])
-    setExcludedRows(new Set())
+    setSheetNames([])
+    setSelectedSheets([])
+    setSheetConversions([])
+    setExpandedSections({})
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
-
-  // Preview uses the active (filtered) CSV
-  const preview = useMemo(() => activeCleanCsv ? parseCSV(activeCleanCsv) : null, [activeCleanCsv])
-
-  const rowCount = result?.profileJson?.row_count ?? preview?.rows.length ?? 0
-  const colCount = result?.profileJson?.column_count ?? preview?.headers.length ?? 0
-
-  // For preview strikethrough: track original parse to show which rows are excluded
-  const originalParsed = useMemo(() => result?.cleanCsv ? parseCSV(result.cleanCsv) : null, [result?.cleanCsv])
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
@@ -341,6 +398,50 @@ export default function CsvOptimizerPlusPage() {
               />
             </div>
 
+            {/* Sheet Selector — Excel files only */}
+            {sheetNames.length > 0 && (
+              <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Sheets to Convert
+                    <span className="ml-2 text-gray-400 dark:text-gray-500 font-normal">
+                      ({selectedSheets.length} of {sheetNames.length} selected)
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={toggleAllSheets}
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    {selectedSheets.length === sheetNames.length ? 'Deselect all' : 'Select all'}
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {sheetNames.map(name => {
+                    const checked = selectedSheets.includes(name)
+                    return (
+                      <label
+                        key={name}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md border cursor-pointer text-sm transition-colors ${
+                          checked
+                            ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200'
+                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSheetSelected(name)}
+                          className="rounded border-gray-300 dark:border-gray-600 text-blue-600"
+                        />
+                        {name}
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Advanced Options */}
             <div>
               <button
@@ -354,16 +455,19 @@ export default function CsvOptimizerPlusPage() {
 
               {showAdvanced && (
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                  <div>
-                    <label className="label text-xs">Sheet (name, index, or "all")</label>
-                    <input
-                      type="text"
-                      value={options.sheet}
-                      onChange={e => setOptions(o => ({ ...o, sheet: e.target.value }))}
-                      placeholder="0"
-                      className="input text-sm"
-                    />
-                  </div>
+                  {/* Sheet field only for CSV — Excel uses the checkboxes above */}
+                  {!isExcel && (
+                    <div>
+                      <label className="label text-xs">Sheet (name, index, or "all")</label>
+                      <input
+                        type="text"
+                        value={options.sheet}
+                        onChange={e => setOptions(o => ({ ...o, sheet: e.target.value }))}
+                        placeholder="0"
+                        className="input text-sm"
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="label text-xs">Header Row (0-based index, optional)</label>
                     <input
@@ -410,16 +514,20 @@ export default function CsvOptimizerPlusPage() {
                   <span className="ml-2 text-gray-500 dark:text-gray-400">({formatFileSize(selectedFile.size)})</span>
                 </div>
                 <div className="flex gap-2">
-                  {result && (
+                  {hasResults && (
                     <button onClick={handleReset} className="btn-secondary text-sm">Clear</button>
                   )}
-                  <button onClick={handleConvert} disabled={isConverting} className="btn-primary text-sm">
+                  <button
+                    onClick={handleConvert}
+                    disabled={isConverting || (sheetNames.length > 0 && selectedSheets.length === 0)}
+                    className="btn-primary text-sm"
+                  >
                     {isConverting ? (
                       <span className="flex items-center gap-2">
                         <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
-                        Converting...
+                        Converting{sheetConversions.length > 0 ? ` (${sheetConversions.length}/${selectedSheets.length})` : '...'}
                       </span>
-                    ) : result ? 'Re-convert' : 'Convert'}
+                    ) : hasResults ? 'Re-convert' : 'Convert'}
                   </button>
                 </div>
               </div>
@@ -427,255 +535,274 @@ export default function CsvOptimizerPlusPage() {
           </div>
         </div>
 
-        {/* Results */}
-        {result && (
-          <>
-            {/* Summary Bar */}
-            <div className="card p-4 mb-6">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="text-sm text-gray-700 dark:text-gray-300">
-                  <span className="font-medium">{rowCount.toLocaleString()}</span> rows,{' '}
-                  <span className="font-medium">{colCount}</span> columns processed
-                  {excludedRows.size > 0 && (
-                    <span className="ml-2 text-yellow-700 dark:text-yellow-400">
-                      ({excludedRows.size} row{excludedRows.size > 1 ? 's' : ''} excluded)
-                    </span>
-                  )}
-                </div>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                  Conversion successful
-                </span>
-              </div>
-            </div>
+        {/* Results — one block per converted sheet */}
+        {sheetConversions.map((conv, sheetIdx) => {
+          const activeCleanCsv = getActiveCleanCsv(conv)
+          const originalParsed = conv.result.cleanCsv ? parseCSV(conv.result.cleanCsv) : null
+          const preview = activeCleanCsv ? parseCSV(activeCleanCsv) : null
+          const rowCount = conv.result.profileJson?.row_count ?? preview?.rows.length ?? 0
+          const colCount = conv.result.profileJson?.column_count ?? preview?.headers.length ?? 0
+          const sk = (section: string) => `${conv.sheet}.${section}`
 
-            {/* Aggregate / Double-Count Rows */}
-            {aggregateRows.length > 0 && (
-              <div className="mb-4 border border-yellow-300 dark:border-yellow-700 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => toggleSection('aggregates')}
-                  className="w-full flex items-center justify-between p-4 bg-yellow-50 dark:bg-yellow-900/20 hover:opacity-90 transition-opacity"
-                >
-                  <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                    <span className="font-medium text-yellow-800 dark:text-yellow-200">
-                      Potential Double-Count Rows ({aggregateRows.length} detected)
-                    </span>
-                    {excludedRows.size > 0 && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-200 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-200">
-                        {excludedRows.size} excluded
+          return (
+            <div key={conv.sheet} className="mb-8">
+              {/* Sheet divider — only for multi-sheet */}
+              {sheetConversions.length > 1 && (
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                  <span className="px-3 py-1 text-sm font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700">
+                    Sheet: {conv.sheet}
+                  </span>
+                  <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+                </div>
+              )}
+
+              {/* Summary Bar */}
+              <div className="card p-4 mb-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">{rowCount.toLocaleString()}</span> rows,{' '}
+                    <span className="font-medium">{colCount}</span> columns processed
+                    {conv.excludedRows.size > 0 && (
+                      <span className="ml-2 text-yellow-700 dark:text-yellow-400">
+                        ({conv.excludedRows.size} row{conv.excludedRows.size > 1 ? 's' : ''} excluded)
                       </span>
                     )}
                   </div>
-                  <ChevronIcon open={expandedSections.aggregates} />
-                </button>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                    Conversion successful
+                  </span>
+                </div>
+              </div>
 
-                {expandedSections.aggregates && (
-                  <div className="bg-white dark:bg-gray-800">
-                    <div className="px-4 pt-3 pb-2 flex items-center justify-between border-b border-yellow-100 dark:border-yellow-900/30">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Rows containing totals or subtotals may cause double-counting in AI analysis. Check the rows you want to exclude.
-                      </p>
-                      <button
-                        onClick={toggleAllExcluded}
-                        className="shrink-0 ml-4 text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                      >
-                        {excludedRows.size === aggregateRows.length ? 'Deselect all' : 'Select all'}
-                      </button>
+              {/* Aggregate / Double-Count Rows */}
+              {conv.aggregateRows.length > 0 && (
+                <div className="mb-4 border border-yellow-300 dark:border-yellow-700 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => toggleSection(sk('aggregates'))}
+                    className="w-full flex items-center justify-between p-4 bg-yellow-50 dark:bg-yellow-900/20 hover:opacity-90 transition-opacity"
+                  >
+                    <div className="flex items-center gap-3">
+                      <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <span className="font-medium text-yellow-800 dark:text-yellow-200">
+                        Potential Double-Count Rows ({conv.aggregateRows.length} detected)
+                      </span>
+                      {conv.excludedRows.size > 0 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-200 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-200">
+                          {conv.excludedRows.size} excluded
+                        </span>
+                      )}
                     </div>
+                    <ChevronIcon open={!!expandedSections[sk('aggregates')]} />
+                  </button>
 
-                    <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                      {aggregateRows.map(({ rowIndex, row, reason }) => {
-                        const isExcluded = excludedRows.has(rowIndex)
-                        return (
-                          <label
-                            key={rowIndex}
-                            className={`flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                              isExcluded
-                                ? 'bg-yellow-50/60 dark:bg-yellow-900/10'
-                                : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isExcluded}
-                              onChange={() => toggleExcluded(rowIndex)}
-                              className="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-yellow-500"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                Row {rowIndex + 2} — matched: <span className="font-medium text-yellow-700 dark:text-yellow-400">{reason}</span>
+                  {expandedSections[sk('aggregates')] && (
+                    <div className="bg-white dark:bg-gray-800">
+                      <div className="px-4 pt-3 pb-2 flex items-center justify-between border-b border-yellow-100 dark:border-yellow-900/30">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Rows containing totals or subtotals may cause double-counting in AI analysis. Check the rows you want to exclude.
+                        </p>
+                        <button
+                          onClick={() => toggleAllExcluded(sheetIdx)}
+                          className="shrink-0 ml-4 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          {conv.excludedRows.size === conv.aggregateRows.length ? 'Deselect all' : 'Select all'}
+                        </button>
+                      </div>
+                      <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {conv.aggregateRows.map(({ rowIndex, row, reason }) => {
+                          const isExcluded = conv.excludedRows.has(rowIndex)
+                          return (
+                            <label
+                              key={rowIndex}
+                              className={`flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors ${
+                                isExcluded
+                                  ? 'bg-yellow-50/60 dark:bg-yellow-900/10'
+                                  : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isExcluded}
+                                onChange={() => toggleExcluded(sheetIdx, rowIndex)}
+                                className="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-yellow-500"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                  Row {rowIndex + 2} — matched: <span className="font-medium text-yellow-700 dark:text-yellow-400">{reason}</span>
+                                </div>
+                                <div className={`text-xs font-mono text-gray-700 dark:text-gray-300 truncate ${isExcluded ? 'line-through opacity-50' : ''}`}>
+                                  {row.join(', ')}
+                                </div>
                               </div>
-                              <div className={`text-xs font-mono text-gray-700 dark:text-gray-300 truncate ${isExcluded ? 'line-through opacity-50' : ''}`}>
-                                {row.join(', ')}
-                              </div>
-                            </div>
-                          </label>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Column Profile */}
-            <div className="mb-4 border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden">
-              <button
-                onClick={() => toggleSection('profile')}
-                className="w-full flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 hover:opacity-90 transition-opacity"
-              >
-                <div className="flex items-center gap-3">
-                  <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                  <span className="font-medium text-blue-800 dark:text-blue-200">Column Profile</span>
-                </div>
-                <ChevronIcon open={expandedSections.profile} />
-              </button>
-              {expandedSections.profile && (
-                <div className="p-4 bg-white dark:bg-gray-800">
-                  <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-x-auto bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg">
-                    {JSON.stringify(result.profileJson, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-
-            {/* Schema SQL */}
-            {result.schemaSql && (
-              <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => toggleSection('schema')}
-                  className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 hover:opacity-90 transition-opacity"
-                >
-                  <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582 4 8 4s8 1.79 8 4" />
-                    </svg>
-                    <span className="font-medium text-gray-800 dark:text-gray-200">Schema SQL</span>
-                  </div>
-                  <ChevronIcon open={expandedSections.schema} />
-                </button>
-                {expandedSections.schema && (
-                  <div className="p-4 bg-white dark:bg-gray-800">
-                    <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-x-auto bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg">
-                      {result.schemaSql}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Relationships */}
-            {result.relationshipsJson && (
-              <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => toggleSection('relationships')}
-                  className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 hover:opacity-90 transition-opacity"
-                >
-                  <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                    </svg>
-                    <span className="font-medium text-gray-800 dark:text-gray-200">Cross-Sheet Relationships</span>
-                  </div>
-                  <ChevronIcon open={expandedSections.relationships} />
-                </button>
-                {expandedSections.relationships && (
-                  <div className="p-4 bg-white dark:bg-gray-800">
-                    <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-x-auto bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg">
-                      {JSON.stringify(result.relationshipsJson, null, 2)}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Data Preview + Actions */}
-            <div className="card p-6 mt-6">
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Clean CSV Preview</h2>
-                <div className="flex flex-wrap gap-2">
-                  <button onClick={handleDownloadZip} className="btn-secondary text-sm">Download ZIP</button>
-                  <button onClick={handleDownloadCleanCsv} className="btn-secondary text-sm">Download CSV</button>
-                  <button onClick={handleUploadAsDataset} className="btn-primary text-sm">Upload as Dataset</button>
-                </div>
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-                  <div className="text-lg font-semibold text-gray-900 dark:text-white">{colCount}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Columns</div>
-                </div>
-                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-                  <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {(originalParsed ? originalParsed.rows.length - excludedRows.size : rowCount).toLocaleString()}
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    Rows{excludedRows.size > 0 ? ` (${excludedRows.size} excluded)` : ''}
-                  </div>
-                </div>
-                <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-                  <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {formatFileSize(result.zipBlob.size)}
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">ZIP Size</div>
-                </div>
-              </div>
-
-              {/* Preview Table — shows original rows, excluded ones struck through */}
-              {originalParsed && originalParsed.headers.length > 0 ? (
-                <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-                  <table className="min-w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-50 dark:bg-gray-700/50">
-                        {originalParsed.headers.map((h, i) => (
-                          <th key={i} className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {originalParsed.rows.slice(0, 10).map((row, i) => {
-                        const isExcluded = excludedRows.has(i)
-                        return (
-                          <tr
-                            key={i}
-                            className={`transition-colors ${
-                              isExcluded
-                                ? 'bg-yellow-50/60 dark:bg-yellow-900/10 opacity-50'
-                                : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
-                            }`}
-                          >
-                            {row.map((val, j) => (
-                              <td
-                                key={j}
-                                className={`px-3 py-2 text-gray-800 dark:text-gray-200 whitespace-nowrap max-w-xs truncate ${isExcluded ? 'line-through' : ''}`}
-                              >
-                                {val || <span className="text-gray-400 dark:text-gray-500 italic">empty</span>}
-                              </td>
-                            ))}
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                  {originalParsed.rows.length > 10 && (
-                    <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 text-center">
-                      Showing 10 of {originalParsed.rows.length.toLocaleString()} rows
+                            </label>
+                          )
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
-              ) : (
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No preview available.</p>
               )}
+
+              {/* Column Profile */}
+              <div className="mb-4 border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => toggleSection(sk('profile'))}
+                  className="w-full flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 hover:opacity-90 transition-opacity"
+                >
+                  <div className="flex items-center gap-3">
+                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <span className="font-medium text-blue-800 dark:text-blue-200">Column Profile</span>
+                  </div>
+                  <ChevronIcon open={!!expandedSections[sk('profile')]} />
+                </button>
+                {expandedSections[sk('profile')] && (
+                  <div className="p-4 bg-white dark:bg-gray-800">
+                    <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-x-auto bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg">
+                      {JSON.stringify(conv.result.profileJson, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+
+              {/* Schema SQL */}
+              {conv.result.schemaSql && (
+                <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => toggleSection(sk('schema'))}
+                    className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 hover:opacity-90 transition-opacity"
+                  >
+                    <div className="flex items-center gap-3">
+                      <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582 4 8 4s8 1.79 8 4" />
+                      </svg>
+                      <span className="font-medium text-gray-800 dark:text-gray-200">Schema SQL</span>
+                    </div>
+                    <ChevronIcon open={!!expandedSections[sk('schema')]} />
+                  </button>
+                  {expandedSections[sk('schema')] && (
+                    <div className="p-4 bg-white dark:bg-gray-800">
+                      <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-x-auto bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg">
+                        {conv.result.schemaSql}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Relationships */}
+              {conv.result.relationshipsJson != null && (
+                <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => toggleSection(sk('relationships'))}
+                    className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 hover:opacity-90 transition-opacity"
+                  >
+                    <div className="flex items-center gap-3">
+                      <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                      <span className="font-medium text-gray-800 dark:text-gray-200">Cross-Sheet Relationships</span>
+                    </div>
+                    <ChevronIcon open={!!expandedSections[sk('relationships')]} />
+                  </button>
+                  {expandedSections[sk('relationships')] && (
+                    <div className="p-4 bg-white dark:bg-gray-800">
+                      <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-x-auto bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg">
+                        {JSON.stringify(conv.result.relationshipsJson, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Data Preview + Actions */}
+              <div className="card p-6">
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Clean CSV Preview</h2>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => handleDownloadZip(conv)} className="btn-secondary text-sm">Download ZIP</button>
+                    <button onClick={() => handleDownloadCleanCsv(conv)} className="btn-secondary text-sm">Download CSV</button>
+                    <button onClick={() => handleUploadAsDataset(conv)} className="btn-primary text-sm">Upload as Dataset</button>
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
+                    <div className="text-lg font-semibold text-gray-900 dark:text-white">{colCount}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Columns</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
+                    <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {(originalParsed ? originalParsed.rows.length - conv.excludedRows.size : rowCount).toLocaleString()}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Rows{conv.excludedRows.size > 0 ? ` (${conv.excludedRows.size} excluded)` : ''}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
+                    <div className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {formatFileSize(conv.result.zipBlob.size)}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">ZIP Size</div>
+                  </div>
+                </div>
+
+                {/* Preview Table */}
+                {originalParsed && originalParsed.headers.length > 0 ? (
+                  <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-50 dark:bg-gray-700/50">
+                          {originalParsed.headers.map((h, i) => (
+                            <th key={i} className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {originalParsed.rows.slice(0, 10).map((row, i) => {
+                          const isExcluded = conv.excludedRows.has(i)
+                          return (
+                            <tr
+                              key={i}
+                              className={`transition-colors ${
+                                isExcluded
+                                  ? 'bg-yellow-50/60 dark:bg-yellow-900/10 opacity-50'
+                                  : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                              }`}
+                            >
+                              {row.map((val, j) => (
+                                <td
+                                  key={j}
+                                  className={`px-3 py-2 text-gray-800 dark:text-gray-200 whitespace-nowrap max-w-xs truncate ${isExcluded ? 'line-through' : ''}`}
+                                >
+                                  {val || <span className="text-gray-400 dark:text-gray-500 italic">empty</span>}
+                                </td>
+                              ))}
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                    {originalParsed.rows.length > 10 && (
+                      <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 text-center">
+                        Showing 10 of {originalParsed.rows.length.toLocaleString()} rows
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No preview available.</p>
+                )}
+              </div>
             </div>
-          </>
-        )}
+          )
+        })}
       </main>
     </div>
   )
