@@ -102,7 +102,7 @@ export default function EditSummaryPage() {
     onSuccess: (result) => {
       toast.success(`"${result.datasetName}" deleted`)
       queryClient.invalidateQueries({ queryKey: ['datasets'] })
-      navigate('/edit-summary')
+      window.location.assign('/edit-summary')
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to delete dataset'),
   })
