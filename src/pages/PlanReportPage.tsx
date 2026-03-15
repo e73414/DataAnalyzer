@@ -75,7 +75,7 @@ function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[], thres
           purpose: `${step.purpose} (chunk ${i + 1} of ${numChunks})`,
           query_strategy: {
             ...step.query_strategy,
-            logic: `PAGINATED CHUNK ${i + 1} OF ${numChunks}: Your SQL MUST include LIMIT ${chunkSize} OFFSET ${offset} - do not alter these values. ${step.query_strategy.logic}`,
+            logic: `PAGINATED CHUNK ${i + 1} OF ${numChunks} (rows ${offset + 1}–${offset + chunkSize}): Your SQL MUST include LIMIT ${chunkSize} OFFSET ${offset} — do not alter these values. Return raw counts and sums (not percentages or averages) so the merge step can aggregate correctly across all chunks. ${step.query_strategy.logic}`,
           },
         })
       }
@@ -89,7 +89,18 @@ function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[], thres
         purpose: `Merge: ${step.purpose}`,
         query_strategy: {
           ...step.query_strategy,
-          logic: `DO NOT run a new database query. Read the results already returned by the previous ${numChunks} chunk steps (step numbers: ${chunkNums.join(', ')}) and aggregate them into a single consolidated answer for: ${step.purpose}`,
+          logic: `MERGE ONLY — DO NOT run any new database query against the source data.
+The dataset was split into ${numChunks} non-overlapping chunks (steps ${chunkNums.join(', ')}), each covering a distinct OFFSET window with no row appearing in more than one chunk.
+Your job is to consolidate the already-returned chunk results into one final answer for: ${step.purpose}
+
+Aggregation rules (mandatory):
+- COUNTS / TOTALS: add the values from each chunk (e.g. chunk1_count + chunk2_count + ...).
+- SUMS: add the sums from each chunk.
+- AVERAGES / MEANS: compute as (sum of all chunk sums) / (sum of all chunk counts) — never average the per-chunk averages.
+- PERCENTAGES / RATES: recompute from the merged totals — never average per-chunk percentages.
+- GROUP-BY results: union the rows from all chunks; if the same group key appears in multiple chunks, SUM their counts/totals and recompute derived metrics.
+- TOP-N / RANKINGS: re-rank after merging all group totals.
+- The merged total must equal the sum of all individual chunk results — any shortfall or excess indicates incorrect aggregation.`,
         },
       })
     }
