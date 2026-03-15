@@ -1,0 +1,199 @@
+{
+  "name": "Data Analyzer - Validate Report",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "model": "={{ $('Webhook').first().json.body.model || 'moonshotai/kimi-k2.5' }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [1440, 180],
+      "id": "vr-llm-001",
+      "name": "Validation LLM",
+      "credentials": {
+        "openRouterApi": {
+          "id": "SScyp7rqdYRmN9lx",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "validate-report",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [200, 300],
+      "id": "vr-webhook-001",
+      "name": "Webhook",
+      "webhookId": "vr-webhook-id-002"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT step_number, purpose, dataset_id, raw_table_name, LEFT(step_result, 500) AS step_result_preview FROM n8n_data.report_step_results WHERE report_id = '{{ $json.body.report_id.replace(/'/g, \"''\") }}' ORDER BY step_number",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [440, 300],
+      "id": "vr-pg-steps-001",
+      "name": "Fetch Step Results",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect unique dataset IDs from steps that have one\nconst steps = $input.all().map(i => i.json);\nconst datasetIds = [...new Set(steps.filter(s => s.dataset_id).map(s => s.dataset_id))];\n\n// Build view names: v_ds_<id with hyphens replaced by underscores>\nconst viewNames = datasetIds.map(id => 'v_ds_' + id.replace(/-/g, '_'));\n\n// Build SQL IN list (safely quoted)\nconst viewNamesSql = viewNames.length > 0\n  ? viewNames.map(v => \"'\" + v.replace(/'/g, \"''\") + \"'\").join(', ')\n  : \"'__no_views__'\";\n\nreturn [{ json: { view_names_sql: viewNamesSql, dataset_ids: datasetIds, view_names: viewNames } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300],
+      "id": "vr-code-viewnames-001",
+      "name": "Build View Name List"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema = 'n8n_data' AND table_name IN ({{ $json.view_names_sql }}) ORDER BY table_name, ordinal_position",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [920, 300],
+      "id": "vr-pg-cols-001",
+      "name": "Fetch View Column Info",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const steps = $('Fetch Step Results').all().map(i => i.json);\nconst cols = $input.all().map(i => i.json);\n\n// Group columns by view name\nconst viewColumns = {};\nfor (const c of cols) {\n  if (!viewColumns[c.table_name]) viewColumns[c.table_name] = [];\n  viewColumns[c.table_name].push(`${c.column_name} (${c.data_type})`);\n}\n\n// Build step context: for each step, show purpose, temp table, and view columns\nconst safeReportId = $('Webhook').first().json.body.report_id.replace(/[^a-zA-Z0-9_]/g, '_');\n\nconst stepLines = steps.map(s => {\n  const viewName = s.dataset_id ? 'v_ds_' + s.dataset_id.replace(/-/g, '_') : null;\n  const colList = viewName && viewColumns[viewName]\n    ? viewColumns[viewName].join(', ')\n    : (s.dataset_id ? 'columns unavailable' : 'aggregate step — no direct dataset');\n  const tempTable = s.raw_table_name\n    ? `n8n_data.\"${s.raw_table_name}\"`\n    : (s.dataset_id ? `n8n_data.\"tmp_${safeReportId}_step_${s.step_number}\"` : 'none');\n  return [\n    `Step ${s.step_number}: ${s.purpose}`,\n    `  Dataset ID  : ${s.dataset_id || 'none (aggregate step)'}`,\n    `  Dataset view: ${viewName ? `n8n_data.${viewName}` : 'none'}`,\n    `  Temp table  : ${tempTable}`,\n    `  View columns: ${colList}`,\n  ].join('\\n');\n}).join('\\n\\n');\n\nconst reportHtml = $('Webhook').first().json.body.report_html || '';\nconst validationPrompt = $('Webhook').first().json.body.validation_prompt || '';\n\nreturn [{\n  json: {\n    step_context: stepLines,\n    report_html: reportHtml,\n    validation_prompt: validationPrompt,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1160, 300],
+      "id": "vr-code-ctx-001",
+      "name": "Build Context"
+    },
+    {
+      "parameters": {
+        "text": "=ANALYSIS STEPS AND AVAILABLE DATA:\n{{ $json.step_context }}\n\nREPORT HTML:\n{{ $json.report_html }}",
+        "systemMessage": "=You are a report validator. Your job is to use the information about the Steps taken to build the report (ANALYSIS STEPS AND AVAILABLE DATA) and the Resulting Report (REPORT HTML) to validate exactly three data points stated in the report by building SQL queries against the dataset view(s) listed in the step context.\n\nSTEP 1 — Understand the analysis.\nRead ANALYSIS STEPS AND AVAILABLE DATA carefully. For each step note:\n- The dataset view name: n8n_data.v_ds_<id> — this is the source data the report was built from\n- The view columns and their data types — use these exact column names in your SQL\n- The purpose of the step — this tells you what logic was applied (filters, groupings, aggregations, joins)\n\nSTEP 2 — Select three data points to validate.\nRead REPORT HTML and pick exactly 3 specific numeric values to check. Selection criteria:\n- Must be a number shown in the report: a count, total, sum, average, percentage, or ranking\n- Must be independently derivable from the raw data in the view(s)\n- Prefer values from steps with complex logic (multi-column aggregation, filtering, joining across steps)\n- Choose 3 distinct data points that together give broad coverage of the report's key claims\n\nSTEP 3 — Build and run one SQL query per data point.\nFor each of the 3 data points, write a SQL SELECT query against the relevant dataset view (n8n_data.v_ds_<id>) that re-derives the reported value from the raw source data — independently, without using temp tables. Execute each query using the Query Data tool.\n\nSQL rules (apply to every query):\n- Column names: always double-quote exactly as listed (e.g. \"Sales Amount\")\n- Numeric text columns: NULLIF(TRIM(REPLACE(\"col\"::text, ',', '')), '')::numeric\n- Date columns: use EXTRACT() or TO_CHAR() — never substr()\n- Safe division: NULLIF(denominator, 0)\n- String filters: TRIM(\"col\") ILIKE 'value'\n- Exclude subtotal/total rows: AND TRIM(\"col\") NOT ILIKE '%total%'\n\nSTEP 4 — Compare and report.\nFor each data point compare the query result to the value shown in the report.\nTolerance: ±1 for integer counts, ±0.1% for percentages, minor rounding for currency/decimals.\n\nOutput your results in this exact format:\n\n**Validation Report**\n\n| # | Data Point | Expected (from view query) | Reported Value | Status |\n|---|------------|---------------------------|----------------|--------|\n| 1 | [description of what was checked] | [query result] | [value in report] | ✅ PASS or ❌ FAIL |\n| 2 | ... | ... | ... | ... |\n| 3 | ... | ... | ... | ... |\n\n**Overall Verdict: ✅ PASS** — all three checks match.\nor\n**Overall Verdict: ❌ FAIL** — [brief explanation of which checks failed and why]\n\n{{ $json.validation_prompt ? '---\\nAdditional instructions from admin:\\n' + $json.validation_prompt : '' }}",
+        "options": {
+          "maxIterations": 15
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [1400, 300],
+      "id": "vr-agent-001",
+      "name": "Validation Agent",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Run a SQL SELECT query against a dataset view in the n8n_data schema (e.g. n8n_data.v_ds_<id>) to independently compute a value for comparison against the report. Always use aggregating SQL (SUM, COUNT, AVG, GROUP BY) — do not SELECT * without LIMIT 200. Use exact double-quoted column names as listed in the step context.",
+        "operation": "executeQuery",
+        "query": "={{ $fromAI('sql_query') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [1640, 420],
+      "id": "vr-pg-tool-001",
+      "name": "Query Data",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = $input.first().json.output || $input.first().json.error || 'No result';\nreturn [{ json: { status: 'ok', validation_result: String(output) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1640, 300],
+      "id": "vr-code-resp-001",
+      "name": "Format Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const err = $input.first().json.error || 'Agent encountered an error';\nreturn [{ json: { status: 'error', validation_result: String(err) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1640, 480],
+      "id": "vr-code-err-001",
+      "name": "Format Error"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [{ "node": "Fetch Step Results", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Step Results": {
+      "main": [
+        [{ "node": "Build View Name List", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build View Name List": {
+      "main": [
+        [{ "node": "Fetch View Column Info", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch View Column Info": {
+      "main": [
+        [{ "node": "Build Context", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Context": {
+      "main": [
+        [{ "node": "Validation Agent", "type": "main", "index": 0 }]
+      ]
+    },
+    "Validation Agent": {
+      "main": [
+        [{ "node": "Format Response", "type": "main", "index": 0 }],
+        [{ "node": "Format Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Validation LLM": {
+      "ai_languageModel": [
+        [{ "node": "Validation Agent", "type": "ai_languageModel", "index": 0 }]
+      ]
+    },
+    "Query Data": {
+      "ai_tool": [
+        [{ "node": "Validation Agent", "type": "ai_tool", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "authors": "EUN ed.e.lee@gmail.com",
+    "name": "Validate Report v1.1",
+    "description": "Validates report data points against dataset views and temp tables using an AI agent"
+  }
+}

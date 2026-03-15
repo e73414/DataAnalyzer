@@ -30,6 +30,7 @@ const EXECUTE_PLAN_WEBHOOK_PATH = 'webhook/execute-plan'
 const CHECK_REPORT_PROGRESS_WEBHOOK_PATH = 'webhook/check-report-progress'
 const RUN_FORMATTER_WEBHOOK_PATH = 'webhook/run-formatter'
 const SELECT_DATASET_WEBHOOK_PATH = 'webhook/select-dataset'
+const VALIDATE_REPORT_WEBHOOK_PATH = 'webhook/validate-report'
 
 interface SendReportRequest {
   emails: string[]
@@ -638,6 +639,38 @@ export const n8nService = {
       dataset_desc: payload?.dataset_desc ? String(payload.dataset_desc) : undefined,
       confidence_level: payload?.confidence_level != null ? String(payload.confidence_level) : undefined,
     }
+  },
+
+  async validateReport(request: {
+    reportId: string
+    reportHtml: string
+    email: string
+    model?: string
+    validationPrompt?: string
+  }): Promise<{ status: 'ok' | 'error'; validationResult?: string; message?: string }> {
+    const response = await mcpN8nApi.post('/mcp/execute', {
+      skill: 'n8n-webhook',
+      params: { webhookPath: VALIDATE_REPORT_WEBHOOK_PATH },
+      input: {
+        report_id:         request.reportId,
+        report_html:       request.reportHtml,
+        email:             request.email,
+        ...(request.model             && { model:             request.model }),
+        ...(request.validationPrompt  && { validation_prompt: request.validationPrompt }),
+      },
+    })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let raw = (response.data as any)?.data ?? response.data
+    if (Array.isArray(raw) && raw.length > 0) raw = raw[0]
+    if (raw?.body) raw = raw.body
+    if (typeof raw === 'string') { try { raw = JSON.parse(raw) } catch { /* keep */ } }
+
+    if (raw?.status === 'ok' || raw?.validation_result) {
+      return { status: 'ok', validationResult: raw.validation_result ?? '' }
+    }
+    const msg = raw?.message ?? raw?.error ?? 'Validation failed'
+    throw new Error(typeof msg === 'string' ? msg : 'Validation failed')
   },
 
   async runFormatter(request: RunFormatterRequest): Promise<void> {
