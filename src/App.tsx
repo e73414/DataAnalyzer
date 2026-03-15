@@ -12,6 +12,7 @@ import ReportTemplateManagerPage from './pages/ReportTemplateManagerPage'
 import UploadReportTemplatePage from './pages/UploadReportTemplatePage'
 import PlanReportPage from './pages/PlanReportPage'
 import CsvOptimizerPage from './pages/CsvOptimizerPage'
+import CsvOptimizerPlusPage from './pages/CsvOptimizerPlusPage'
 import ExcelUploadPage from './pages/ExcelUploadPage'
 import ProfileManagerPage from './pages/admin/ProfileManagerPage'
 import UserManagerPage from './pages/admin/UserManagerPage'
@@ -155,6 +156,14 @@ function App() {
         element={
           <ProtectedRoute>
             <CsvOptimizerPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/csv-optimizer-plus"
+        element={
+          <ProtectedRoute>
+            <CsvOptimizerPlusPage />
           </ProtectedRoute>
         }
       />

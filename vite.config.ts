@@ -22,6 +22,11 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/mcp-pocketbase/, '')
+      },
+      '/excel-to-sql': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/excel-to-sql/, '')
       }
     }
   }

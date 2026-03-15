@@ -25,6 +25,7 @@
     "recharts": "^3.7.0",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.2.0",
+    "jszip": "^3.10.1",
     "xlsx": "^0.18.5",
     "zod": "^3.22.0"
   },
