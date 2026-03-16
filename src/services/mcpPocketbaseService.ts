@@ -148,6 +148,13 @@ export const pocketbaseService = {
     }))
   },
 
+  async getSampleQuestions(datasetId: string): Promise<{ id: string; question: string }[]> {
+    const response = await mcpN8nApi.get<{
+      sample_questions?: { questions: { id: string; question: string }[] } | null
+    }>(`/datasets/${encodeURIComponent(datasetId)}`)
+    return response.data.sample_questions?.questions ?? []
+  },
+
   async updateSampleQuestions(
     datasetId: string,
     questions: { id: string; question: string }[]

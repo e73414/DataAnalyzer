@@ -88,19 +88,6 @@ const WITTY_PHRASES = [
   'Judging your prompts silently',
 ]
 
-const SAMPLE_QUESTIONS = [
-  'Summarize this dataset in 3 bullet points',
-  'What are the top 5 trends in this data?',
-  'Are there any outliers or anomalies I should know about?',
-  'Which category or group has the highest values?',
-  'What correlations exist between the columns?',
-  'Show me the distribution of values across the main categories',
-  'What time period shows the most activity?',
-  'Identify any data quality issues or missing values',
-  'What would you recommend based on this data?',
-  'Compare the top performers vs the bottom performers',
-]
-
 // Fisher-Yates shuffle algorithm
 const shuffleArray = <T,>(array: T[]): T[] => {
   const shuffled = [...array]
@@ -169,6 +156,12 @@ export default function ResultsPage() {
     queryKey: ['dataset-detail', datasetId],
     queryFn: () => n8nService.getDatasetDetail(datasetId, session!.email),
     enabled: !!datasetId && !!session?.email && showPreview,
+  })
+
+  const { data: sampleQuestions } = useQuery({
+    queryKey: ['sample-questions', datasetId],
+    queryFn: () => pocketbaseService.getSampleQuestions(datasetId),
+    enabled: !!datasetId,
   })
 
   const { data: datasetPreview, isLoading: isLoadingPreview } = useQuery({
@@ -519,17 +512,25 @@ export default function ResultsPage() {
 
             {/* Tips and Sample Questions — expands upward above the input */}
             {showTips && (
-              <div className="mb-3 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                {SAMPLE_QUESTIONS.map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    onClick={() => { setFollowUpPrompt(q); setShowTips(false) }}
-                    className="text-left px-3 py-2 text-xs text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-                  >
-                    {q}
-                  </button>
-                ))}
+              <div className="mb-3">
+                {sampleQuestions && sampleQuestions.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {sampleQuestions.map((q) => (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={() => { setFollowUpPrompt(q.question); setShowTips(false) }}
+                        className="text-left px-3 py-2 text-xs text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                      >
+                        {q.question}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 py-1">
+                    No sample questions saved for this dataset yet.
+                  </p>
+                )}
               </div>
             )}
 
