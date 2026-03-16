@@ -88,6 +88,19 @@ const WITTY_PHRASES = [
   'Judging your prompts silently',
 ]
 
+const SAMPLE_QUESTIONS = [
+  'Summarize this dataset in 3 bullet points',
+  'What are the top 5 trends in this data?',
+  'Are there any outliers or anomalies I should know about?',
+  'Which category or group has the highest values?',
+  'What correlations exist between the columns?',
+  'Show me the distribution of values across the main categories',
+  'What time period shows the most activity?',
+  'Identify any data quality issues or missing values',
+  'What would you recommend based on this data?',
+  'Compare the top performers vs the bottom performers',
+]
+
 // Fisher-Yates shuffle algorithm
 const shuffleArray = <T,>(array: T[]): T[] => {
   const shuffled = [...array]
@@ -128,6 +141,7 @@ export default function ResultsPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [hasSaved, setHasSaved] = useState(false)
+  const [showTips, setShowTips] = useState(false)
   const [datasetId, setDatasetId] = useState('')
   const [datasetName, setDatasetName] = useState('')
   const [showPreview, setShowPreview] = useState(false)
@@ -502,6 +516,37 @@ export default function ResultsPage() {
 
           {/* Follow-up Input */}
           <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4 bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
+
+            {/* Tips and Sample Questions — expands upward above the input */}
+            {showTips && (
+              <div className="mb-3 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {SAMPLE_QUESTIONS.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => { setFollowUpPrompt(q); setShowTips(false) }}
+                    className="text-left px-3 py-2 text-xs text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowTips(v => !v)}
+              className="mb-2 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+            >
+              <svg
+                className={`w-3.5 h-3.5 transition-transform ${showTips ? 'rotate-180' : ''}`}
+                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+              Tips and Sample Questions
+            </button>
+
             <form onSubmit={handleFollowUp} className="flex gap-3">
               <input
                 type="text"
