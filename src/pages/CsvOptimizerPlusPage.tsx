@@ -41,6 +41,7 @@ interface SheetConversion {
   result: ConversionResult
   aggregateRows: AggregateRow[]
   excludedRows: Set<number>
+  excludedCols: Set<number>
 }
 
 // --- CSV Parsing ---
@@ -251,6 +252,7 @@ export default function CsvOptimizerPlusPage() {
           result: convResult,
           aggregateRows,
           excludedRows: new Set(aggregateRows.map(r => r.rowIndex)),
+          excludedCols: new Set<number>(),
         })
 
         // Show progress as each sheet completes
@@ -292,10 +294,14 @@ export default function CsvOptimizerPlusPage() {
 
   const getActiveCleanCsv = (conv: SheetConversion): string => {
     if (!conv.result.cleanCsv) return ''
-    if (conv.excludedRows.size === 0) return conv.result.cleanCsv
+    if (conv.excludedRows.size === 0 && conv.excludedCols.size === 0) return conv.result.cleanCsv
     const { headers, rows } = parseCSV(conv.result.cleanCsv)
-    const filtered = rows.filter((_, i) => !conv.excludedRows.has(i))
-    return toCSVString(headers, filtered)
+    const keepCols = headers.map((_, i) => !conv.excludedCols.has(i))
+    const filteredHeaders = headers.filter((_, i) => keepCols[i])
+    const filteredRows = rows
+      .filter((_, i) => !conv.excludedRows.has(i))
+      .map(row => row.filter((_, i) => keepCols[i]))
+    return toCSVString(filteredHeaders, filteredRows)
   }
 
   const toggleExcluded = (sheetIdx: number, rowIndex: number) => {
@@ -304,6 +310,23 @@ export default function CsvOptimizerPlusPage() {
       const next = new Set(sc.excludedRows)
       next.has(rowIndex) ? next.delete(rowIndex) : next.add(rowIndex)
       return { ...sc, excludedRows: next }
+    }))
+  }
+
+  const toggleExcludedCol = (sheetIdx: number, colIdx: number) => {
+    setSheetConversions(prev => prev.map((sc, i) => {
+      if (i !== sheetIdx) return sc
+      const next = new Set(sc.excludedCols)
+      next.has(colIdx) ? next.delete(colIdx) : next.add(colIdx)
+      return { ...sc, excludedCols: next }
+    }))
+  }
+
+  const toggleAllCols = (sheetIdx: number, totalCols: number) => {
+    setSheetConversions(prev => prev.map((sc, i) => {
+      if (i !== sheetIdx) return sc
+      const allExcluded = sc.excludedCols.size === totalCols
+      return { ...sc, excludedCols: allExcluded ? new Set() : new Set(Array.from({ length: totalCols }, (_, j) => j)) }
     }))
   }
 
@@ -562,7 +585,10 @@ export default function CsvOptimizerPlusPage() {
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="text-sm text-gray-700 dark:text-gray-300">
                     <span className="font-medium">{rowCount.toLocaleString()}</span> rows,{' '}
-                    <span className="font-medium">{colCount}</span> columns processed
+                    <span className="font-medium">{colCount - conv.excludedCols.size}</span> columns
+                    {conv.excludedCols.size > 0 && (
+                      <span className="ml-1 text-gray-500 dark:text-gray-400">of {colCount}</span>
+                    )}{' '}processed
                     {conv.excludedRows.size > 0 && (
                       <span className="ml-2 text-yellow-700 dark:text-yellow-400">
                         ({conv.excludedRows.size} row{conv.excludedRows.size > 1 ? 's' : ''} excluded)
@@ -733,8 +759,10 @@ export default function CsvOptimizerPlusPage() {
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
-                    <div className="text-lg font-semibold text-gray-900 dark:text-white">{colCount}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">Columns</div>
+                    <div className="text-lg font-semibold text-gray-900 dark:text-white">{colCount - conv.excludedCols.size}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Columns{conv.excludedCols.size > 0 ? ` (${conv.excludedCols.size} hidden)` : ''}
+                    </div>
                   </div>
                   <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
                     <div className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -752,6 +780,46 @@ export default function CsvOptimizerPlusPage() {
                   </div>
                 </div>
 
+                {/* Column Picker */}
+                {originalParsed && originalParsed.headers.length > 0 && (
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                        Columns ({originalParsed.headers.length - conv.excludedCols.size} of {originalParsed.headers.length} included)
+                      </span>
+                      <button
+                        onClick={() => toggleAllCols(sheetIdx, originalParsed.headers.length)}
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        {conv.excludedCols.size === originalParsed.headers.length ? 'Include all' : 'Exclude all'}
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {originalParsed.headers.map((h, colIdx) => {
+                        const excluded = conv.excludedCols.has(colIdx)
+                        return (
+                          <label
+                            key={colIdx}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border cursor-pointer text-xs transition-colors ${
+                              excluded
+                                ? 'border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 line-through'
+                                : 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={!excluded}
+                              onChange={() => toggleExcludedCol(sheetIdx, colIdx)}
+                              className="rounded border-gray-300 dark:border-gray-600 text-blue-600"
+                            />
+                            {h || `Col ${colIdx + 1}`}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Preview Table */}
                 {originalParsed && originalParsed.headers.length > 0 ? (
                   <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -759,7 +827,11 @@ export default function CsvOptimizerPlusPage() {
                       <thead>
                         <tr className="bg-gray-50 dark:bg-gray-700/50">
                           {originalParsed.headers.map((h, i) => (
-                            <th key={i} className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                            <th key={i} className={`px-3 py-2 text-left font-medium whitespace-nowrap ${
+                              conv.excludedCols.has(i)
+                                ? 'text-gray-300 dark:text-gray-600 line-through opacity-40'
+                                : 'text-gray-700 dark:text-gray-300'
+                            }`}>
                               {h}
                             </th>
                           ))}
@@ -780,7 +852,11 @@ export default function CsvOptimizerPlusPage() {
                               {row.map((val, j) => (
                                 <td
                                   key={j}
-                                  className={`px-3 py-2 text-gray-800 dark:text-gray-200 whitespace-nowrap max-w-xs truncate ${isExcluded ? 'line-through' : ''}`}
+                                  className={`px-3 py-2 whitespace-nowrap max-w-xs truncate ${isExcluded ? 'line-through' : ''} ${
+                                    conv.excludedCols.has(j)
+                                      ? 'opacity-25 text-gray-400 dark:text-gray-600'
+                                      : 'text-gray-800 dark:text-gray-200'
+                                  }`}
                                 >
                                   {val || <span className="text-gray-400 dark:text-gray-500 italic">empty</span>}
                                 </td>
