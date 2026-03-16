@@ -1,0 +1,522 @@
+{
+  "updatedAt": "2026-02-15T03:53:59.615Z",
+  "createdAt": "2026-02-05T06:27:26.123Z",
+  "id": "GsVlPifKa3JxGQTD",
+  "name": "Data Analyzer - Save Analysis",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "save-analysis",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        208,
+        304
+      ],
+      "id": "webhook-save",
+      "name": "Webhook - Save Analysis",
+      "webhookId": "873fa2b5-70f7-4d9d-9b3d-dc330ee01a0a"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'ok', message: 'Analysis saved', id: $json.id } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        736,
+        304
+      ],
+      "id": "respond-save",
+      "name": "Respond Success"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "data-analyzer-saved-analysis",
+          "mode": "list",
+          "cachedResultName": "data-analyzer-saved-analysis"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        416,
+        304
+      ],
+      "id": "537ea571-0285-4df3-b16e-60019c26de71",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "zObCvzTEf6kFbsLP",
+          "name": "QdrantApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.body.conversation.first().prompt + \"<br><br>\" + $json.body.conversation.first().processUsed }}",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "dataset_id",
+                "value": "={{ $json.body.datasetId }}"
+              },
+              {
+                "name": "ai_model",
+                "value": "={{ $json.body.aiModel }}"
+              },
+              {
+                "name": "submitted_at",
+                "value": "={{ $now }}"
+              },
+              {
+                "name": "prompt",
+                "value": "={{ $json.body.conversation.first().prompt }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        576,
+        528
+      ],
+      "id": "315d6400-2f14-4f95-9d6e-3f43789feb96",
+      "name": "Default Data Loader",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'ok', message: 'Analysis failed to save', id: $json.id } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        752,
+        512
+      ],
+      "id": "a02ae8e4-bde5-4f92-bc79-677194088f9d",
+      "name": "Respond Success1"
+    },
+    {
+      "parameters": {
+        "options": {
+          "dimensions": 768
+        }
+      },
+      "type": "n8n-nodes-gemini-embedding-plus.embeddingsGoogleGeminiPlus",
+      "typeVersion": 1,
+      "position": [
+        240,
+        608
+      ],
+      "id": "be17d389-b369-499a-8316-f27b95cd7cd2",
+      "name": "Embeddings Google Gemini Plus",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "3F7PYtvjNAVhAYSs",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "mxbai-embed-large:latest"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        400,
+        528
+      ],
+      "id": "684f2421-45a4-41a7-9629-42d83506e536",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "5LaIovQtdd5x4fjU",
+          "name": "Ollama account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Save Analysis": {
+      "main": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ],
+      "main": [
+        [
+          {
+            "node": "Respond Success1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini Plus": {
+      "ai_embedding": [
+        []
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "736da0ea-78a5-497d-b69b-6b0677cce41a",
+  "activeVersionId": "736da0ea-78a5-497d-b69b-6b0677cce41a",
+  "versionCounter": 171,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-02-05T06:27:26.123Z",
+      "createdAt": "2026-02-05T06:27:26.123Z",
+      "role": "workflow:owner",
+      "workflowId": "GsVlPifKa3JxGQTD",
+      "projectId": "1Tt3UeBU40oNvF7P",
+      "project": {
+        "updatedAt": "2025-10-06T05:12:43.166Z",
+        "createdAt": "2025-10-06T05:08:40.705Z",
+        "id": "1Tt3UeBU40oNvF7P",
+        "name": "EUN ed.e.lee@gmail.com <ed.e.lee@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "311513a6-4117-4a5c-89e5-28f958dbd390",
+        "projectRelations": [
+          {
+            "updatedAt": "2025-10-06T05:08:40.705Z",
+            "createdAt": "2025-10-06T05:08:40.705Z",
+            "userId": "311513a6-4117-4a5c-89e5-28f958dbd390",
+            "projectId": "1Tt3UeBU40oNvF7P",
+            "user": {
+              "updatedAt": "2026-03-11T04:00:47.117Z",
+              "createdAt": "2025-10-06T05:08:32.753Z",
+              "id": "311513a6-4117-4a5c-89e5-28f958dbd390",
+              "email": "ed.e.lee@gmail.com",
+              "firstName": "EUN",
+              "lastName": "ed.e.lee@gmail.com",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-12-26T08:28:02.179Z",
+                "personalization_survey_n8n_version": "2.1.4"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "SxDwHc0lnbViX2QV",
+                "userActivatedAt": 1759818413157,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1767391940455
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-03-11",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-02-15T03:54:06.344Z",
+    "createdAt": "2026-02-15T03:53:59.618Z",
+    "versionId": "736da0ea-78a5-497d-b69b-6b0677cce41a",
+    "workflowId": "GsVlPifKa3JxGQTD",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "save-analysis",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          208,
+          304
+        ],
+        "id": "webhook-save",
+        "name": "Webhook - Save Analysis",
+        "webhookId": "873fa2b5-70f7-4d9d-9b3d-dc330ee01a0a"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ { status: 'ok', message: 'Analysis saved', id: $json.id } }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          736,
+          304
+        ],
+        "id": "respond-save",
+        "name": "Respond Success"
+      },
+      {
+        "parameters": {
+          "mode": "insert",
+          "qdrantCollection": {
+            "__rl": true,
+            "value": "data-analyzer-saved-analysis",
+            "mode": "list",
+            "cachedResultName": "data-analyzer-saved-analysis"
+          },
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+        "typeVersion": 1.3,
+        "position": [
+          416,
+          304
+        ],
+        "id": "537ea571-0285-4df3-b16e-60019c26de71",
+        "name": "Qdrant Vector Store",
+        "credentials": {
+          "qdrantApi": {
+            "id": "zObCvzTEf6kFbsLP",
+            "name": "QdrantApi account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsonMode": "expressionData",
+          "jsonData": "={{ $json.body.conversation.first().prompt + \"<br><br>\" + $json.body.conversation.first().processUsed }}",
+          "options": {
+            "metadata": {
+              "metadataValues": [
+                {
+                  "name": "dataset_id",
+                  "value": "={{ $json.body.datasetId }}"
+                },
+                {
+                  "name": "ai_model",
+                  "value": "={{ $json.body.aiModel }}"
+                },
+                {
+                  "name": "submitted_at",
+                  "value": "={{ $now }}"
+                },
+                {
+                  "name": "prompt",
+                  "value": "={{ $json.body.conversation.first().prompt }}"
+                }
+              ]
+            }
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+        "typeVersion": 1.1,
+        "position": [
+          576,
+          528
+        ],
+        "id": "315d6400-2f14-4f95-9d6e-3f43789feb96",
+        "name": "Default Data Loader",
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ { status: 'ok', message: 'Analysis failed to save', id: $json.id } }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          752,
+          512
+        ],
+        "id": "a02ae8e4-bde5-4f92-bc79-677194088f9d",
+        "name": "Respond Success1"
+      },
+      {
+        "parameters": {
+          "options": {
+            "dimensions": 768
+          }
+        },
+        "type": "n8n-nodes-gemini-embedding-plus.embeddingsGoogleGeminiPlus",
+        "typeVersion": 1,
+        "position": [
+          240,
+          608
+        ],
+        "id": "be17d389-b369-499a-8316-f27b95cd7cd2",
+        "name": "Embeddings Google Gemini Plus",
+        "credentials": {
+          "googlePalmApi": {
+            "id": "3F7PYtvjNAVhAYSs",
+            "name": "Google Gemini(PaLM) Api account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "model": "mxbai-embed-large:latest"
+        },
+        "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+        "typeVersion": 1,
+        "position": [
+          400,
+          528
+        ],
+        "id": "684f2421-45a4-41a7-9629-42d83506e536",
+        "name": "Embeddings Ollama",
+        "credentials": {
+          "ollamaApi": {
+            "id": "5LaIovQtdd5x4fjU",
+            "name": "Ollama account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Webhook - Save Analysis": {
+        "main": [
+          [
+            {
+              "node": "Qdrant Vector Store",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Default Data Loader": {
+        "ai_document": [
+          [
+            {
+              "node": "Qdrant Vector Store",
+              "type": "ai_document",
+              "index": 0
+            }
+          ]
+        ],
+        "main": [
+          [
+            {
+              "node": "Respond Success1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Qdrant Vector Store": {
+        "main": [
+          [
+            {
+              "node": "Respond Success",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Embeddings Google Gemini Plus": {
+        "ai_embedding": [
+          []
+        ]
+      },
+      "Embeddings Ollama": {
+        "ai_embedding": [
+          [
+            {
+              "node": "Qdrant Vector Store",
+              "type": "ai_embedding",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "EUN ed.e.lee@gmail.com",
+    "name": "Version 736da0ea",
+    "description": "",
+    "autosaved": true,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-02-15T03:54:06.341Z",
+        "id": 385,
+        "workflowId": "GsVlPifKa3JxGQTD",
+        "versionId": "736da0ea-78a5-497d-b69b-6b0677cce41a",
+        "event": "activated",
+        "userId": "311513a6-4117-4a5c-89e5-28f958dbd390"
+      }
+    ]
+  }
+}

@@ -1,0 +1,466 @@
+{
+  "updatedAt": "2026-02-22T04:49:22.072Z",
+  "createdAt": "2026-02-06T03:01:38.468Z",
+  "id": "oMXSc6-xNYtBuILZlBAtk",
+  "name": "Data Analyzer - Update Dataset",
+  "description": null,
+  "active": false,
+  "isArchived": true,
+  "nodes": [
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "dataset_name"
+            },
+            {
+              "fieldToAggregate": "dataset_id"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        624,
+        -128
+      ],
+      "id": "3debfaae-c3c9-4bf1-b49d-ad3a008dd91b",
+      "name": "Aggregate3"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "value": "n8n_data",
+          "mode": "list",
+          "cachedResultName": "n8n_data"
+        },
+        "table": {
+          "__rl": true,
+          "value": "dataset_record_manager",
+          "mode": "list",
+          "cachedResultName": "dataset_record_manager"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        416,
+        -128
+      ],
+      "id": "f60b3d9f-5334-4173-93a0-6adc78733a76",
+      "name": "Get the Dataset Record3",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formFields": {
+          "values": [
+            {
+              "fieldType": "html",
+              "html": "<b>THIS WILL UPDATE A DATASET</b>\n<div>\n  <strong>Available Datasets:</strong>\n  <ol>\n    {{ $('Set Options3').first().json.my_options[0].label.map(name => `<li>${name}</li>`).join('') }}\n  </ol>\n</div>"
+            },
+            {
+              "fieldName": "dataset_no",
+              "fieldLabel": "Dataset Name to UPDATE",
+              "fieldType": "number",
+              "defaultValue": "=1",
+              "requiredField": true
+            },
+            {
+              "fieldName": "data",
+              "fieldLabel": "Attach CSV File to Upload for Update",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".csv",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "customCss": ":root {\n\t--font-family: 'Open Sans', sans-serif;\n\t--font-weight-normal: 400;\n\t--font-weight-bold: 600;\n\t--font-size-body: 12px;\n\t--font-size-label: 14px;\n\t--font-size-test-notice: 12px;\n\t--font-size-input: 14px;\n\t--font-size-header: 20px;\n\t--font-size-paragraph: 14px;\n\t--font-size-link: 12px;\n\t--font-size-error: 12px;\n\t--font-size-html-h1: 28px;\n\t--font-size-html-h2: 20px;\n\t--font-size-html-h3: 16px;\n\t--font-size-html-h4: 14px;\n\t--font-size-html-h5: 12px;\n\t--font-size-html-h6: 10px;\n\t--font-size-subheader: 14px;\n\n\t/* Colors */\n\t--color-background: #fbfcfe;\n\t--color-test-notice-text: #e6a23d;\n\t--color-test-notice-bg: #fefaf6;\n\t--color-test-notice-border: #f6dcb7;\n\t--color-card-bg: #ffffff;\n\t--color-card-border: #dbdfe7;\n\t--color-card-shadow: rgba(99, 77, 255, 0.06);\n\t--color-link: #7e8186;\n\t--color-header: #525356;\n\t--color-label: #555555;\n\t--color-input-border: #dbdfe7;\n\t--color-input-text: #71747A;\n\t--color-focus-border: rgb(90, 76, 194);\n\t--color-submit-btn-bg: #ff6d5a;\n\t--color-submit-btn-text: #ffffff;\n\t--color-error: #ea1f30;\n\t--color-required: #ff6d5a;\n\t--color-clear-button-bg: #7e8186;\n\t--color-html-text: #555;\n\t--color-html-link: #ff6d5a;\n\t--color-header-subtext: #7e8186;\n\n\t/* Border Radii */\n\t--border-radius-card: 8px;\n\t--border-radius-input: 6px;\n\t--border-radius-clear-btn: 50%;\n\t--card-border-radius: 8px;\n\n\t/* Spacing */\n\t--padding-container-top: 24px;\n\t--padding-card: 24px;\n\t--padding-test-notice-vertical: 12px;\n\t--padding-test-notice-horizontal: 24px;\n\t--margin-bottom-card: 16px;\n\t--padding-form-input: 12px;\n\t--card-padding: 24px;\n\t--card-margin-bottom: 16px;\n\n\t/* Dimensions */\n\t--container-width: 648px;\n\t--submit-btn-height: 48px;\n\t--checkbox-size: 18px;\n\n\t/* Others */\n\t--box-shadow-card: 0px 4px 16px 0px var(--color-card-shadow);\n\t--opacity-placeholder: 0.5;\n}"
+        }
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.4,
+      "position": [
+        1072,
+        -128
+      ],
+      "id": "02d5159b-ff6a-484f-a14c-4e47ab0dbaf2",
+      "name": "Form - Get Prompt and Dataset ID3",
+      "webhookId": "b198a7df-8601-419b-a3cb-2f0b19d7d9aa"
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  my_options: $input.all().map(item => {\n    return {\n      label: item.json.dataset_name,\n      id: item.json.dataset_id  // What the database gets\n    };\n  })\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        -128
+      ],
+      "id": "00c3b218-511b-47c5-ae56-22478bda8193",
+      "name": "Set Options3"
+    },
+    {
+      "parameters": {
+        "content": "# Update Data",
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -144,
+        -160
+      ],
+      "typeVersion": 1,
+      "id": "ab4ccae7-2efd-469c-a4ef-abfa31b09e61",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "value": "n8n_data",
+          "mode": "list",
+          "cachedResultName": "n8n_data"
+        },
+        "table": {
+          "__rl": true,
+          "value": "dataset_record_manager",
+          "mode": "list",
+          "cachedResultName": "dataset_record_manager"
+        },
+        "returnAll": true,
+        "where": {
+          "values": [
+            {
+              "column": "dataset_id",
+              "value": "={{ $('Set Options3').first().json.my_options[0].id[$('Form - Get Prompt and Dataset ID3').item.json.dataset_no-1] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1680,
+        -128
+      ],
+      "id": "391d3b73-eaae-49c8-8b09-d7418f39b976",
+      "name": "Fetch Record to Update",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get metadata once\nconst mapping = $input.first().json.column_mapping;\nconst datasetId = $input.first().json.dataset_id;\n\n// 2. Get the actual CSV data\nconst allRows = $(\"Extract from Update File\").all();\n\n// 3. Batching Logic\nconst results = [];\nconst batchSize = 200;\n\nconst mapEntries = Object.entries(mapping); \nconst dbColumnNames = mapEntries.map(entry => entry[1]);\nconst csvHeaderKeys = mapEntries.map(entry => entry[0]);\n\n/**\n * NEW: Date Correction Logic\n * Standardizes common date strings to ISO format (YYYY-MM-DD)\n */\nconst standardizeDate = (val) => {\n    const d = new Date(val);\n    if (isNaN(d.getTime())) return null; // Invalid date\n    \n    // Returns YYYY-MM-DD\n    return d.toISOString().split('T')[0];\n};\n\n/**\n * UPDATED ESCAPE, SANITIZE & CORRECT LOGIC\n */\nconst prepareValue = (val, targetColumn) => {\n    // 1. Handle Nulls/Empty\n    if (val === null || val === undefined || String(val).trim() === '') return 'NULL';\n    \n    const stringVal = String(val).trim();\n    const colLower = targetColumn.toLowerCase();\n\n    // 2. Numeric Correction (int, real, float, amount, price)\n    const isNumericColumn = colLower.startsWith('int') || \n                            colLower.startsWith('real') || \n                            colLower.includes('amount') || \n                            colLower.includes('price');\n\n    if (isNumericColumn) {\n        const cleanNum = stringVal.replace(/[,\\s$]/g, '');\n        if (cleanNum === \"\" || isNaN(cleanNum)) return 'NULL';\n        return cleanNum;\n    }\n\n    // 3. Date Correction (date, created_at, received_at, etc.)\n    const isDateColumn = colLower.includes('date') || \n                         colLower.includes('_at') || \n                         colLower.includes('time');\n\n    if (isDateColumn) {\n        const correctedDate = standardizeDate(stringVal);\n        if (!correctedDate) return 'NULL'; // Prevent SQL crash on \"garbage\" dates\n        return `'${correctedDate}'`;\n    }\n\n    // 4. Standard string escaping\n    return `'${stringVal.replace(/'/g, \"''\")}'`;\n};\n\n// Define column list using the fixed order\n// Note: Using double quotes for identifiers is safer in PostgreSQL\nconst columns = [\"dataset_id\", \"row_index\", ...dbColumnNames].map(c => `\"${c}\"`);\n\nfor (let i = 0; i < allRows.length; i += batchSize) {\n    const chunk = allRows.slice(i, i + batchSize);\n    \n    const values = chunk.map((item, idx) => {\n        const row = item.json;\n        \n        const rowValues = [\n            `'${datasetId}'`,\n            i + idx + 1,\n            ...mapEntries.map(entry => {\n                const csvHeader = entry[0];\n                const dbColumn = entry[1];\n                return prepareValue(row[csvHeader], dbColumn);\n            })\n        ];\n        \n        return `(${rowValues.join(',')})`;\n    }).join(',');\n\n    results.push({\n        json: {\n            sql: `INSERT INTO n8n_data.universal_datatable (${columns.join(',')}) VALUES ${values};`\n        }\n    });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1872,
+        -128
+      ],
+      "id": "c41f2eb2-5843-4abb-a89d-fdab7bdbaac1",
+      "name": "Data Transformer1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.sql }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2048,
+        -128
+      ],
+      "id": "bc345765-c511-4b9b-a08a-23cbb8c5b1ab",
+      "name": "Insert into Universal_Datatable1",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "headerRow": true
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        1264,
+        -128
+      ],
+      "id": "710108d4-31be-4691-ac02-4b8f637f611d",
+      "name": "Extract from Update File"
+    },
+    {
+      "parameters": {
+        "operation": "deleteTable",
+        "schema": {
+          "__rl": true,
+          "value": "n8n_data",
+          "mode": "list",
+          "cachedResultName": "n8n_data"
+        },
+        "table": {
+          "__rl": true,
+          "value": "universal_datatable",
+          "mode": "list",
+          "cachedResultName": "universal_datatable"
+        },
+        "deleteCommand": "delete",
+        "where": {
+          "values": [
+            {
+              "column": "dataset_id",
+              "value": "={{ $('Set Options3').first().json.my_options[0].id[$('Form - Get Prompt and Dataset ID3').item.json.dataset_no-1] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1488,
+        -128
+      ],
+      "id": "cfc7e14c-5478-4ad8-9962-618e706a994c",
+      "name": "Delete Selected Data",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formTitle": "DELETE DATASET",
+        "formDescription": "Data AI Analyzer ",
+        "formFields": {
+          "values": [
+            {
+              "fieldName": "session",
+              "fieldType": "hiddenField",
+              "fieldValue": "={{ $now.toMillis() + Math.floor(Math.random() * 1000) }}"
+            }
+          ]
+        },
+        "options": {
+          "buttonLabel": "Proceed to select a dataset to delete",
+          "customCss": ":root {\n\t--font-family: 'Open Sans', sans-serif;\n\t--font-weight-normal: 400;\n\t--font-weight-bold: 600;\n\t--font-size-body: 12px;\n\t--font-size-label: 14px;\n\t--font-size-test-notice: 12px;\n\t--font-size-input: 14px;\n\t--font-size-header: 20px;\n\t--font-size-paragraph: 14px;\n\t--font-size-link: 12px;\n\t--font-size-error: 12px;\n\t--font-size-html-h1: 28px;\n\t--font-size-html-h2: 20px;\n\t--font-size-html-h3: 16px;\n\t--font-size-html-h4: 14px;\n\t--font-size-html-h5: 12px;\n\t--font-size-html-h6: 10px;\n\t--font-size-subheader: 14px;\n\n\t/* Colors */\n\t--color-background: #fbfcfe;\n\t--color-test-notice-text: #e6a23d;\n\t--color-test-notice-bg: #fefaf6;\n\t--color-test-notice-border: #f6dcb7;\n\t--color-card-bg: #ffffff;\n\t--color-card-border: #dbdfe7;\n\t--color-card-shadow: rgba(99, 77, 255, 0.06);\n\t--color-link: #7e8186;\n\t--color-header: #525356;\n\t--color-label: #555555;\n\t--color-input-border: #dbdfe7;\n\t--color-input-text: #71747A;\n\t--color-focus-border: rgb(90, 76, 194);\n\t--color-submit-btn-bg: #ff6d5a;\n\t--color-submit-btn-text: #ffffff;\n\t--color-error: #ea1f30;\n\t--color-required: #ff6d5a;\n\t--color-clear-button-bg: #7e8186;\n\t--color-html-text: #555;\n\t--color-html-link: #ff6d5a;\n\t--color-header-subtext: #7e8186;\n\n\t/* Border Radii */\n\t--border-radius-card: 8px;\n\t--border-radius-input: 6px;\n\t--border-radius-clear-btn: 50%;\n\t--card-border-radius: 8px;\n\n\t/* Spacing */\n\t--padding-container-top: 24px;\n\t--padding-card: 24px;\n\t--padding-test-notice-vertical: 12px;\n\t--padding-test-notice-horizontal: 24px;\n\t--margin-bottom-card: 16px;\n\t--padding-form-input: 12px;\n\t--card-padding: 24px;\n\t--card-margin-bottom: 16px;\n\n\t/* Dimensions */\n\t--container-width: 648px;\n\t--submit-btn-height: 48px;\n\t--checkbox-size: 18px;\n\n\t/* Others */\n\t--box-shadow-card: 0px 4px 16px 0px var(--color-card-shadow);\n\t--opacity-placeholder: 0.5;\n}"
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.4,
+      "position": [
+        208,
+        -128
+      ],
+      "id": "aa0ecd31-d5e1-4181-8a5f-dccc1f399c21",
+      "name": "Update Dataset",
+      "webhookId": "d3403f8b-568d-4386-a237-c5710e48658d"
+    }
+  ],
+  "connections": {
+    "Aggregate3": {
+      "main": [
+        [
+          {
+            "node": "Set Options3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get the Dataset Record3": {
+      "main": [
+        [
+          {
+            "node": "Aggregate3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form - Get Prompt and Dataset ID3": {
+      "main": [
+        [
+          {
+            "node": "Extract from Update File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Options3": {
+      "main": [
+        [
+          {
+            "node": "Form - Get Prompt and Dataset ID3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Record to Update": {
+      "main": [
+        [
+          {
+            "node": "Data Transformer1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Transformer1": {
+      "main": [
+        [
+          {
+            "node": "Insert into Universal_Datatable1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from Update File": {
+      "main": [
+        [
+          {
+            "node": "Delete Selected Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Selected Data": {
+      "main": [
+        [
+          {
+            "node": "Fetch Record to Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Dataset": {
+      "main": [
+        [
+          {
+            "node": "Get the Dataset Record3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "396dd195-fe81-43e8-b639-7a1b1ec29e76",
+  "activeVersionId": null,
+  "versionCounter": 5,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-02-06T03:01:38.468Z",
+      "createdAt": "2026-02-06T03:01:38.468Z",
+      "role": "workflow:owner",
+      "workflowId": "oMXSc6-xNYtBuILZlBAtk",
+      "projectId": "1Tt3UeBU40oNvF7P",
+      "project": {
+        "updatedAt": "2025-10-06T05:12:43.166Z",
+        "createdAt": "2025-10-06T05:08:40.705Z",
+        "id": "1Tt3UeBU40oNvF7P",
+        "name": "EUN ed.e.lee@gmail.com <ed.e.lee@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "311513a6-4117-4a5c-89e5-28f958dbd390",
+        "projectRelations": [
+          {
+            "updatedAt": "2025-10-06T05:08:40.705Z",
+            "createdAt": "2025-10-06T05:08:40.705Z",
+            "userId": "311513a6-4117-4a5c-89e5-28f958dbd390",
+            "projectId": "1Tt3UeBU40oNvF7P",
+            "user": {
+              "updatedAt": "2026-03-11T04:00:47.117Z",
+              "createdAt": "2025-10-06T05:08:32.753Z",
+              "id": "311513a6-4117-4a5c-89e5-28f958dbd390",
+              "email": "ed.e.lee@gmail.com",
+              "firstName": "EUN",
+              "lastName": "ed.e.lee@gmail.com",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-12-26T08:28:02.179Z",
+                "personalization_survey_n8n_version": "2.1.4"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "SxDwHc0lnbViX2QV",
+                "userActivatedAt": 1759818413157,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1767391940455
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-03-11",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [
+    {
+      "updatedAt": "2026-02-02T01:43:01.385Z",
+      "createdAt": "2026-02-02T01:43:01.385Z",
+      "id": "O5gBsgGfepw7ZCCU",
+      "name": "AI-DEV"
+    }
+  ],
+  "activeVersion": null
+}

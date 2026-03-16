@@ -1,0 +1,478 @@
+{
+  "updatedAt": "2026-03-01T19:06:36.429Z",
+  "createdAt": "2026-02-11T00:28:53.318Z",
+  "id": "WjHwu5JjN6WNMi38",
+  "name": "Data Analyzer - Upload Template API",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "upload-template",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook - Upload Template",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        -128
+      ],
+      "webhookId": "upload-template-webhook",
+      "id": "32a0de6e-13b4-4e7c-b682-7de5a1645052"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawOutput = $input.first().json.output;\nconst cleanHtml = rawOutput\n  .replace(/\\\\n/g, ' ')\n  .replace(/\\n/g, ' ')\n  .replace(/\\\\\"/g, '\"')\n  .replace(/```html|```/g, '')\n  .trim();\nreturn { html: cleanHtml };"
+      },
+      "name": "Clean HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -128
+      ],
+      "id": "eb23f1ed-6104-4951-b6e7-e467671de120"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO n8n_data.\"data-analyzer-report-templates\" (template_name, template_desc, owner_email, template_access, html) VALUES ('{{ $('Webhook - Upload Template').item.json.body.name }}', '{{ $('Webhook - Upload Template').item.json.body.description }}', '{{ $('Webhook - Upload Template').item.json.body.owner_email }}', '{{ $('Webhook - Upload Template').item.json.body.access }}', '{{ $json.html }}') RETURNING template_id",
+        "options": {}
+      },
+      "name": "Insert Template",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        400,
+        -128
+      ],
+      "id": "eec7c2a9-d02b-464c-a530-b454a26ede05",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'ok', data: { message: 'Template uploaded', template_id: $json.template_id } } }}",
+        "options": {}
+      },
+      "name": "Respond with Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        624,
+        -128
+      ],
+      "id": "07d103eb-211f-4fd8-b74f-f45dd4531a17"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Webhook - Upload Template').item.json.body;\nconst fileData = body.file;\nconst fileName = body.fileName || 'upload.jpg';\n\nconst binaryData = Buffer.from(fileData, 'base64');\n\nreturn {\n  json: { fileName },\n  binary: {\n    data: await this.helpers.prepareBinaryData(binaryData, fileName)\n  }\n};"
+      },
+      "name": "Prepare Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        -128
+      ],
+      "id": "504ffb65-2921-4676-b244-fd320774688c"
+    },
+    {
+      "parameters": {
+        "promptType": "=define",
+        "text": "Examine the attached image and generate a single-file HTML/CSS document that replicates it with 1:1 precision. Follow these strict styling rules:\n\nTypography: Use a clean, sans-serif font (like Arial or Helvetica). Ensure headers are uppercase with letter-spacing that matches the image.\n\nTable Structure: Use a semantic <table> with <thead>, <tbody>, and <tfoot>.\n\nColors: > * Identify the exact hex code for the dark blue/purple header background (e.g., #5e5e8c).\n\nUse the light grey/lavender background for \"Gross Profit,\" \"Operating Profit,\" and \"Profit before tax\" rows.\n\nUse the slightly darker shaded background for the \"Profit for the period\" final row.\n\nBorders: Implement the specific double-line bottom border for the final \"Profit for the period\" value and the single horizontal rules above sub-totals.\n\nAlignment: Financial values must be right-aligned with consistent padding. Negative values in parentheses must align perfectly with positive values.\n\nSpacing: Use cell-padding to match the airy vertical spacing of the rows in the image.",
+        "options": {
+          "systemMessage": "Role: You are a Financial Data Visualization expert. Your goal is to convert datasets into professional, board-ready HTML tables that replicate specific corporate branding.\n\nStrict Output Rules:\n\nNo Markdown: Do not wrap your response in triple backticks (```html). Start your response directly with the first HTML tag.\n\nInline CSS Only: You must use style=\"...\" attributes on every tag to define formatting. Do not use <style> blocks or external classes.\n\nTable Structure: Use semantic <table>, <thead>, <tbody>, and <tfoot> tags.\n\nColor Palette:\n\nPrimary Header: Background #5e5e8c, Text #ffffff.\n\nSub-total/Highlight Rows: Background #e6e6f2, Font-weight bold.\n\nGrand Total Row: Background #d1d1e0, Font-weight bold, Bottom-border 4px double #333.\n\nAlignment & Typography:\n\nUse a clean sans-serif font (Arial, Helvetica).\n\nAll labels must be left-aligned.\n\nAll financial values must be right-aligned.\n\nFormat negative numbers in parentheses: (123,456).\n\nPadding: Use padding: 8px 12px; for all cells to ensure professional spacing.",
+          "passthroughBinaryImages": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -64,
+        -128
+      ],
+      "id": "0adf2435-68f3-43ef-b439-952a266ac63e",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "model": "moonshotai/kimi-k2.5",
+        "options": {
+          "responseFormat": "text",
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -64,
+        80
+      ],
+      "id": "0792c225-f5d0-4473-afdb-d9b581a40bd1",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "SScyp7rqdYRmN9lx",
+          "name": "OpenRouter account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Upload Template": {
+      "main": [
+        [
+          {
+            "node": "Prepare Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Binary": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean HTML": {
+      "main": [
+        [
+          {
+            "node": "Insert Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Template": {
+      "main": [
+        [
+          {
+            "node": "Respond with Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Clean HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "d834c097-9844-430c-8f6c-79e792685a18",
+  "activeVersionId": "d834c097-9844-430c-8f6c-79e792685a18",
+  "versionCounter": 108,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-02-11T00:28:53.318Z",
+      "createdAt": "2026-02-11T00:28:53.318Z",
+      "role": "workflow:owner",
+      "workflowId": "WjHwu5JjN6WNMi38",
+      "projectId": "1Tt3UeBU40oNvF7P",
+      "project": {
+        "updatedAt": "2025-10-06T05:12:43.166Z",
+        "createdAt": "2025-10-06T05:08:40.705Z",
+        "id": "1Tt3UeBU40oNvF7P",
+        "name": "EUN ed.e.lee@gmail.com <ed.e.lee@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "311513a6-4117-4a5c-89e5-28f958dbd390",
+        "projectRelations": [
+          {
+            "updatedAt": "2025-10-06T05:08:40.705Z",
+            "createdAt": "2025-10-06T05:08:40.705Z",
+            "userId": "311513a6-4117-4a5c-89e5-28f958dbd390",
+            "projectId": "1Tt3UeBU40oNvF7P",
+            "user": {
+              "updatedAt": "2026-03-11T04:00:47.117Z",
+              "createdAt": "2025-10-06T05:08:32.753Z",
+              "id": "311513a6-4117-4a5c-89e5-28f958dbd390",
+              "email": "ed.e.lee@gmail.com",
+              "firstName": "EUN",
+              "lastName": "ed.e.lee@gmail.com",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-12-26T08:28:02.179Z",
+                "personalization_survey_n8n_version": "2.1.4"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "SxDwHc0lnbViX2QV",
+                "userActivatedAt": 1759818413157,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1767391940455
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-03-11",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-03-01T19:07:03.746Z",
+    "createdAt": "2026-03-01T19:06:36.432Z",
+    "versionId": "d834c097-9844-430c-8f6c-79e792685a18",
+    "workflowId": "WjHwu5JjN6WNMi38",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "upload-template",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "name": "Webhook - Upload Template",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -464,
+          -128
+        ],
+        "webhookId": "upload-template-webhook",
+        "id": "32a0de6e-13b4-4e7c-b682-7de5a1645052"
+      },
+      {
+        "parameters": {
+          "jsCode": "const rawOutput = $input.first().json.output;\nconst cleanHtml = rawOutput\n  .replace(/\\\\n/g, ' ')\n  .replace(/\\n/g, ' ')\n  .replace(/\\\\\"/g, '\"')\n  .replace(/```html|```/g, '')\n  .trim();\nreturn { html: cleanHtml };"
+        },
+        "name": "Clean HTML",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          224,
+          -128
+        ],
+        "id": "eb23f1ed-6104-4951-b6e7-e467671de120"
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO n8n_data.\"data-analyzer-report-templates\" (template_name, template_desc, owner_email, template_access, html) VALUES ('{{ $('Webhook - Upload Template').item.json.body.name }}', '{{ $('Webhook - Upload Template').item.json.body.description }}', '{{ $('Webhook - Upload Template').item.json.body.owner_email }}', '{{ $('Webhook - Upload Template').item.json.body.access }}', '{{ $json.html }}') RETURNING template_id",
+          "options": {}
+        },
+        "name": "Insert Template",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          400,
+          -128
+        ],
+        "id": "eec7c2a9-d02b-464c-a530-b454a26ede05",
+        "credentials": {
+          "postgres": {
+            "id": "5JhwTls4nSPISJqU",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ { status: 'ok', data: { message: 'Template uploaded', template_id: $json.template_id } } }}",
+          "options": {}
+        },
+        "name": "Respond with Result",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          624,
+          -128
+        ],
+        "id": "07d103eb-211f-4fd8-b74f-f45dd4531a17"
+      },
+      {
+        "parameters": {
+          "jsCode": "const body = $('Webhook - Upload Template').item.json.body;\nconst fileData = body.file;\nconst fileName = body.fileName || 'upload.jpg';\n\nconst binaryData = Buffer.from(fileData, 'base64');\n\nreturn {\n  json: { fileName },\n  binary: {\n    data: await this.helpers.prepareBinaryData(binaryData, fileName)\n  }\n};"
+        },
+        "name": "Prepare Binary",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -240,
+          -128
+        ],
+        "id": "504ffb65-2921-4676-b244-fd320774688c"
+      },
+      {
+        "parameters": {
+          "promptType": "=define",
+          "text": "Examine the attached image and generate a single-file HTML/CSS document that replicates it with 1:1 precision. Follow these strict styling rules:\n\nTypography: Use a clean, sans-serif font (like Arial or Helvetica). Ensure headers are uppercase with letter-spacing that matches the image.\n\nTable Structure: Use a semantic <table> with <thead>, <tbody>, and <tfoot>.\n\nColors: > * Identify the exact hex code for the dark blue/purple header background (e.g., #5e5e8c).\n\nUse the light grey/lavender background for \"Gross Profit,\" \"Operating Profit,\" and \"Profit before tax\" rows.\n\nUse the slightly darker shaded background for the \"Profit for the period\" final row.\n\nBorders: Implement the specific double-line bottom border for the final \"Profit for the period\" value and the single horizontal rules above sub-totals.\n\nAlignment: Financial values must be right-aligned with consistent padding. Negative values in parentheses must align perfectly with positive values.\n\nSpacing: Use cell-padding to match the airy vertical spacing of the rows in the image.",
+          "options": {
+            "systemMessage": "Role: You are a Financial Data Visualization expert. Your goal is to convert datasets into professional, board-ready HTML tables that replicate specific corporate branding.\n\nStrict Output Rules:\n\nNo Markdown: Do not wrap your response in triple backticks (```html). Start your response directly with the first HTML tag.\n\nInline CSS Only: You must use style=\"...\" attributes on every tag to define formatting. Do not use <style> blocks or external classes.\n\nTable Structure: Use semantic <table>, <thead>, <tbody>, and <tfoot> tags.\n\nColor Palette:\n\nPrimary Header: Background #5e5e8c, Text #ffffff.\n\nSub-total/Highlight Rows: Background #e6e6f2, Font-weight bold.\n\nGrand Total Row: Background #d1d1e0, Font-weight bold, Bottom-border 4px double #333.\n\nAlignment & Typography:\n\nUse a clean sans-serif font (Arial, Helvetica).\n\nAll labels must be left-aligned.\n\nAll financial values must be right-aligned.\n\nFormat negative numbers in parentheses: (123,456).\n\nPadding: Use padding: 8px 12px; for all cells to ensure professional spacing.",
+            "passthroughBinaryImages": true
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3.1,
+        "position": [
+          -64,
+          -128
+        ],
+        "id": "0adf2435-68f3-43ef-b439-952a266ac63e",
+        "name": "AI Agent1"
+      },
+      {
+        "parameters": {
+          "model": "moonshotai/kimi-k2.5",
+          "options": {
+            "responseFormat": "text",
+            "temperature": 0.2
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+        "typeVersion": 1,
+        "position": [
+          -64,
+          80
+        ],
+        "id": "0792c225-f5d0-4473-afdb-d9b581a40bd1",
+        "name": "OpenRouter Chat Model1",
+        "credentials": {
+          "openRouterApi": {
+            "id": "SScyp7rqdYRmN9lx",
+            "name": "OpenRouter account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Webhook - Upload Template": {
+        "main": [
+          [
+            {
+              "node": "Prepare Binary",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Binary": {
+        "main": [
+          [
+            {
+              "node": "AI Agent1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Clean HTML": {
+        "main": [
+          [
+            {
+              "node": "Insert Template",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Insert Template": {
+        "main": [
+          [
+            {
+              "node": "Respond with Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenRouter Chat Model1": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "AI Agent1",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AI Agent1": {
+        "main": [
+          [
+            {
+              "node": "Clean HTML",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "EUN ed.e.lee@gmail.com",
+    "name": "Version d834c097",
+    "description": "",
+    "autosaved": true,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-03-01T19:07:03.743Z",
+        "id": 538,
+        "workflowId": "WjHwu5JjN6WNMi38",
+        "versionId": "d834c097-9844-430c-8f6c-79e792685a18",
+        "event": "activated",
+        "userId": "311513a6-4117-4a5c-89e5-28f958dbd390"
+      }
+    ]
+  }
+}

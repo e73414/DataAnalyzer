@@ -10,6 +10,26 @@ services:
     networks:
       - homelab
 
+  excel-to-sql:
+    build: ./excel-to-sql-api
+    container_name: excel-to-sql
+    networks: ['homelab']
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - MAX_UPLOAD_MB=50
+      - LOG_LEVEL=info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        
 networks:
   homelab:
     external: true
