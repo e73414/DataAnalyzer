@@ -518,15 +518,15 @@ export default function DatasetPromptPage() {
 
               {/* Sample Questions */}
               {datasetDetail?.sample_questions?.questions && datasetDetail.sample_questions.questions.length > 0 && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 font-normal">
-                  <span className="font-medium">Sample questions:</span>
+                <div className="text-sm text-gray-500 dark:text-gray-400 font-normal">
+                  <span className="font-medium">Tips and Sample Questions:</span>
                   <ul className="mt-1 space-y-0.5 list-none pl-2">
                     {datasetDetail.sample_questions.questions.map((q) => (
                       <li key={q.id} className="flex items-start gap-1.5">
                         <span className="shrink-0 mt-0.5">•</span>
                         <button
                           type="button"
-                          className="text-left text-gray-500 dark:text-gray-400 hover:underline font-normal text-xs"
+                          className="text-left text-gray-500 dark:text-gray-400 hover:underline font-normal text-sm"
                           onClick={() => setPrompt(q.question)}
                         >
                           {q.question}
