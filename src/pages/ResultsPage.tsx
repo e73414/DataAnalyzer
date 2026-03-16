@@ -160,8 +160,17 @@ export default function ResultsPage() {
 
   const { data: sampleQuestions } = useQuery({
     queryKey: ['sample-questions', datasetId],
-    queryFn: () => pocketbaseService.getSampleQuestions(datasetId),
-    enabled: !!datasetId,
+    queryFn: async () => {
+      const detail = await n8nService.getDatasetDetail(datasetId, session!.email)
+      const sq = detail.sample_questions
+      if (!sq) return []
+      // n8n may return JSONB as a string; handle both
+      if (typeof sq === 'string') {
+        try { return (JSON.parse(sq) as { questions: { id: string; question: string }[] }).questions ?? [] } catch { return [] }
+      }
+      return sq.questions ?? []
+    },
+    enabled: !!datasetId && !!session?.email,
   })
 
   const { data: datasetPreview, isLoading: isLoadingPreview } = useQuery({
