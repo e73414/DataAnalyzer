@@ -112,7 +112,11 @@ export default function EditSummaryPage() {
       setDatasetName(datasetDetail.name || '')
       setEditedSummary(datasetDetail.summary || '')
       setDatasetDesc(datasetDetail.dataset_desc || '')
-      setSampleQuestions(datasetDetail.sample_questions?.questions ?? [])
+      const sq = datasetDetail.sample_questions
+      const questions = typeof sq === 'string'
+        ? (() => { try { return (JSON.parse(sq) as { questions: { id: string; question: string }[] }).questions ?? [] } catch { return [] } })()
+        : sq?.questions ?? []
+      setSampleQuestions(questions)
       setHasChanges(false)
     }
   }, [datasetDetail])
@@ -178,7 +182,8 @@ export default function EditSummaryPage() {
   const handleAddQuestion = () => {
     const text = newQuestion.trim()
     if (!text) return
-    const updated = [...sampleQuestions, { id: crypto.randomUUID(), question: text }]
+    const id = crypto.randomUUID?.() ?? Math.random().toString(36).slice(2) + Date.now().toString(36)
+    const updated = [...sampleQuestions, { id, question: text }]
     setSampleQuestions(updated)
     setNewQuestion('')
     sampleQuestionsMutation.mutate(updated)
@@ -408,12 +413,12 @@ export default function EditSummaryPage() {
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddQuestion() } }}
                             placeholder="Add a sample question..."
                             className="input-field flex-1"
-                            disabled={sampleQuestionsMutation.isPending || updateMutation.isPending}
+                            disabled={sampleQuestionsMutation.isPending}
                           />
                           <button
                             type="button"
                             onClick={handleAddQuestion}
-                            disabled={!newQuestion.trim() || sampleQuestionsMutation.isPending || updateMutation.isPending}
+                            disabled={!newQuestion.trim() || sampleQuestionsMutation.isPending}
                             className="btn-primary shrink-0"
                           >
                             Add
