@@ -92,7 +92,18 @@ export default function SaveQuestionModal({ conv, onClose, existing, onSaved }: 
   const handleCopy = async () => {
     if (!savedLink) return
     try {
-      await navigator.clipboard.writeText(savedLink)
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(savedLink)
+      } else {
+        const ta = document.createElement('textarea')
+        ta.value = savedLink
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+      }
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {

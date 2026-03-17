@@ -50,7 +50,18 @@ export default function ManageQuestionsPage() {
   const handleCopy = async (id: string) => {
     const link = `${window.location.origin}/question/${id}`
     try {
-      await navigator.clipboard.writeText(link)
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(link)
+      } else {
+        const ta = document.createElement('textarea')
+        ta.value = link
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+      }
       setCopiedId(id)
       setTimeout(() => setCopiedId(null), 2000)
     } catch {
