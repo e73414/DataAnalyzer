@@ -1,7 +1,8 @@
 import { mcpN8nApi } from './api'
 import type {
   Dataset, AIModel, NavLink, ConversationHistory, UserProfile,
-  ProfileCompany, ProfileBusinessUnit, ProfileTeam, TemplateProfileAssignment, AdminUser, AppSettings
+  ProfileCompany, ProfileBusinessUnit, ProfileTeam, TemplateProfileAssignment, AdminUser, AppSettings,
+  SavedQuestion
 } from '../types'
 
 // ── Types for Postgres REST responses ─────────────────────────────────────────
@@ -395,5 +396,38 @@ export const pocketbaseService = {
 
   async updateAppSetting(key: string, value: string | null): Promise<void> {
     await mcpN8nApi.put(`/app-settings/${encodeURIComponent(key)}`, { value })
+  },
+
+  // ── Saved Questions ──────────────────────────────────────────────────────────
+
+  async createSavedQuestion(data: Omit<SavedQuestion, 'id' | 'created_at' | 'updated_at'>): Promise<SavedQuestion> {
+    const response = await mcpN8nApi.post<SavedQuestion>('/saved-questions', data)
+    return response.data
+  },
+
+  async getSavedQuestions(email: string, all?: boolean): Promise<SavedQuestion[]> {
+    const response = await mcpN8nApi.get<SavedQuestion[]>('/saved-questions', {
+      params: { email, ...(all ? { all: 'true' } : {}) }
+    })
+    return response.data || []
+  },
+
+  async getSavedQuestion(id: string): Promise<SavedQuestion> {
+    const response = await mcpN8nApi.get<SavedQuestion>(`/saved-questions/${encodeURIComponent(id)}`)
+    return response.data
+  },
+
+  async updateSavedQuestion(id: string, data: { prompt?: string; editable?: boolean; audience?: string[] }): Promise<SavedQuestion> {
+    const response = await mcpN8nApi.patch<SavedQuestion>(`/saved-questions/${encodeURIComponent(id)}`, data)
+    return response.data
+  },
+
+  async deleteSavedQuestion(id: string): Promise<void> {
+    await mcpN8nApi.delete(`/saved-questions/${encodeURIComponent(id)}`)
+  },
+
+  async searchUsers(q: string): Promise<string[]> {
+    const response = await mcpN8nApi.get<string[]>('/users/search', { params: { q } })
+    return response.data || []
   },
 }

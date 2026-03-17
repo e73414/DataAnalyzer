@@ -438,7 +438,7 @@ export default function ResultsPage() {
                     {isHtmlContent(item.response) ? (
                       <ReportHtml
                         html={item.response}
-                        className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 [&_*]:text-gray-800 dark:[&_*]:text-gray-200 [&_*]:!bg-transparent"
+                        className="report-html prose prose-sm dark:prose-invert max-w-none"
                         onHtmlChange={(newHtml) => {
                           setConversation(prev =>
                             prev.map((c, i) => i === index ? { ...c, response: newHtml } : c)
@@ -453,7 +453,7 @@ export default function ResultsPage() {
                     ) : (
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
-                        className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200 [&_*]:text-gray-800 dark:[&_*]:text-gray-200 [&_*]:!bg-transparent"
+                        className="report-html prose prose-sm dark:prose-invert max-w-none"
                         components={{ table: VisualizableTable }}
                       >
                         {item.response}

@@ -18,6 +18,8 @@ import ProfileManagerPage from './pages/admin/ProfileManagerPage'
 import UserManagerPage from './pages/admin/UserManagerPage'
 import TemplateManagerPage from './pages/admin/TemplateManagerPage'
 import AppSettingsPage from './pages/admin/AppSettingsPage'
+import QuestionPage from './pages/QuestionPage'
+import ManageQuestionsPage from './pages/ManageQuestionsPage'
 
 function UnauthorizedPage() {
   const navigate = useNavigate()
@@ -205,6 +207,15 @@ function App() {
           <AdminProtectedRoute>
             <AppSettingsPage />
           </AdminProtectedRoute>
+        }
+      />
+      <Route path="/question/:id" element={<QuestionPage />} />
+      <Route
+        path="/manage-questions"
+        element={
+          <ProtectedRoute>
+            <ManageQuestionsPage />
+          </ProtectedRoute>
         }
       />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />

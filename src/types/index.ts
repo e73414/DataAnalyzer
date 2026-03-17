@@ -316,6 +316,19 @@ export interface ReportTemplate {
   is_public: boolean
 }
 
+export interface SavedQuestion {
+  id: string
+  prompt: string
+  dataset_id: string
+  dataset_name: string
+  ai_model: string
+  editable: boolean
+  audience: string[]     // empty = public link
+  owner_email: string
+  created_at: string
+  updated_at: string
+}
+
 export interface AppSettings {
   analyze_model: string | null
   plan_model: string | null

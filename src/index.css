@@ -100,12 +100,22 @@
 }
 
 .report-html th {
-  background-color: #f3f4f6;
+  background-color: #f3f4f6 !important;
+  color: #111827 !important;
   font-weight: 600;
 }
 
 .dark .report-html th {
-  background-color: #374151;
+  background-color: #374151 !important;
+  color: #f9fafb !important;
+}
+
+.report-html td {
+  color: #1f2937;
+}
+
+.dark .report-html td {
+  color: #e5e7eb;
 }
 
 .report-html hr {
