@@ -34,6 +34,7 @@ export default function ManageQuestionsPage() {
     queryKey: ['saved-questions', session?.email, isAdmin],
     queryFn: () => pocketbaseService.getSavedQuestions(session!.email, isAdmin),
     enabled: !!session?.email,
+    refetchOnMount: 'always',
   })
 
   const handleDelete = async (id: string) => {
