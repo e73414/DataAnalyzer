@@ -199,7 +199,7 @@ export default function SaveQuestionModal({ conv, onClose, existing, onSaved }: 
               Restrict access (optional)
             </label>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-              Leave empty for anyone with the link. Add emails to restrict access.
+              Leave empty to allow any registered user. Add emails to restrict to specific users only.
             </p>
             <div className="relative">
               {/* Pills + input */}

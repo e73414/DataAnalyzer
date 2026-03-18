@@ -58,12 +58,14 @@ export default function QuestionPage() {
     }
   }
 
-  // Access check
+  // Access check: always requires login; if audience is set, email must be in it
+  const isNotLoggedIn = sq && !session?.email
   const isRestricted =
     sq &&
+    session?.email &&
     sq.audience &&
     sq.audience.length > 0 &&
-    (!session?.email || !sq.audience.includes(session.email))
+    !sq.audience.includes(session.email)
 
   const isHtml = result != null && (() => {
     const t = result.trim()
@@ -95,6 +97,24 @@ export default function QuestionPage() {
     )
   }
 
+  if (isNotLoggedIn) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+        <div className="max-w-md text-center">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center mb-4">
+            <svg className="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Sign in required</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
+            You must be signed in to view this question.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   if (isRestricted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
@@ -106,7 +126,7 @@ export default function QuestionPage() {
           </div>
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Access restricted</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm">
-            This question is only accessible to specific users. Please sign in with an authorized account.
+            This question is restricted to specific users. Your account does not have access.
           </p>
         </div>
       </div>

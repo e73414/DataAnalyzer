@@ -159,7 +159,7 @@ export default function ManageQuestionsPage() {
                         </span>
                       ) : (
                         <span className="text-xs text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 px-2 py-0.5 rounded-full">
-                          Public
+                          All registered
                         </span>
                       )}
                     </td>
