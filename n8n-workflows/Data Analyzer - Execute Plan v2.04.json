@@ -1,29 +1,34 @@
 {
-  "updatedAt": "2026-03-11T16:49:49.980Z",
-  "createdAt": "2026-02-22T06:36:49.817Z",
-  "id": "taHjSlURcGuHr_vMzffkE",
-  "name": "Data Analyzer - Execute Plan v2.03",
+  "updatedAt": "2026-03-19T03:25:59.542Z",
+  "createdAt": "2026-02-23T03:53:36.555Z",
+  "id": "rS9WfdjFmtsEgnxO",
+  "name": "Data Analyzer - Execute Plan v2.04",
   "description": null,
   "active": true,
   "isArchived": false,
   "nodes": [
     {
       "parameters": {
-        "model": "={{ $('Webhook').first().json.body.model || 'moonshotai/kimi-k2.5' }}",
+        "model": {
+          "__rl": true,
+          "value": "={{ $('Webhook').item.json.body.model || 'gpt-5-mini' }}",
+          "mode": "id"
+        },
+        "responsesApiEnabled": false,
         "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
-      "typeVersion": 1,
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
       "position": [
-        2976,
-        -272
+        1056,
+        48
       ],
-      "id": "7bb9cb70-f3ad-45fc-8705-f08c0368cc32",
-      "name": "Step LLM",
+      "id": "c412450b-9904-4ebd-99d0-4fc278d54d12",
+      "name": "Step",
       "credentials": {
-        "openRouterApi": {
-          "id": "SScyp7rqdYRmN9lx",
-          "name": "OpenRouter account"
+        "openAiApi": {
+          "id": "ayhC2xZ3iWv4ZkDW",
+          "name": "OpenAi account"
         }
       }
     },
@@ -37,10 +42,10 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
-        2304,
-        -1712
+        288,
+        -1392
       ],
-      "id": "c941bc1d-7f28-4982-aeb0-fbc619421473",
+      "id": "25e797f8-a670-45bf-93f9-143673217694",
       "name": "Webhook",
       "webhookId": "ep-webhook-id-001"
     },
@@ -51,10 +56,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2512,
-        -1712
+        496,
+        -1392
       ],
-      "id": "5d56f11e-0216-4090-acd0-69c9c3d32265",
+      "id": "b46de923-2bf9-47ac-9d49-fcd315de3f03",
       "name": "Parse Plan & Generate Report ID"
     },
     {
@@ -66,10 +71,10 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
-        2736,
-        -1936
+        720,
+        -1616
       ],
-      "id": "88c5879f-06f4-41ff-a7b2-7320769b23c8",
+      "id": "cfd5ea63-95a9-4ff4-bcd3-1787d7d6ea17",
       "name": "Respond Immediately"
     },
     {
@@ -79,10 +84,10 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        2736,
-        -1712
+        720,
+        -1392
       ],
-      "id": "b014b5d9-7b32-4f90-896d-26ef1c32423b",
+      "id": "f48f7076-e541-4d76-9a78-9bc05d178755",
       "name": "Loop Over Steps"
     },
     {
@@ -94,14 +99,14 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3088,
-        -1712
+        1072,
+        -1392
       ],
-      "id": "197b0cc1-0243-4cf9-a350-4391684d74bd",
+      "id": "c03cd16a-16e0-4562-9dd7-63d0cfd1c891",
       "name": "Mark Step Started",
       "credentials": {
         "postgres": {
-          "id": "5JhwTls4nSPISJqU",
+          "id": "A7zRb9obSaMEyNKs",
           "name": "Postgres account"
         }
       }
@@ -109,19 +114,19 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Execute the following analysis step.\n\nREPORT ID: {{ $('Parse Plan & Generate Report ID').item.json.report_id }}\nSTEP: {{ $('Loop Over Steps').item.json.step.step_number }} of {{ $('Parse Plan & Generate Report ID').item.json.total_steps }}\nPURPOSE: {{ $('Loop Over Steps').item.json.step.purpose }}\nDATASET ID: {{ $('Loop Over Steps').item.json.step.dataset_id }}\n\nVIEW: {{ $('Loop Over Steps').item.json.step.dataset_id ? 'n8n_data.v_ds_' + $('Loop Over Steps').item.json.step.dataset_id.replace(/-/g, '_') : 'N/A — aggregate step' }}\n(Pre-built view with original column names — query directly, no WHERE clause needed)\nTEMP TABLE (pre-materialized for this step): {{ $('Loop Over Steps').item.json.step.dataset_id ? 'n8n_data.\"tmp_' + $('Parse Plan & Generate Report ID').item.json.report_id.replace(/[^a-zA-Z0-9_]/g, '_') + '_step_' + $('Loop Over Steps').item.json.step.step_number + '\"' : 'N/A — aggregate step' }}\n\nDEPENDENCY TEMP TABLES: {{ $('Loop Over Steps').item.json.step.dependencies && $('Loop Over Steps').item.json.step.dependencies.length > 0 ? $('Loop Over Steps').item.json.step.dependencies.map(d => 'n8n_data.\"tmp_' + $('Parse Plan & Generate Report ID').item.json.report_id.replace(/[^a-zA-Z0-9_]/g, '_') + '_step_' + d + '\"').join(', ') : 'None' }}\n\nDEPENDENCY TEMP TABLE COLUMNS:\n{{ $json.dep_column_info || 'None' }}\n\n\nCOLUMN TYPES:\n{{ (() => { try { const raw = $('Fetch Column Mapping For Step').item.json.column_mapping; const mapping = typeof raw === 'string' ? JSON.parse(raw) : (raw || {}); const typeMap = { real: 'numeric', string: 'text', int: 'integer', date: 'date', bool: 'boolean' }; return Object.entries(mapping).map(([name, col]) => '\"' + name + '\" (' + (typeMap[col.replace(/\\d+$/, '')] || 'text') + ')').join(', ') || '(aggregate step — no columns)'; } catch(e) { return '(types unavailable)'; } })() }}\n\nQUERY: {{ $('Loop Over Steps').item.json.step.query_strategy.logic || 'standard query' }}\n\nDEPENDENCIES: {{ $('Loop Over Steps').item.json.step.dependencies.join(', ') || 'None' }}\nEXPECTED OUTPUT: {{ $('Loop Over Steps').item.json.step.expected_output.join(', ') }}\n\nRULES:\n1. SQL SAFETY CHECK (MANDATORY): If a SQL query is found in QUERY, you MUST validate and rewrite it to enforce these safety rules before passing it to the Query Dataset Tool:\n   - Universal Numeric Cast: Any column being summed, averaged, or cast to numeric MUST use the exact format: NULLIF(TRIM(REPLACE(\"ColumnName\"::text, ',', '')), '')::numeric\n   - Universal Date Cast: Any date extraction MUST use: TO_DATE(NULLIF(TRIM(\"ColumnName\"::text), ''), 'MM/DD/YY') (Adjust format as needed).\n   - Safe Division: Every division operation MUST wrap the denominator in NULLIF(denominator, 0).\n   - String Matching: Replace all strict '=' string comparisons with TRIM(\"ColumnName\") ILIKE 'value'.\n   - Anti-Double Counting: Ensure aggregations exclude totals using: TRIM(\"levels\") NOT ILIKE '%Total%'.\n\n2. Query step (dataset_id present): call Query Step Tables with aggregating SQL against TEMP TABLE above. Use GROUP BY/SUM/COUNT — never SELECT * without LIMIT 200. This is your only tool call.\n\n3. Aggregate step WITH dependencies (DEPENDENCY TEMP TABLES listed above): call Query Step Tables with a multi-step CTE query. The dep tables contain RAW rows (not pre-aggregated) — you MUST aggregate within each dep table first (GROUP BY, SUM, RANK), then JOIN the results. Structure: WITH t1 AS (SELECT ... FROM dep_table_1 GROUP BY ...), t2 AS (...) SELECT ... FROM t1 FULL OUTER JOIN t2 ON ... This is your only tool call.\n\n4. Aggregate step WITHOUT dependencies: call Read Previous Step Results for text summaries. This is your only tool call.\n\n5. ERROR HANDLING: If the Query Dataset Tool returns a PostgreSQL syntax error, read the error message carefully. Identify if it was caused by dirty data (whitespace, uncast text, division by zero), apply the appropriate fix from Rule 1, and retry the tool call ONE more time.\n\n6. After the ONE tool call returns successfully, immediately write your structured output and stop. Do not include suggested next steps or explain analysis process/method. Do not call any more tools.",
+        "text": "=Execute the following analysis step.\n\nREPORT ID: {{ $('Parse Plan & Generate Report ID').item.json.report_id }}\nSTEP: {{ $('Loop Over Steps').item.json.step.step_number }} of {{ $('Parse Plan & Generate Report ID').item.json.total_steps }}\nPURPOSE: {{ $('Loop Over Steps').item.json.step.purpose }}\nDATASET ID: {{ $('Loop Over Steps').item.json.step.dataset_id }}\n\nVIEW: {{ $('Loop Over Steps').item.json.step.dataset_id ? 'n8n_data.v_ds_' + $('Loop Over Steps').item.json.step.dataset_id.replace(/-/g, '_') : 'N/A \u2014 aggregate step' }}\n(Pre-built view with original column names \u2014 query directly, no WHERE clause needed)\nTEMP TABLE (pre-materialized for this step): {{ $('Loop Over Steps').item.json.step.dataset_id ? 'n8n_data.\"tmp_' + $('Parse Plan & Generate Report ID').item.json.report_id.replace(/[^a-zA-Z0-9_]/g, '_') + '_step_' + $('Loop Over Steps').item.json.step.step_number + '\"' : 'N/A \u2014 aggregate step' }}\n\nDEPENDENCY TEMP TABLES: {{ $('Loop Over Steps').item.json.step.dependencies && $('Loop Over Steps').item.json.step.dependencies.length > 0 ? $('Loop Over Steps').item.json.step.dependencies.map(d => 'n8n_data.\"tmp_' + $('Parse Plan & Generate Report ID').item.json.report_id.replace(/[^a-zA-Z0-9_]/g, '_') + '_step_' + d + '\"').join(', ') : 'None' }}\n\nDEPENDENCY TEMP TABLE COLUMNS:\n{{ $json.dep_column_info || 'None' }}\n\n\nCOLUMN TYPES:\n{{ (() => { try { const raw = $('Fetch Column Mapping For Step').item.json.column_mapping; const mapping = typeof raw === 'string' ? JSON.parse(raw) : (raw || {}); const typeMap = { real: 'numeric', string: 'text', int: 'integer', date: 'date', bool: 'boolean' }; return Object.entries(mapping).map(([name, col]) => '\"' + name + '\" (' + (typeMap[col.replace(/\\d+$/, '')] || 'text') + ')').join(', ') || '(aggregate step \u2014 no columns)'; } catch(e) { return '(types unavailable)'; } })() }}\n\nQUERY: {{ $('Loop Over Steps').item.json.step.query_strategy.logic || 'standard query' }}\n\nDEPENDENCIES: {{ $('Loop Over Steps').item.json.step.dependencies.join(', ') || 'None' }}\nEXPECTED OUTPUT: {{ $('Loop Over Steps').item.json.step.expected_output.join(', ') }}\n\nRULES:\n1. SQL SAFETY CHECK (MANDATORY): If a SQL query is found in QUERY, you MUST validate and rewrite it to enforce these safety rules before passing it to the Query Dataset Tool:\n   - Universal Numeric Cast: Any column being summed, averaged, or cast to numeric MUST use the exact format: NULLIF(TRIM(REPLACE(\"ColumnName\"::text, ',', '')), '')::numeric\n   - Universal Date Cast: Any date extraction MUST use: TO_DATE(NULLIF(TRIM(\"ColumnName\"::text), ''), 'MM/DD/YY') (Adjust format as needed).\n   - Safe Division: Every division operation MUST wrap the denominator in NULLIF(denominator, 0).\n   - String Matching: Replace all strict '=' string comparisons with TRIM(\"ColumnName\") ILIKE 'value'.\n   - Anti-Double Counting: Ensure aggregations exclude totals using: TRIM(\"levels\") NOT ILIKE '%Total%'.\n\n2. Query step (dataset_id present): call Query Step Tables with SQL against TEMP TABLE above. Use GROUP BY/SUM/COUNT when possible. If asked for a full list run SELECT *. This is your only tool call.\n\n3. Aggregate step WITH dependencies (DEPENDENCY TEMP TABLES listed above): call Query Step Tables with a multi-step CTE query. The dep tables contain RAW rows (not pre-aggregated) \u2014 you MUST aggregate within each dep table first (GROUP BY, SUM, RANK), then JOIN the results. Structure: WITH t1 AS (SELECT ... FROM dep_table_1 GROUP BY ...), t2 AS (...) SELECT ... FROM t1 FULL OUTER JOIN t2 ON ... This is your only tool call.\n\n4. Aggregate step WITHOUT dependencies: call Read Previous Step Results for text summaries. This is your only tool call.\n\n5. ERROR HANDLING: If the Query Dataset Tool returns a PostgreSQL syntax error, read the error message carefully. Identify if it was caused by dirty data (whitespace, uncast text, division by zero), apply the appropriate fix from Rule 1, and retry the tool call ONE more time.\n\n6. After the ONE tool call returns successfully, immediately write your structured output and stop. Do not include suggested next steps or explain analysis process/method. Do not call any more tools.",
         "options": {
-          "systemMessage": "- For query steps: use Query Step Tables (not Query Dataset) to run SQL against the pre-materialized TEMP TABLE listed in the prompt. Apply your filters and aggregations there.\n- For aggregate steps with dependencies: use Query Step Tables with JOIN SQL across DEPENDENCY TEMP TABLES. Exact column names for each dep table are listed under DEPENDENCY TEMP TABLE COLUMNS — use them precisely. You have the actual row data — do not substitute Read Previous Step Results.\n- If a temp table is unavailable or empty, fall back to Query Dataset using the VIEW name shown in the prompt.\nYou are a data analyst executing one step of a multi-step report plan.\n\n- For aggregate steps (no dataset_id): use Read Previous Step Results only — do not run SQL.\n- After the tool returns data, your NEXT response must be your final written analysis — not another tool call.\n- Return concise structured analysis with key findings and data tables.\n- Use Calculator Tool if simple calculations are required\n- PostgreSQL type rules: date columns do NOT support substr() — use EXTRACT(YEAR FROM col), DATE_PART('year', col), TO_CHAR(col, 'YYYY'), or cast first with col::text. Numeric columns cannot be compared with quoted strings — omit quotes for numbers.",
-          "maxIterations": 5
+          "systemMessage": "- For query steps: use Query Step Tables (not Query Dataset) to run SQL against the pre-materialized TEMP TABLE listed in the prompt. Apply your filters and aggregations there.\n- For aggregate steps with dependencies: use Query Step Tables with JOIN SQL across DEPENDENCY TEMP TABLES. Exact column names for each dep table are listed under DEPENDENCY TEMP TABLE COLUMNS \u2014 use them precisely. You have the actual row data \u2014 do not substitute Read Previous Step Results.\n- If a temp table is unavailable or empty, fall back to Query Dataset using the VIEW name shown in the prompt.\nYou are a data analyst executing one step of a multi-step report plan.\n\n- For aggregate steps (no dataset_id): use Read Previous Step Results only \u2014 do not run SQL.\n- After the tool returns data, your NEXT response must be your final written analysis \u2014 not another tool call.\n- Return concise structured analysis with key findings and data tables.\n- Use Calculator Tool if simple calculations are required\n- PostgreSQL type rules: date columns do NOT support substr() \u2014 use EXTRACT(YEAR FROM col), DATE_PART('year', col), TO_CHAR(col, 'YYYY'), or cast first with col::text. Numeric columns cannot be compared with quoted strings \u2014 omit quotes for numbers.",
+          "maxIterations": 20
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
       "position": [
-        3408,
-        -1712
+        1392,
+        -1392
       ],
-      "id": "ec3c3b51-8f4e-475f-8b6e-17ceac2cb16a",
+      "id": "7508c057-faa3-4fe9-b5ef-16697b8171a7",
       "name": "Step AI Agent",
       "alwaysOutputData": true,
       "onError": "continueErrorOutput"
@@ -137,14 +142,14 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        3824,
-        -1232
+        1808,
+        -912
       ],
-      "id": "a5024e07-5178-4c53-8a2b-6dc0bdba72a7",
+      "id": "2f3cdcde-8776-40ed-a3fb-cd459049bd47",
       "name": "Read Previous Step Results",
       "credentials": {
         "postgres": {
-          "id": "5JhwTls4nSPISJqU",
+          "id": "A7zRb9obSaMEyNKs",
           "name": "Postgres account"
         }
       }
@@ -158,14 +163,14 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        4288,
-        -1216
+        2272,
+        -896
       ],
-      "id": "c7f032ab-45c0-4375-8900-e9274a697dda",
+      "id": "1f72ad8b-2096-46f7-bcb3-6cecc75ff46e",
       "name": "Save Step Result",
       "credentials": {
         "postgres": {
-          "id": "5JhwTls4nSPISJqU",
+          "id": "A7zRb9obSaMEyNKs",
           "name": "Postgres account"
         }
       }
@@ -179,14 +184,14 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        5104,
-        -1088
+        3088,
+        -768
       ],
-      "id": "75e917f8-70c1-4eb1-b9b2-b610beaae918",
+      "id": "962199e5-a54a-442e-89a7-cce62df1a8c6",
       "name": "Save Step Error",
       "credentials": {
         "postgres": {
-          "id": "5JhwTls4nSPISJqU",
+          "id": "A7zRb9obSaMEyNKs",
           "name": "Postgres account"
         }
       }
@@ -196,16 +201,16 @@
       "type": "@n8n/n8n-nodes-langchain.toolCalculator",
       "typeVersion": 1,
       "position": [
-        3744,
-        -1520
+        1728,
+        -1200
       ],
-      "id": "a503385d-0b40-48d5-9d37-9af1566cedda",
+      "id": "125f6f0a-a574-4a0d-87f9-ec69065ccbc7",
       "name": "Calculator"
     },
     {
       "parameters": {
         "descriptionType": "manual",
-        "toolDescription": "Query the dataset view for this step. Use SQL to query the view name given in the prompt (e.g. n8n_data.v_ds_<id>). The view already has original column names and is pre-filtered — no WHERE clause needed. Use SQL aggregations (SUM, COUNT, GROUP BY) to compute totals — do not fetch raw rows for manual calculation. PostgreSQL type rules: date columns do not support substr() — use EXTRACT(YEAR FROM col) or TO_CHAR(col, 'YYYY') instead. Cast dates to text with col::text if string operations are needed.",
+        "toolDescription": "Query the dataset view for this step. Use SQL to query the view name given in the prompt (e.g. n8n_data.v_ds_<id>). The view already has original column names and is pre-filtered \u2014 no WHERE clause needed. Use SQL aggregations (SUM, COUNT, GROUP BY) to compute totals \u2014 do not fetch raw rows for manual calculation. PostgreSQL type rules: date columns do not support substr() \u2014 use EXTRACT(YEAR FROM col) or TO_CHAR(col, 'YYYY') instead. Cast dates to text with col::text if string operations are needed.",
         "operation": "executeQuery",
         "query": "{{ $fromAI('sql_query') }}",
         "options": {}
@@ -213,14 +218,14 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        3536,
-        -1232
+        1520,
+        -912
       ],
-      "id": "43d32451-e006-4862-81c2-2c92317b4035",
+      "id": "728fbc60-5f87-401c-b5fd-18792d318503",
       "name": "Query Dataset",
       "credentials": {
         "postgres": {
-          "id": "5JhwTls4nSPISJqU",
+          "id": "A7zRb9obSaMEyNKs",
           "name": "Postgres account"
         }
       }
@@ -234,14 +239,14 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3248,
-        -1712
+        1232,
+        -1392
       ],
-      "id": "edce77a3-859f-47bc-adc7-564d61d01d57",
+      "id": "4c1ffca9-31d0-4b31-9bf0-7edcb580b3fc",
       "name": "Fetch Column Mapping For Step",
       "credentials": {
         "postgres": {
-          "id": "5JhwTls4nSPISJqU",
+          "id": "A7zRb9obSaMEyNKs",
           "name": "Postgres account"
         }
       }
@@ -253,14 +258,14 @@
       "type": "@n8n/n8n-nodes-langchain.toolSearXng",
       "typeVersion": 1,
       "position": [
-        3664,
-        -1248
+        1648,
+        -928
       ],
-      "id": "0737f398-eee3-456d-8afa-11b898fcd501",
+      "id": "1b08bee8-4cd0-4d0b-b9ef-f9afc7e350bc",
       "name": "SearXNG",
       "credentials": {
         "searXngApi": {
-          "id": "LAHVs08ibTZxptYj",
+          "id": "nrFsxTvR4yG3oo5j",
           "name": "SearXNG account"
         }
       }
@@ -294,10 +299,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        3568,
-        -1712
+        1008,
+        -1824
       ],
-      "id": "8acb134d-76f5-48f4-84ba-daac6975f62f"
+      "id": "2c9127f9-8dcb-4306-86e5-87f5684e2754"
     },
     {
       "parameters": {
@@ -309,13 +314,13 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3744,
-        -1552
+        2000,
+        -1264
       ],
-      "id": "d45f5939-28a3-4b83-b6a0-79ddbb9deb77",
+      "id": "5741ff91-2808-4345-bf39-ddc38a76df19",
       "credentials": {
         "postgres": {
-          "id": "5JhwTls4nSPISJqU",
+          "id": "A7zRb9obSaMEyNKs",
           "name": "Postgres account"
         }
       }
@@ -330,13 +335,13 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3904,
-        -1552
+        2256,
+        -1264
       ],
-      "id": "891c2dfa-f0ed-4fac-a19c-0917f43d486d",
+      "id": "04886132-d25e-4566-8a0d-a751a3693e63",
       "credentials": {
         "postgres": {
-          "id": "5JhwTls4nSPISJqU",
+          "id": "A7zRb9obSaMEyNKs",
           "name": "Postgres account"
         }
       },
@@ -352,13 +357,13 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        4064,
-        -1552
+        2528,
+        -1280
       ],
-      "id": "e4435004-00ed-481b-9d0e-4793370ca160",
+      "id": "1df31c2d-beea-40a3-9722-5565d75625f8",
       "credentials": {
         "postgres": {
-          "id": "5JhwTls4nSPISJqU",
+          "id": "A7zRb9obSaMEyNKs",
           "name": "Postgres account"
         }
       }
@@ -366,7 +371,7 @@
     {
       "parameters": {
         "descriptionType": "manual",
-        "toolDescription": "Run SQL against pre-materialized step result tables for this report. Each query step has a table named n8n_data.\"tmp_<safe_report_id>_step_<N>\". Use for filtering, aggregating, or JOINing data across steps. Standard PostgreSQL SELECT only �� no DDL. Apply GROUP BY/aggregations rather than SELECT *.",
+        "toolDescription": "Run SQL against pre-materialized step result tables for this report. Each query step has a table named n8n_data.\"tmp_<safe_report_id>_step_<N>\". Use for filtering, aggregating, or JOINing data across steps. Standard PostgreSQL SELECT only \u2014 no DDL. Apply GROUP BY/aggregations rather than SELECT *.",
         "operation": "executeQuery",
         "query": "={{ $fromAI('sql_query', 'A valid PostgreSQL SELECT against n8n_data temp tables for this report') }}",
         "options": {}
@@ -375,13 +380,13 @@
       "type": "n8n-nodes-base.postgresTool",
       "typeVersion": 2.6,
       "position": [
-        4064,
-        -1152
+        2048,
+        -832
       ],
-      "id": "d7ec5079-132b-4039-857c-5530bcd61e52",
+      "id": "6c2db293-2074-493b-afa9-e40729e36b82",
       "credentials": {
         "postgres": {
-          "id": "5JhwTls4nSPISJqU",
+          "id": "A7zRb9obSaMEyNKs",
           "name": "Postgres account"
         }
       }
@@ -396,13 +401,13 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3568,
-        -1872
+        1552,
+        -1552
       ],
-      "id": "b42f9349-df65-4f0a-919b-a4d5f3b3befb",
+      "id": "196210bf-6109-4248-b04e-faf48fe46bc2",
       "credentials": {
         "postgres": {
-          "id": "5JhwTls4nSPISJqU",
+          "id": "A7zRb9obSaMEyNKs",
           "name": "Postgres account"
         }
       },
@@ -416,14 +421,94 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3728,
-        -1872
+        1712,
+        -1552
       ],
-      "id": "9877badd-5ffb-423c-816e-60ca67a8cb83"
+      "id": "4f07177e-c593-46b2-9ded-af673643b1fa"
+    },
+    {
+      "id": "is-list-step-001",
+      "name": "Is List Step?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        -1824
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "list-cond-001",
+              "leftValue": "={{ $('Loop Over Steps').item.json.step.step_type }}",
+              "rightValue": "list",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "execute-direct-sql-001",
+      "name": "Execute Direct SQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1800,
+        -2050
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.resolved_sql }}",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "A7zRb9obSaMEyNKs",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "id": "format-list-result-001",
+      "name": "Format List Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2020,
+        -2050
+      ],
+      "parameters": {
+        "jsCode": "const items = $input.all();\nif (!items || items.length === 0) {\n  return [{ json: { output: 'No results returned.' } }];\n}\n\nconst rows = items.map(i => i.json);\nconst headers = Object.keys(rows[0]);\n\nconst headerRow = '| ' + headers.join(' | ') + ' |';\nconst separator = '| ' + headers.map(() => '---').join(' | ') + ' |';\nconst dataRows = rows.map(row =>\n  '| ' + headers.map(h => {\n    const val = row[h];\n    return val === null || val === undefined ? '' : String(val).replace(/\\|/g, '\\\\|');\n  }).join(' | ') + ' |'\n);\n\nconst table = [headerRow, separator, ...dataRows].join('\\n');\nconst output = `**Full List (${rows.length} rows)**\\n\\n${table}`;\n\nreturn [{ json: { output } }];"
+      }
+    },
+    {
+      "id": "resolve-sql-refs-001",
+      "name": "Resolve SQL References",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        -2050
+      ],
+      "parameters": {
+        "jsCode": "const step = $('Loop Over Steps').item.json.step;\nconst reportId = $('Parse Plan & Generate Report ID').item.json.report_id.replace(/[^a-zA-Z0-9_]/g, '_');\nlet sql = (step.query_strategy && (step.query_strategy.sql || step.query_strategy.logic)) || 'SELECT 1';\n// Replace stepN references with actual temp table names\nsql = sql.replace(/\\bstep(\\d+)\\b/gi, (match, num) => {\n  return 'n8n_data.\"tmp_' + reportId + '_step_' + num + '\"';\n});\nreturn [{ json: { resolved_sql: sql } }];"
+      }
     }
   ],
   "connections": {
-    "Step LLM": {
+    "Step": {
       "ai_languageModel": [
         [
           {
@@ -583,7 +668,7 @@
       "main": [
         [
           {
-            "node": "Drop Step Table",
+            "node": "Is List Step?",
             "type": "main",
             "index": 0
           }
@@ -669,68 +754,123 @@
           }
         ]
       ]
+    },
+    "Is List Step?": {
+      "main": [
+        [
+          {
+            "node": "Resolve SQL References",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Drop Step Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Direct SQL": {
+      "main": [
+        [
+          {
+            "node": "Format List Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format List Result": {
+      "main": [
+        [
+          {
+            "node": "Save Step Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve SQL References": {
+      "main": [
+        [
+          {
+            "node": "Execute Direct SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
     "executionOrder": "v1",
-    "availableInMCP": false
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": 600
   },
   "staticData": null,
   "meta": {
     "templateCredsSetupCompleted": true
   },
   "pinData": {},
-  "versionId": "fcc0fc0d-6fd0-45d1-922e-5b260e0ad931",
-  "activeVersionId": "11d17018-8b9c-4a40-96fa-6122b1dce49c",
-  "versionCounter": 620,
+  "versionId": "ec911af9-1833-4222-bcb3-34a88d2cbecb",
+  "activeVersionId": "ec911af9-1833-4222-bcb3-34a88d2cbecb",
+  "versionCounter": 498,
   "triggerCount": 1,
   "shared": [
     {
-      "updatedAt": "2026-02-22T06:36:49.817Z",
-      "createdAt": "2026-02-22T06:36:49.817Z",
+      "updatedAt": "2026-02-23T03:53:36.555Z",
+      "createdAt": "2026-02-23T03:53:36.555Z",
       "role": "workflow:owner",
-      "workflowId": "taHjSlURcGuHr_vMzffkE",
-      "projectId": "1Tt3UeBU40oNvF7P",
+      "workflowId": "rS9WfdjFmtsEgnxO",
+      "projectId": "lEyuIAFtVcDPu5Ul",
       "project": {
-        "updatedAt": "2025-10-06T05:12:43.166Z",
-        "createdAt": "2025-10-06T05:08:40.705Z",
-        "id": "1Tt3UeBU40oNvF7P",
-        "name": "EUN ed.e.lee@gmail.com <ed.e.lee@gmail.com>",
+        "updatedAt": "2026-02-13T05:12:31.304Z",
+        "createdAt": "2026-02-13T05:04:45.101Z",
+        "id": "lEyuIAFtVcDPu5Ul",
+        "name": "Ed Lee <ed.e.lee@gmail.com>",
         "type": "personal",
         "icon": null,
         "description": null,
-        "creatorId": "311513a6-4117-4a5c-89e5-28f958dbd390",
+        "creatorId": "565e7321-1777-4096-87d7-1379bc7abb04",
         "projectRelations": [
           {
-            "updatedAt": "2025-10-06T05:08:40.705Z",
-            "createdAt": "2025-10-06T05:08:40.705Z",
-            "userId": "311513a6-4117-4a5c-89e5-28f958dbd390",
-            "projectId": "1Tt3UeBU40oNvF7P",
+            "updatedAt": "2026-02-13T05:04:45.101Z",
+            "createdAt": "2026-02-13T05:04:45.101Z",
+            "userId": "565e7321-1777-4096-87d7-1379bc7abb04",
+            "projectId": "lEyuIAFtVcDPu5Ul",
             "user": {
-              "updatedAt": "2026-03-11T04:00:47.117Z",
-              "createdAt": "2025-10-06T05:08:32.753Z",
-              "id": "311513a6-4117-4a5c-89e5-28f958dbd390",
+              "updatedAt": "2026-03-19T04:00:37.754Z",
+              "createdAt": "2026-02-13T05:04:44.713Z",
+              "id": "565e7321-1777-4096-87d7-1379bc7abb04",
               "email": "ed.e.lee@gmail.com",
-              "firstName": "EUN",
-              "lastName": "ed.e.lee@gmail.com",
+              "firstName": "Ed",
+              "lastName": "Lee",
               "personalizationAnswers": {
                 "version": "v4",
-                "personalization_survey_submitted_at": "2025-12-26T08:28:02.179Z",
-                "personalization_survey_n8n_version": "2.1.4"
+                "personalization_survey_submitted_at": "2026-02-13T05:12:34.636Z",
+                "personalization_survey_n8n_version": "2.7.4"
               },
               "settings": {
                 "userActivated": true,
                 "easyAIWorkflowOnboarded": true,
-                "firstSuccessfulWorkflowId": "SxDwHc0lnbViX2QV",
-                "userActivatedAt": 1759818413157,
+                "firstSuccessfulWorkflowId": "rjbgy73deGsgpaXn",
+                "userActivatedAt": 1771053281944,
                 "npsSurvey": {
                   "responded": true,
-                  "lastShownAt": 1767391940455
+                  "lastShownAt": 1772675456397
                 }
               },
               "disabled": false,
               "mfaEnabled": false,
-              "lastActiveAt": "2026-03-11",
+              "lastActiveAt": "2026-03-19",
               "isPending": false
             }
           }
@@ -740,28 +880,33 @@
   ],
   "tags": [],
   "activeVersion": {
-    "updatedAt": "2026-03-11T06:56:17.116Z",
-    "createdAt": "2026-03-11T06:56:06.374Z",
-    "versionId": "11d17018-8b9c-4a40-96fa-6122b1dce49c",
-    "workflowId": "taHjSlURcGuHr_vMzffkE",
+    "updatedAt": "2026-03-19T03:25:59.544Z",
+    "createdAt": "2026-03-19T03:25:59.544Z",
+    "versionId": "ec911af9-1833-4222-bcb3-34a88d2cbecb",
+    "workflowId": "rS9WfdjFmtsEgnxO",
     "nodes": [
       {
         "parameters": {
-          "model": "={{ $('Webhook').first().json.body.model || 'moonshotai/kimi-k2.5' }}",
+          "model": {
+            "__rl": true,
+            "value": "={{ $('Webhook').item.json.body.model || 'gpt-5-mini' }}",
+            "mode": "id"
+          },
+          "responsesApiEnabled": false,
           "options": {}
         },
-        "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
-        "typeVersion": 1,
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
         "position": [
-          2880,
-          -272
+          1056,
+          48
         ],
-        "id": "7bb9cb70-f3ad-45fc-8705-f08c0368cc32",
-        "name": "Step LLM",
+        "id": "c412450b-9904-4ebd-99d0-4fc278d54d12",
+        "name": "Step",
         "credentials": {
-          "openRouterApi": {
-            "id": "SScyp7rqdYRmN9lx",
-            "name": "OpenRouter account"
+          "openAiApi": {
+            "id": "ayhC2xZ3iWv4ZkDW",
+            "name": "OpenAi account"
           }
         }
       },
@@ -775,10 +920,10 @@
         "type": "n8n-nodes-base.webhook",
         "typeVersion": 2.1,
         "position": [
-          1824,
-          -1632
+          288,
+          -1392
         ],
-        "id": "7cbda79f-7ea8-4ae1-ad82-b239e527749d",
+        "id": "25e797f8-a670-45bf-93f9-143673217694",
         "name": "Webhook",
         "webhookId": "ep-webhook-id-001"
       },
@@ -789,10 +934,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          2032,
-          -1632
+          496,
+          -1392
         ],
-        "id": "445266de-e484-4f26-90d8-c9efdf58dc27",
+        "id": "b46de923-2bf9-47ac-9d49-fcd315de3f03",
         "name": "Parse Plan & Generate Report ID"
       },
       {
@@ -804,10 +949,10 @@
         "type": "n8n-nodes-base.respondToWebhook",
         "typeVersion": 1.5,
         "position": [
-          2256,
-          -1856
+          720,
+          -1616
         ],
-        "id": "9cbf1cce-11f2-483d-a2af-d5efe67e5688",
+        "id": "cfd5ea63-95a9-4ff4-bcd3-1787d7d6ea17",
         "name": "Respond Immediately"
       },
       {
@@ -817,10 +962,10 @@
         "type": "n8n-nodes-base.splitInBatches",
         "typeVersion": 3,
         "position": [
-          2256,
-          -1632
+          720,
+          -1392
         ],
-        "id": "dc473606-72b5-4ed8-b4b5-fc19a7e4f1be",
+        "id": "f48f7076-e541-4d76-9a78-9bc05d178755",
         "name": "Loop Over Steps"
       },
       {
@@ -832,14 +977,14 @@
         "type": "n8n-nodes-base.postgres",
         "typeVersion": 2.5,
         "position": [
-          2608,
-          -1632
+          1072,
+          -1392
         ],
-        "id": "9bba7fb5-b984-44b7-91ad-c645e587dc3c",
+        "id": "c03cd16a-16e0-4562-9dd7-63d0cfd1c891",
         "name": "Mark Step Started",
         "credentials": {
           "postgres": {
-            "id": "5JhwTls4nSPISJqU",
+            "id": "A7zRb9obSaMEyNKs",
             "name": "Postgres account"
           }
         }
@@ -847,19 +992,19 @@
       {
         "parameters": {
           "promptType": "define",
-          "text": "=Execute the following analysis step.\n\nREPORT ID: {{ $('Parse Plan & Generate Report ID').item.json.report_id }}\nSTEP: {{ $('Loop Over Steps').item.json.step.step_number }} of {{ $('Parse Plan & Generate Report ID').item.json.total_steps }}\nPURPOSE: {{ $('Loop Over Steps').item.json.step.purpose }}\nDATASET ID: {{ $('Loop Over Steps').item.json.step.dataset_id }}\n\nVIEW: {{ $('Loop Over Steps').item.json.step.dataset_id ? 'n8n_data.v_ds_' + $('Loop Over Steps').item.json.step.dataset_id.replace(/-/g, '_') : 'N/A — aggregate step' }}\n(Pre-built view with original column names — query directly, no WHERE clause needed)\nTEMP TABLE (pre-materialized for this step): {{ $('Loop Over Steps').item.json.step.dataset_id ? 'n8n_data.\"tmp_' + $('Parse Plan & Generate Report ID').item.json.report_id.replace(/[^a-zA-Z0-9_]/g, '_') + '_step_' + $('Loop Over Steps').item.json.step.step_number + '\"' : 'N/A — aggregate step' }}\n\nDEPENDENCY TEMP TABLES: {{ $('Loop Over Steps').item.json.step.dependencies && $('Loop Over Steps').item.json.step.dependencies.length > 0 ? $('Loop Over Steps').item.json.step.dependencies.map(d => 'n8n_data.\"tmp_' + $('Parse Plan & Generate Report ID').item.json.report_id.replace(/[^a-zA-Z0-9_]/g, '_') + '_step_' + d + '\"').join(', ') : 'None' }}\n\n\nCOLUMN TYPES:\n{{ (() => { try { const raw = $('Fetch Column Mapping For Step').item.json.column_mapping; const mapping = typeof raw === 'string' ? JSON.parse(raw) : (raw || {}); const typeMap = { real: 'numeric', string: 'text', int: 'integer', date: 'date', bool: 'boolean' }; return Object.entries(mapping).map(([name, col]) => '\"' + name + '\" (' + (typeMap[col.replace(/\\d+$/, '')] || 'text') + ')').join(', ') || '(aggregate step — no columns)'; } catch(e) { return '(types unavailable)'; } })() }}\n\nQUERY: {{ $('Loop Over Steps').item.json.step.query_strategy.logic || 'standard query' }}\n\nDEPENDENCIES: {{ $('Loop Over Steps').item.json.step.dependencies.join(', ') || 'None' }}\nEXPECTED OUTPUT: {{ $('Loop Over Steps').item.json.step.expected_output.join(', ') }}\n\nRULES:\n1. SQL SAFETY CHECK (MANDATORY): If a SQL query is found in QUERY, you MUST validate and rewrite it to enforce these safety rules before passing it to the Query Dataset Tool:\n   - Universal Numeric Cast: Any column being summed, averaged, or cast to numeric MUST use the exact format: NULLIF(TRIM(REPLACE(\"ColumnName\"::text, ',', '')), '')::numeric\n   - Universal Date Cast: Any date extraction MUST use: TO_DATE(NULLIF(TRIM(\"ColumnName\"::text), ''), 'MM/DD/YY') (Adjust format as needed).\n   - Safe Division: Every division operation MUST wrap the denominator in NULLIF(denominator, 0).\n   - String Matching: Replace all strict '=' string comparisons with TRIM(\"ColumnName\") ILIKE 'value'.\n   - Anti-Double Counting: Ensure aggregations exclude totals using: TRIM(\"levels\") NOT ILIKE '%Total%'.\n\n2. Query step (dataset_id present): call Query Step Tables with aggregating SQL against TEMP TABLE above. Use GROUP BY/SUM/COUNT — never SELECT * without LIMIT 200. This is your only tool call.\n\n3. Aggregate step WITH dependencies (DEPENDENCY TEMP TABLES listed above): call Query Step Tables with a JOIN or aggregation SQL across the DEPENDENCY TEMP TABLES. You have the real row data — use it for accurate joins and calculations. This is your only tool call.\n\n4. Aggregate step WITHOUT dependencies: call Read Previous Step Results for text summaries. This is your only tool call.\n\n5. ERROR HANDLING: If the Query Dataset Tool returns a PostgreSQL syntax error, read the error message carefully. Identify if it was caused by dirty data (whitespace, uncast text, division by zero), apply the appropriate fix from Rule 1, and retry the tool call ONE more time.\n\n6. After the ONE tool call returns successfully, immediately write your structured output and stop. Do not include suggested next steps or explain analysis process/method. Do not call any more tools.",
+          "text": "=Execute the following analysis step.\n\nREPORT ID: {{ $('Parse Plan & Generate Report ID').item.json.report_id }}\nSTEP: {{ $('Loop Over Steps').item.json.step.step_number }} of {{ $('Parse Plan & Generate Report ID').item.json.total_steps }}\nPURPOSE: {{ $('Loop Over Steps').item.json.step.purpose }}\nDATASET ID: {{ $('Loop Over Steps').item.json.step.dataset_id }}\n\nVIEW: {{ $('Loop Over Steps').item.json.step.dataset_id ? 'n8n_data.v_ds_' + $('Loop Over Steps').item.json.step.dataset_id.replace(/-/g, '_') : 'N/A \u2014 aggregate step' }}\n(Pre-built view with original column names \u2014 query directly, no WHERE clause needed)\nTEMP TABLE (pre-materialized for this step): {{ $('Loop Over Steps').item.json.step.dataset_id ? 'n8n_data.\"tmp_' + $('Parse Plan & Generate Report ID').item.json.report_id.replace(/[^a-zA-Z0-9_]/g, '_') + '_step_' + $('Loop Over Steps').item.json.step.step_number + '\"' : 'N/A \u2014 aggregate step' }}\n\nDEPENDENCY TEMP TABLES: {{ $('Loop Over Steps').item.json.step.dependencies && $('Loop Over Steps').item.json.step.dependencies.length > 0 ? $('Loop Over Steps').item.json.step.dependencies.map(d => 'n8n_data.\"tmp_' + $('Parse Plan & Generate Report ID').item.json.report_id.replace(/[^a-zA-Z0-9_]/g, '_') + '_step_' + d + '\"').join(', ') : 'None' }}\n\nDEPENDENCY TEMP TABLE COLUMNS:\n{{ $json.dep_column_info || 'None' }}\n\n\nCOLUMN TYPES:\n{{ (() => { try { const raw = $('Fetch Column Mapping For Step').item.json.column_mapping; const mapping = typeof raw === 'string' ? JSON.parse(raw) : (raw || {}); const typeMap = { real: 'numeric', string: 'text', int: 'integer', date: 'date', bool: 'boolean' }; return Object.entries(mapping).map(([name, col]) => '\"' + name + '\" (' + (typeMap[col.replace(/\\d+$/, '')] || 'text') + ')').join(', ') || '(aggregate step \u2014 no columns)'; } catch(e) { return '(types unavailable)'; } })() }}\n\nQUERY: {{ $('Loop Over Steps').item.json.step.query_strategy.logic || 'standard query' }}\n\nDEPENDENCIES: {{ $('Loop Over Steps').item.json.step.dependencies.join(', ') || 'None' }}\nEXPECTED OUTPUT: {{ $('Loop Over Steps').item.json.step.expected_output.join(', ') }}\n\nRULES:\n1. SQL SAFETY CHECK (MANDATORY): If a SQL query is found in QUERY, you MUST validate and rewrite it to enforce these safety rules before passing it to the Query Dataset Tool:\n   - Universal Numeric Cast: Any column being summed, averaged, or cast to numeric MUST use the exact format: NULLIF(TRIM(REPLACE(\"ColumnName\"::text, ',', '')), '')::numeric\n   - Universal Date Cast: Any date extraction MUST use: TO_DATE(NULLIF(TRIM(\"ColumnName\"::text), ''), 'MM/DD/YY') (Adjust format as needed).\n   - Safe Division: Every division operation MUST wrap the denominator in NULLIF(denominator, 0).\n   - String Matching: Replace all strict '=' string comparisons with TRIM(\"ColumnName\") ILIKE 'value'.\n   - Anti-Double Counting: Ensure aggregations exclude totals using: TRIM(\"levels\") NOT ILIKE '%Total%'.\n\n2. Query step (dataset_id present): call Query Step Tables with SQL against TEMP TABLE above. Use GROUP BY/SUM/COUNT when possible. If asked for a full list run SELECT *. This is your only tool call.\n\n3. Aggregate step WITH dependencies (DEPENDENCY TEMP TABLES listed above): call Query Step Tables with a multi-step CTE query. The dep tables contain RAW rows (not pre-aggregated) \u2014 you MUST aggregate within each dep table first (GROUP BY, SUM, RANK), then JOIN the results. Structure: WITH t1 AS (SELECT ... FROM dep_table_1 GROUP BY ...), t2 AS (...) SELECT ... FROM t1 FULL OUTER JOIN t2 ON ... This is your only tool call.\n\n4. Aggregate step WITHOUT dependencies: call Read Previous Step Results for text summaries. This is your only tool call.\n\n5. ERROR HANDLING: If the Query Dataset Tool returns a PostgreSQL syntax error, read the error message carefully. Identify if it was caused by dirty data (whitespace, uncast text, division by zero), apply the appropriate fix from Rule 1, and retry the tool call ONE more time.\n\n6. After the ONE tool call returns successfully, immediately write your structured output and stop. Do not include suggested next steps or explain analysis process/method. Do not call any more tools.",
           "options": {
-            "systemMessage": "- For query steps: use Query Step Tables (not Query Dataset) to run SQL against the pre-materialized TEMP TABLE listed in the prompt. Apply your filters and aggregations there.\n- For aggregate steps with dependencies: use Query Step Tables with JOIN SQL across DEPENDENCY TEMP TABLES. You have the actual row data — do not substitute Read Previous Step Results.\n- If a temp table is unavailable or empty, fall back to Query Dataset using the VIEW name shown in the prompt.\nYou are a data analyst executing one step of a multi-step report plan.\n\n- For aggregate steps (no dataset_id): use Read Previous Step Results only — do not run SQL.\n- After the tool returns data, your NEXT response must be your final written analysis — not another tool call.\n- Return concise structured analysis with key findings and data tables.\n- Use Calculator Tool if simple calculations are required\n- PostgreSQL type rules: date columns do NOT support substr() — use EXTRACT(YEAR FROM col), DATE_PART('year', col), TO_CHAR(col, 'YYYY'), or cast first with col::text. Numeric columns cannot be compared with quoted strings — omit quotes for numbers.",
-            "maxIterations": 25
+            "systemMessage": "- For query steps: use Query Step Tables (not Query Dataset) to run SQL against the pre-materialized TEMP TABLE listed in the prompt. Apply your filters and aggregations there.\n- For aggregate steps with dependencies: use Query Step Tables with JOIN SQL across DEPENDENCY TEMP TABLES. Exact column names for each dep table are listed under DEPENDENCY TEMP TABLE COLUMNS \u2014 use them precisely. You have the actual row data \u2014 do not substitute Read Previous Step Results.\n- If a temp table is unavailable or empty, fall back to Query Dataset using the VIEW name shown in the prompt.\nYou are a data analyst executing one step of a multi-step report plan.\n\n- For aggregate steps (no dataset_id): use Read Previous Step Results only \u2014 do not run SQL.\n- After the tool returns data, your NEXT response must be your final written analysis \u2014 not another tool call.\n- Return concise structured analysis with key findings and data tables.\n- Use Calculator Tool if simple calculations are required\n- PostgreSQL type rules: date columns do NOT support substr() \u2014 use EXTRACT(YEAR FROM col), DATE_PART('year', col), TO_CHAR(col, 'YYYY'), or cast first with col::text. Numeric columns cannot be compared with quoted strings \u2014 omit quotes for numbers.",
+            "maxIterations": 20
           }
         },
         "type": "@n8n/n8n-nodes-langchain.agent",
         "typeVersion": 1.7,
         "position": [
-          2928,
-          -1632
+          1392,
+          -1392
         ],
-        "id": "97782f42-d92d-4f82-b1f3-8bfd1b33b2a9",
+        "id": "7508c057-faa3-4fe9-b5ef-16697b8171a7",
         "name": "Step AI Agent",
         "alwaysOutputData": true,
         "onError": "continueErrorOutput"
@@ -875,14 +1020,14 @@
         "type": "n8n-nodes-base.postgresTool",
         "typeVersion": 2.6,
         "position": [
-          3344,
-          -1152
+          1808,
+          -912
         ],
-        "id": "f8d424d5-03ea-4f39-82ce-21a6d270fcb5",
+        "id": "2f3cdcde-8776-40ed-a3fb-cd459049bd47",
         "name": "Read Previous Step Results",
         "credentials": {
           "postgres": {
-            "id": "5JhwTls4nSPISJqU",
+            "id": "A7zRb9obSaMEyNKs",
             "name": "Postgres account"
           }
         }
@@ -890,20 +1035,20 @@
       {
         "parameters": {
           "operation": "executeQuery",
-          "query": "=UPDATE n8n_data.report_step_results SET step_result = '{{ $json.output ? $json.output.replace(/'/g, \"''\") : \"No output generated by AI\" }}', status = '{{ ($json.output && $json.output.trim() && !$json.error) ? \"completed\" : \"error\" }}' WHERE report_id = '{{ $('Loop Over Steps').first().json.report_id }}' AND step_number = {{ $('Loop Over Steps').first().json.step.step_number }}",
+          "query": "=UPDATE n8n_data.report_step_results SET step_result = '{{ $json.output ? $json.output.replace(/'/g, \"''\") : \"No output generated by AI\" }}', status = '{{ ($json.output && $json.output.trim() && !$json.error) ? \"completed\" : \"error\" }}' WHERE report_id = '{{ $('Loop Over Steps').item.json.report_id }}' AND step_number = {{ $('Loop Over Steps').item.json.step.step_number }}",
           "options": {}
         },
         "type": "n8n-nodes-base.postgres",
         "typeVersion": 2.5,
         "position": [
-          3808,
-          -1136
+          2272,
+          -896
         ],
-        "id": "0f7bde9e-34a6-480b-92b7-bccb3af87cd9",
+        "id": "1f72ad8b-2096-46f7-bcb3-6cecc75ff46e",
         "name": "Save Step Result",
         "credentials": {
           "postgres": {
-            "id": "5JhwTls4nSPISJqU",
+            "id": "A7zRb9obSaMEyNKs",
             "name": "Postgres account"
           }
         }
@@ -917,14 +1062,14 @@
         "type": "n8n-nodes-base.postgres",
         "typeVersion": 2.5,
         "position": [
-          4624,
-          -1008
+          3088,
+          -768
         ],
-        "id": "4ef741d3-8d4c-459c-9096-1f69ff6d07c6",
+        "id": "962199e5-a54a-442e-89a7-cce62df1a8c6",
         "name": "Save Step Error",
         "credentials": {
           "postgres": {
-            "id": "5JhwTls4nSPISJqU",
+            "id": "A7zRb9obSaMEyNKs",
             "name": "Postgres account"
           }
         }
@@ -934,16 +1079,16 @@
         "type": "@n8n/n8n-nodes-langchain.toolCalculator",
         "typeVersion": 1,
         "position": [
-          3264,
-          -1440
+          1728,
+          -1200
         ],
-        "id": "f4fe07fa-c490-49dd-93a4-5a3f6fad429c",
+        "id": "125f6f0a-a574-4a0d-87f9-ec69065ccbc7",
         "name": "Calculator"
       },
       {
         "parameters": {
           "descriptionType": "manual",
-          "toolDescription": "Query the dataset view for this step. Use SQL to query the view name given in the prompt (e.g. n8n_data.v_ds_<id>). The view already has original column names and is pre-filtered — no WHERE clause needed. Use SQL aggregations (SUM, COUNT, GROUP BY) to compute totals — do not fetch raw rows for manual calculation. PostgreSQL type rules: date columns do not support substr() — use EXTRACT(YEAR FROM col) or TO_CHAR(col, 'YYYY') instead. Cast dates to text with col::text if string operations are needed.",
+          "toolDescription": "Query the dataset view for this step. Use SQL to query the view name given in the prompt (e.g. n8n_data.v_ds_<id>). The view already has original column names and is pre-filtered \u2014 no WHERE clause needed. Use SQL aggregations (SUM, COUNT, GROUP BY) to compute totals \u2014 do not fetch raw rows for manual calculation. PostgreSQL type rules: date columns do not support substr() \u2014 use EXTRACT(YEAR FROM col) or TO_CHAR(col, 'YYYY') instead. Cast dates to text with col::text if string operations are needed.",
           "operation": "executeQuery",
           "query": "{{ $fromAI('sql_query') }}",
           "options": {}
@@ -951,14 +1096,14 @@
         "type": "n8n-nodes-base.postgresTool",
         "typeVersion": 2.6,
         "position": [
-          3056,
-          -1152
+          1520,
+          -912
         ],
-        "id": "b7dfdda1-2a16-4310-8eda-f6464988656e",
+        "id": "728fbc60-5f87-401c-b5fd-18792d318503",
         "name": "Query Dataset",
         "credentials": {
           "postgres": {
-            "id": "5JhwTls4nSPISJqU",
+            "id": "A7zRb9obSaMEyNKs",
             "name": "Postgres account"
           }
         }
@@ -972,14 +1117,14 @@
         "type": "n8n-nodes-base.postgres",
         "typeVersion": 2.5,
         "position": [
-          2768,
-          -1632
+          1232,
+          -1392
         ],
-        "id": "e7318e85-6cb5-4c3c-87ac-e6f8dcce1ecf",
+        "id": "4c1ffca9-31d0-4b31-9bf0-7edcb580b3fc",
         "name": "Fetch Column Mapping For Step",
         "credentials": {
           "postgres": {
-            "id": "5JhwTls4nSPISJqU",
+            "id": "A7zRb9obSaMEyNKs",
             "name": "Postgres account"
           }
         }
@@ -991,14 +1136,14 @@
         "type": "@n8n/n8n-nodes-langchain.toolSearXng",
         "typeVersion": 1,
         "position": [
-          3184,
-          -1168
+          1648,
+          -928
         ],
-        "id": "337f3f85-9c51-41fc-87b4-87f1167e6afc",
+        "id": "1b08bee8-4cd0-4d0b-b9ef-f9afc7e350bc",
         "name": "SearXNG",
         "credentials": {
           "searXngApi": {
-            "id": "LAHVs08ibTZxptYj",
+            "id": "nrFsxTvR4yG3oo5j",
             "name": "SearXNG account"
           }
         }
@@ -1032,10 +1177,10 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.3,
         "position": [
-          3088,
-          -1632
+          1008,
+          -1824
         ],
-        "id": "a9f562ec-ba21-4a84-a14d-6c129940151a"
+        "id": "2c9127f9-8dcb-4306-86e5-87f5684e2754"
       },
       {
         "parameters": {
@@ -1047,13 +1192,13 @@
         "type": "n8n-nodes-base.postgres",
         "typeVersion": 2.5,
         "position": [
-          3264,
-          -1472
+          2000,
+          -1264
         ],
-        "id": "ad32cc60-1da7-479b-b5fd-0789b1da2b4d",
+        "id": "5741ff91-2808-4345-bf39-ddc38a76df19",
         "credentials": {
           "postgres": {
-            "id": "5JhwTls4nSPISJqU",
+            "id": "A7zRb9obSaMEyNKs",
             "name": "Postgres account"
           }
         }
@@ -1068,13 +1213,13 @@
         "type": "n8n-nodes-base.postgres",
         "typeVersion": 2.5,
         "position": [
-          3424,
-          -1472
+          2256,
+          -1264
         ],
-        "id": "4945e5c7-68a8-40c9-8a99-b30e7183213a",
+        "id": "04886132-d25e-4566-8a0d-a751a3693e63",
         "credentials": {
           "postgres": {
-            "id": "5JhwTls4nSPISJqU",
+            "id": "A7zRb9obSaMEyNKs",
             "name": "Postgres account"
           }
         },
@@ -1090,13 +1235,13 @@
         "type": "n8n-nodes-base.postgres",
         "typeVersion": 2.5,
         "position": [
-          3584,
-          -1472
+          2528,
+          -1280
         ],
-        "id": "1ad15422-23d2-4b4e-abf3-09c538e7330b",
+        "id": "1df31c2d-beea-40a3-9722-5565d75625f8",
         "credentials": {
           "postgres": {
-            "id": "5JhwTls4nSPISJqU",
+            "id": "A7zRb9obSaMEyNKs",
             "name": "Postgres account"
           }
         }
@@ -1104,7 +1249,7 @@
       {
         "parameters": {
           "descriptionType": "manual",
-          "toolDescription": "Run SQL against pre-materialized step result tables for this report. Each query step has a table named n8n_data.\"tmp_<safe_report_id>_step_<N>\". Use for filtering, aggregating, or JOINing data across steps. Standard PostgreSQL SELECT only — no DDL. Apply GROUP BY/aggregations rather than SELECT *.",
+          "toolDescription": "Run SQL against pre-materialized step result tables for this report. Each query step has a table named n8n_data.\"tmp_<safe_report_id>_step_<N>\". Use for filtering, aggregating, or JOINing data across steps. Standard PostgreSQL SELECT only \u2014 no DDL. Apply GROUP BY/aggregations rather than SELECT *.",
           "operation": "executeQuery",
           "query": "={{ $fromAI('sql_query', 'A valid PostgreSQL SELECT against n8n_data temp tables for this report') }}",
           "options": {}
@@ -1113,20 +1258,135 @@
         "type": "n8n-nodes-base.postgresTool",
         "typeVersion": 2.6,
         "position": [
-          3584,
-          -1088
+          2048,
+          -832
         ],
-        "id": "e7634d10-a4c1-47a2-97c2-45f17b7739eb",
+        "id": "6c2db293-2074-493b-afa9-e40729e36b82",
         "credentials": {
           "postgres": {
-            "id": "5JhwTls4nSPISJqU",
+            "id": "A7zRb9obSaMEyNKs",
             "name": "Postgres account"
           }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=SELECT COALESCE(string_agg('n8n_data.\"' || table_name || '\": ' || columns, E'\\n' ORDER BY table_name), 'None') AS dep_column_info FROM (SELECT table_name, string_agg(column_name || ' (' || data_type || ')', ', ' ORDER BY ordinal_position) AS columns FROM information_schema.columns WHERE table_schema = 'n8n_data' AND table_name IN ({{ $('Loop Over Steps').item.json.step.dependencies && $('Loop Over Steps').item.json.step.dependencies.length > 0 ? \"'\" + $('Loop Over Steps').item.json.step.dependencies.map(d => 'tmp_' + $('Parse Plan & Generate Report ID').item.json.report_id.replace(/[^a-zA-Z0-9_]/g, '_') + '_step_' + d).join(\"', '\") + \"'\" : \"'__none__'\" }}) GROUP BY table_name) t",
+          "options": {}
+        },
+        "name": "Fetch Dep Column Info",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          1552,
+          -1552
+        ],
+        "id": "196210bf-6109-4248-b04e-faf48fe46bc2",
+        "credentials": {
+          "postgres": {
+            "id": "A7zRb9obSaMEyNKs",
+            "name": "Postgres account"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const items = $input.all();\nif (items.length > 0 && items[0].json && items[0].json.dep_column_info !== undefined) {\n  return [{ json: { dep_column_info: items[0].json.dep_column_info || 'None' } }];\n}\nconst rows = items.filter(item => item.json && item.json.table_name);\nconst depColumnInfo = rows.length > 0\n  ? rows.map(r => 'n8n_data.\"' + r.json.table_name + '\": ' + r.json.columns).join('\\n')\n  : 'None';\nreturn [{ json: { dep_column_info: depColumnInfo } }];"
+        },
+        "name": "Consolidate Dep Info",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1712,
+          -1552
+        ],
+        "id": "4f07177e-c593-46b2-9ded-af673643b1fa"
+      },
+      {
+        "id": "is-list-step-001",
+        "name": "Is List Step?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          1500,
+          -1824
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "list-cond-001",
+                "leftValue": "={{ $('Loop Over Steps').item.json.step.step_type }}",
+                "rightValue": "list",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "execute-direct-sql-001",
+        "name": "Execute Direct SQL",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          1800,
+          -2050
+        ],
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "={{ $json.resolved_sql }}",
+          "options": {}
+        },
+        "credentials": {
+          "postgres": {
+            "id": "A7zRb9obSaMEyNKs",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "id": "format-list-result-001",
+        "name": "Format List Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2020,
+          -2050
+        ],
+        "parameters": {
+          "jsCode": "const items = $input.all();\nif (!items || items.length === 0) {\n  return [{ json: { output: 'No results returned.' } }];\n}\n\nconst rows = items.map(i => i.json);\nconst headers = Object.keys(rows[0]);\n\nconst headerRow = '| ' + headers.join(' | ') + ' |';\nconst separator = '| ' + headers.map(() => '---').join(' | ') + ' |';\nconst dataRows = rows.map(row =>\n  '| ' + headers.map(h => {\n    const val = row[h];\n    return val === null || val === undefined ? '' : String(val).replace(/\\|/g, '\\\\|');\n  }).join(' | ') + ' |'\n);\n\nconst table = [headerRow, separator, ...dataRows].join('\\n');\nconst output = `**Full List (${rows.length} rows)**\\n\\n${table}`;\n\nreturn [{ json: { output } }];"
+        }
+      },
+      {
+        "id": "resolve-sql-refs-001",
+        "name": "Resolve SQL References",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1560,
+          -2050
+        ],
+        "parameters": {
+          "jsCode": "const step = $('Loop Over Steps').item.json.step;\nconst reportId = $('Parse Plan & Generate Report ID').item.json.report_id.replace(/[^a-zA-Z0-9_]/g, '_');\nlet sql = (step.query_strategy && (step.query_strategy.sql || step.query_strategy.logic)) || 'SELECT 1';\n// Replace stepN references with actual temp table names\nsql = sql.replace(/\\bstep(\\d+)\\b/gi, (match, num) => {\n  return 'n8n_data.\"tmp_' + reportId + '_step_' + num + '\"';\n});\nreturn [{ json: { resolved_sql: sql } }];"
         }
       }
     ],
     "connections": {
-      "Step LLM": {
+      "Step": {
         "ai_languageModel": [
           [
             {
@@ -1286,14 +1546,14 @@
         "main": [
           [
             {
-              "node": "Drop Step Table",
+              "node": "Is List Step?",
               "type": "main",
               "index": 0
             }
           ],
           [
             {
-              "node": "Step AI Agent",
+              "node": "Fetch Dep Column Info",
               "type": "main",
               "index": 0
             }
@@ -1350,20 +1610,93 @@
             }
           ]
         ]
+      },
+      "Fetch Dep Column Info": {
+        "main": [
+          [
+            {
+              "node": "Consolidate Dep Info",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Consolidate Dep Info": {
+        "main": [
+          [
+            {
+              "node": "Step AI Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is List Step?": {
+        "main": [
+          [
+            {
+              "node": "Resolve SQL References",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Drop Step Table",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Execute Direct SQL": {
+        "main": [
+          [
+            {
+              "node": "Format List Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format List Result": {
+        "main": [
+          [
+            {
+              "node": "Save Step Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Resolve SQL References": {
+        "main": [
+          [
+            {
+              "node": "Execute Direct SQL",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
-    "authors": "EUN ed.e.lee@gmail.com",
-    "name": "Version 11d17018",
-    "description": "",
-    "autosaved": true,
+    "authors": "Ed Lee",
+    "name": null,
+    "description": null,
+    "autosaved": false,
     "workflowPublishHistory": [
       {
-        "createdAt": "2026-03-11T06:56:17.114Z",
-        "id": 592,
-        "workflowId": "taHjSlURcGuHr_vMzffkE",
-        "versionId": "11d17018-8b9c-4a40-96fa-6122b1dce49c",
+        "createdAt": "2026-03-19T03:25:59.598Z",
+        "id": 263,
+        "workflowId": "rS9WfdjFmtsEgnxO",
+        "versionId": "ec911af9-1833-4222-bcb3-34a88d2cbecb",
         "event": "activated",
-        "userId": "311513a6-4117-4a5c-89e5-28f958dbd390"
+        "userId": "565e7321-1777-4096-87d7-1379bc7abb04"
       }
     ]
   }
