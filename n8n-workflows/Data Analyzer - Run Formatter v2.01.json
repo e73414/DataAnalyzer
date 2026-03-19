@@ -1,5 +1,5 @@
 {
-    "updatedAt": "2026-03-19T04:40:30.982Z",
+    "updatedAt": "2026-03-19T04:59:20.662Z",
     "createdAt": "2026-02-27T00:06:10.477Z",
     "id": "rGJi5ftNMJWilQNY",
     "name": "Data Analyzer - Run Formatter v2.01",
@@ -62,7 +62,7 @@
         },
         {
             "parameters": {
-                "jsCode": "const steps = $input.all().map(item => item.json);\nconst body = $('Webhook').first().json.body;\n\nlet stepsText = '';\nfor (const s of steps) {\n  stepsText += `\n=== STEP ${s.step_number}: ${s.purpose} ===\nDataset: ${s.dataset_id}\n\n${s.step_result}\n\n`;\n}\n\nreturn [{\n  json: {\n    report_id: body.report_id,\n    plan_id: '',\n    email: body.email || '',\n    model: body.model || 'moonshotai/kimi-k2.5',\n    templateId: body.templateId || '',\n    all_step_results: stepsText,\n    step_count: steps.length\n  }\n}];"
+                "jsCode": "const steps = $input.all().map(item => item.json);\nconst body = $('Webhook').first().json.body;\n\nlet stepsText = '';\nfor (const s of steps) {\n  // Strip embedded CSV data before sending to formatter AI\n  const result = (s.step_result || '').replace(/<!--LIST_CSV:[\\s\\S]*?-->/g, '').trim();\n  stepsText += `\\n=== STEP ${s.step_number}: ${s.purpose} ===\\nDataset: ${s.dataset_id}\\n\\n${result}\\n\\n`;\n}\n\nreturn [{\n  json: {\n    report_id: body.report_id,\n    plan_id: '',\n    email: body.email || '',\n    model: body.model || 'moonshotai/kimi-k2.5',\n    templateId: body.templateId || '',\n    all_step_results: stepsText,\n    step_count: steps.length\n  }\n}];"
             },
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
@@ -78,7 +78,7 @@
                 "promptType": "define",
                 "text": "=Consolidate the following {{ $json.step_count }} step results into a single coherent, professional report and format it as styled HTML.\n\nREPORT ID: {{ $json.report_id }}\nPLAN ID: {{ $json.plan_id }}\n\nSTEP RESULTS:\n{{ $json.all_step_results }}",
                 "options": {
-                    "systemMessage": "=Role: You are an expert report writer and HTML formatter.\n\nYour job is to fully fulfil user's requested analysis \"{{ $('Webhook').first().json.body.user_prompt }}\". You will execute this in TWO parts:\n\nPART 1 - CONSOLIDATE: Take the individual analysis step results and consolidate them into a single, professional, well-structured report. The level of detail on how the data was generated from datasets should be: {{ $json.detail_level }}. Follow the Framework 1.1 if {{ $json.report_level }} is 'Detailed Report'. Follow the framework 1.2 below if {{ $json.report_level }} is 'Simple Report'.\n\nCRITICAL RULE \u2014 FULL LIST DATA: If any step result is labeled \"**Full List (N rows)**\", you MUST reproduce ALL rows from that step in a complete HTML table in the final report. Do NOT truncate, sample, abbreviate, or summarize full list data \u2014 every single row provided must appear in the HTML table. Failure to include all rows is incorrect.\n\nFramework 1.1 - \"Detailed Report\"\n- Executive Summary - Key findings and highlights\n- Detailed Analysis - One section per step, incorporating the data and findings\n- Conclusions & Recommendations\nUse clear headings, bullet points, data tables where appropriate, and professional language. Present numbers with appropriate formatting. If any step had errors or missing data, note it but don't let it derail the overall report.\n\nFramework 1.2 - \"Simple Report\"\n- Executive Summary - Key findings. If any critical errors occured during the previous steps, skip.\n**Important** Do not show detailed analysis or step results. Only show result that is directly related to user inquiry.\n- Conclusions & Recommendations\nUse clear headings, bullet points, data tables where appropriate, and professional language. Present numbers with appropriate formatting. If any critical errors occured during the previous steps, state so and stop.\n\nPART 2 - FORMAT AS HTML: {{ $json.templateId ? 'Query the Report Template tool with template_id: ' + $json.templateId + ' to fetch reference HTML. Use its CSS and structure as the master template, prioritizing its styles (colors, fonts, borders) above all else.' : 'No template ID provided \u2014 skip the Report Template tool entirely. Format the report as clean, professional HTML with tasteful inline styles. Make sure to use light font color against dark background color and dark font color against light background color for readability.' }}\n\nMake sure to eliminate any unnecessary tags or symbols that will get in the way of clean report such as \" \\n\"\n\nIMPORTANT: DO NOT OUTPUT THE PLAN, COMMENT OR EXPLANATION OF THE ACTION. JUST OUTPUT HTML."
+                    "systemMessage": "=Role: You are an expert report writer and HTML formatter.\n\nYour job is to fully fulfil user's requested analysis \"{{ $('Webhook').first().json.body.user_prompt }}\". You will execute this in TWO parts:\n\nPART 1 - CONSOLIDATE: Take the individual analysis step results and consolidate them into a single, professional, well-structured report. The level of detail on how the data was generated from datasets should be: {{ $json.detail_level }}. Follow the Framework 1.1 if {{ $json.report_level }} is 'Detailed Report'. Follow the framework 1.2 below if {{ $json.report_level }} is 'Simple Report'.\n\nFramework 1.1 - \"Detailed Report\"\n- Executive Summary - Key findings and highlights\n- Detailed Analysis - One section per step, incorporating the data and findings\n- Conclusions & Recommendations\nUse clear headings, bullet points, data tables where appropriate, and professional language. Present numbers with appropriate formatting. If any step had errors or missing data, note it but don't let it derail the overall report.\n\nFramework 1.2 - \"Simple Report\"\n- Executive Summary - Key findings. If any critical errors occured during the previous steps, skip.\n**Important** Do not show detailed analysis or step results. Only show result that is directly related to user inquiry.\n- Conclusions & Recommendations\nUse clear headings, bullet points, data tables where appropriate, and professional language. Present numbers with appropriate formatting. If any critical errors occured during the previous steps, state so and stop.\n\nPART 2 - FORMAT AS HTML: {{ $json.templateId ? 'Query the Report Template tool with template_id: ' + $json.templateId + ' to fetch reference HTML. Use its CSS and structure as the master template, prioritizing its styles (colors, fonts, borders) above all else.' : 'No template ID provided \u2014 skip the Report Template tool entirely. Format the report as clean, professional HTML with tasteful inline styles. Make sure to use light font color against dark background color and dark font color against light background color for readability.' }}\n\nMake sure to eliminate any unnecessary tags or symbols that will get in the way of clean report such as \" \\n\"\n\nIMPORTANT: DO NOT OUTPUT THE PLAN, COMMENT OR EXPLANATION OF THE ACTION. JUST OUTPUT HTML."
                 }
             },
             "type": "@n8n/n8n-nodes-langchain.agent",
@@ -388,9 +388,9 @@
         "templateCredsSetupCompleted": true
     },
     "pinData": {},
-    "versionId": "56142ff5-8276-4485-b2e5-e98281237ae1",
-    "activeVersionId": "56142ff5-8276-4485-b2e5-e98281237ae1",
-    "versionCounter": 110,
+    "versionId": "c04a4bce-29a8-4e84-9217-8976febad565",
+    "activeVersionId": "c04a4bce-29a8-4e84-9217-8976febad565",
+    "versionCounter": 113,
     "triggerCount": 1,
     "shared": [
         {
@@ -448,9 +448,9 @@
     ],
     "tags": [],
     "activeVersion": {
-        "updatedAt": "2026-03-19T04:40:30.984Z",
-        "createdAt": "2026-03-19T04:40:30.984Z",
-        "versionId": "56142ff5-8276-4485-b2e5-e98281237ae1",
+        "updatedAt": "2026-03-19T04:59:20.663Z",
+        "createdAt": "2026-03-19T04:59:20.663Z",
+        "versionId": "c04a4bce-29a8-4e84-9217-8976febad565",
         "workflowId": "rGJi5ftNMJWilQNY",
         "nodes": [
             {
@@ -508,7 +508,7 @@
             },
             {
                 "parameters": {
-                    "jsCode": "const steps = $input.all().map(item => item.json);\nconst body = $('Webhook').first().json.body;\n\nlet stepsText = '';\nfor (const s of steps) {\n  stepsText += `\n=== STEP ${s.step_number}: ${s.purpose} ===\nDataset: ${s.dataset_id}\n\n${s.step_result}\n\n`;\n}\n\nreturn [{\n  json: {\n    report_id: body.report_id,\n    plan_id: '',\n    email: body.email || '',\n    model: body.model || 'moonshotai/kimi-k2.5',\n    templateId: body.templateId || '',\n    all_step_results: stepsText,\n    step_count: steps.length\n  }\n}];"
+                    "jsCode": "const steps = $input.all().map(item => item.json);\nconst body = $('Webhook').first().json.body;\n\nlet stepsText = '';\nfor (const s of steps) {\n  // Strip embedded CSV data before sending to formatter AI\n  const result = (s.step_result || '').replace(/<!--LIST_CSV:[\\s\\S]*?-->/g, '').trim();\n  stepsText += `\\n=== STEP ${s.step_number}: ${s.purpose} ===\\nDataset: ${s.dataset_id}\\n\\n${result}\\n\\n`;\n}\n\nreturn [{\n  json: {\n    report_id: body.report_id,\n    plan_id: '',\n    email: body.email || '',\n    model: body.model || 'moonshotai/kimi-k2.5',\n    templateId: body.templateId || '',\n    all_step_results: stepsText,\n    step_count: steps.length\n  }\n}];"
                 },
                 "type": "n8n-nodes-base.code",
                 "typeVersion": 2,
@@ -524,7 +524,7 @@
                     "promptType": "define",
                     "text": "=Consolidate the following {{ $json.step_count }} step results into a single coherent, professional report and format it as styled HTML.\n\nREPORT ID: {{ $json.report_id }}\nPLAN ID: {{ $json.plan_id }}\n\nSTEP RESULTS:\n{{ $json.all_step_results }}",
                     "options": {
-                        "systemMessage": "=Role: You are an expert report writer and HTML formatter.\n\nYour job is to fully fulfil user's requested analysis \"{{ $('Webhook').first().json.body.user_prompt }}\". You will execute this in TWO parts:\n\nPART 1 - CONSOLIDATE: Take the individual analysis step results and consolidate them into a single, professional, well-structured report. The level of detail on how the data was generated from datasets should be: {{ $json.detail_level }}. Follow the Framework 1.1 if {{ $json.report_level }} is 'Detailed Report'. Follow the framework 1.2 below if {{ $json.report_level }} is 'Simple Report'.\n\nCRITICAL RULE \u2014 FULL LIST DATA: If any step result is labeled \"**Full List (N rows)**\", you MUST reproduce ALL rows from that step in a complete HTML table in the final report. Do NOT truncate, sample, abbreviate, or summarize full list data \u2014 every single row provided must appear in the HTML table. Failure to include all rows is incorrect.\n\nFramework 1.1 - \"Detailed Report\"\n- Executive Summary - Key findings and highlights\n- Detailed Analysis - One section per step, incorporating the data and findings\n- Conclusions & Recommendations\nUse clear headings, bullet points, data tables where appropriate, and professional language. Present numbers with appropriate formatting. If any step had errors or missing data, note it but don't let it derail the overall report.\n\nFramework 1.2 - \"Simple Report\"\n- Executive Summary - Key findings. If any critical errors occured during the previous steps, skip.\n**Important** Do not show detailed analysis or step results. Only show result that is directly related to user inquiry.\n- Conclusions & Recommendations\nUse clear headings, bullet points, data tables where appropriate, and professional language. Present numbers with appropriate formatting. If any critical errors occured during the previous steps, state so and stop.\n\nPART 2 - FORMAT AS HTML: {{ $json.templateId ? 'Query the Report Template tool with template_id: ' + $json.templateId + ' to fetch reference HTML. Use its CSS and structure as the master template, prioritizing its styles (colors, fonts, borders) above all else.' : 'No template ID provided \u2014 skip the Report Template tool entirely. Format the report as clean, professional HTML with tasteful inline styles. Make sure to use light font color against dark background color and dark font color against light background color for readability.' }}\n\nMake sure to eliminate any unnecessary tags or symbols that will get in the way of clean report such as \" \\n\"\n\nIMPORTANT: DO NOT OUTPUT THE PLAN, COMMENT OR EXPLANATION OF THE ACTION. JUST OUTPUT HTML."
+                        "systemMessage": "=Role: You are an expert report writer and HTML formatter.\n\nYour job is to fully fulfil user's requested analysis \"{{ $('Webhook').first().json.body.user_prompt }}\". You will execute this in TWO parts:\n\nPART 1 - CONSOLIDATE: Take the individual analysis step results and consolidate them into a single, professional, well-structured report. The level of detail on how the data was generated from datasets should be: {{ $json.detail_level }}. Follow the Framework 1.1 if {{ $json.report_level }} is 'Detailed Report'. Follow the framework 1.2 below if {{ $json.report_level }} is 'Simple Report'.\n\nFramework 1.1 - \"Detailed Report\"\n- Executive Summary - Key findings and highlights\n- Detailed Analysis - One section per step, incorporating the data and findings\n- Conclusions & Recommendations\nUse clear headings, bullet points, data tables where appropriate, and professional language. Present numbers with appropriate formatting. If any step had errors or missing data, note it but don't let it derail the overall report.\n\nFramework 1.2 - \"Simple Report\"\n- Executive Summary - Key findings. If any critical errors occured during the previous steps, skip.\n**Important** Do not show detailed analysis or step results. Only show result that is directly related to user inquiry.\n- Conclusions & Recommendations\nUse clear headings, bullet points, data tables where appropriate, and professional language. Present numbers with appropriate formatting. If any critical errors occured during the previous steps, state so and stop.\n\nPART 2 - FORMAT AS HTML: {{ $json.templateId ? 'Query the Report Template tool with template_id: ' + $json.templateId + ' to fetch reference HTML. Use its CSS and structure as the master template, prioritizing its styles (colors, fonts, borders) above all else.' : 'No template ID provided \u2014 skip the Report Template tool entirely. Format the report as clean, professional HTML with tasteful inline styles. Make sure to use light font color against dark background color and dark font color against light background color for readability.' }}\n\nMake sure to eliminate any unnecessary tags or symbols that will get in the way of clean report such as \" \\n\"\n\nIMPORTANT: DO NOT OUTPUT THE PLAN, COMMENT OR EXPLANATION OF THE ACTION. JUST OUTPUT HTML."
                     }
                 },
                 "type": "@n8n/n8n-nodes-langchain.agent",
@@ -829,10 +829,10 @@
         "autosaved": false,
         "workflowPublishHistory": [
             {
-                "createdAt": "2026-03-19T04:40:31.071Z",
-                "id": 270,
+                "createdAt": "2026-03-19T04:59:20.702Z",
+                "id": 272,
                 "workflowId": "rGJi5ftNMJWilQNY",
-                "versionId": "56142ff5-8276-4485-b2e5-e98281237ae1",
+                "versionId": "c04a4bce-29a8-4e84-9217-8976febad565",
                 "event": "activated",
                 "userId": "565e7321-1777-4096-87d7-1379bc7abb04"
             }

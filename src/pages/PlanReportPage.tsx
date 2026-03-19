@@ -398,6 +398,19 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   }, [isEditingReport, report, initEditor])
 
   // --- Plan mutation helpers ---
+  const downloadListCsv = (stepResult: string, purpose: string) => {
+    const match = stepResult.match(/<!--LIST_CSV:([\s\S]+?)-->/)
+    if (!match) return
+    const csv = atob(match[1])
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = purpose.slice(0, 50).replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const markDirty = (stepIndex: number) =>
     setDirtySteps((prev) => new Set(prev).add(stepIndex))
 
@@ -1656,15 +1669,36 @@ const handleSaveReport = async () => {
                               <pre className="mt-1 px-3 py-2 rounded bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-all font-mono">{stepSql}</pre>
                             </details>
                           )}
-                          {step.step_result && step.status !== 'started' && (
-                            <div className={`ml-12 mt-1 px-3 py-1.5 rounded text-xs leading-snug ${
-                              step.status === 'error'
-                                ? 'bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
-                                : 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400'
-                            }`}>
-                              {step.step_result.length > 200 ? step.step_result.slice(0, 200) + '…' : step.step_result}
-                            </div>
-                          )}
+                          {step.step_result && step.status !== 'started' && (() => {
+                            const hasCsv = step.step_result!.includes('<!--LIST_CSV:')
+                            const displayResult = hasCsv
+                              ? step.step_result!.replace(/<!--LIST_CSV:[\s\S]*?-->/, '').trim()
+                              : step.step_result!
+                            return (
+                              <>
+                                <div className={`ml-12 mt-1 px-3 py-1.5 rounded text-xs leading-snug ${
+                                  step.status === 'error'
+                                    ? 'bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+                                    : 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400'
+                                }`}>
+                                  {displayResult.length > 200 ? displayResult.slice(0, 200) + '…' : displayResult}
+                                </div>
+                                {hasCsv && step.status === 'completed' && (
+                                  <div className="ml-12 mt-1">
+                                    <button
+                                      onClick={() => downloadListCsv(step.step_result!, step.purpose || `step_${step.step_number}`)}
+                                      className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded bg-green-600 hover:bg-green-700 text-white font-medium"
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                      </svg>
+                                      Download Full Data
+                                    </button>
+                                  </div>
+                                )}
+                              </>
+                            )
+                          })()}
                         </div>
                       )
                     })
