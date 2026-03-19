@@ -476,8 +476,13 @@ export const n8nService = {
       if (typeof val !== 'object') return undefined
       const obj = val as Record<string, unknown>
 
-      // If it has steps array, it's the plan itself
-      if (Array.isArray(obj.steps)) return obj as unknown as ReportPlan
+      // If it has steps array AND is not an error response, it's the plan itself
+      if (Array.isArray(obj.steps)) {
+        if (obj.status === 'error' || (typeof obj.status === 'string' && obj.status !== 'success' && obj.steps.length === 0)) {
+          throw new Error((obj.error_message as string) || (obj.status as string) || 'Plan generation failed')
+        }
+        return obj as unknown as ReportPlan
+      }
 
       // Check known wrapper fields: output, data, result, plan
       for (const key of ['output', 'data', 'result', 'plan']) {
