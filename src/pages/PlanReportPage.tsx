@@ -188,6 +188,8 @@ export default function PlanReportPage() {
   const [isSavingReport, setIsSavingReport] = useState(false)
   const [reportSaved, setReportSaved] = useState(false)
   const [savedRecordId, setSavedRecordId] = useState<string | null>(loadedState?.savedRecordId || null)
+  const [dirtySteps, setDirtySteps] = useState<Set<number>>(new Set())
+  const [savingSteps, setSavingSteps] = useState<Set<number>>(new Set())
   const [isValidating, setIsValidating] = useState(false)
   const [validationResult, setValidationResult] = useState<string | null>(null)
   const [validationOpen, setValidationOpen] = useState(true)
@@ -396,7 +398,29 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   }, [isEditingReport, report, initEditor])
 
   // --- Plan mutation helpers ---
+  const markDirty = (stepIndex: number) =>
+    setDirtySteps((prev) => new Set(prev).add(stepIndex))
+
+  const handleUpdateStep = async (stepIndex: number) => {
+    if (!plan) return
+    setSavingSteps((prev) => new Set(prev).add(stepIndex))
+    try {
+      if (savedRecordId) {
+        await pocketbaseService.updateConversation(savedRecordId, {
+          report_plan: JSON.stringify(plan),
+        })
+      }
+      setDirtySteps((prev) => { const s = new Set(prev); s.delete(stepIndex); return s })
+      toast.success('Step updated')
+    } catch {
+      toast.error('Failed to save step')
+    } finally {
+      setSavingSteps((prev) => { const s = new Set(prev); s.delete(stepIndex); return s })
+    }
+  }
+
   const updateStep = (stepIndex: number, field: keyof ReportPlanStep, value: unknown) => {
+    markDirty(stepIndex)
     setPlan((prev) => {
       if (!prev) return prev
       const steps = [...prev.steps]
@@ -406,6 +430,7 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   }
 
   const updateFilter = (stepIndex: number, filterKey: string, value: string | string[]) => {
+    markDirty(stepIndex)
     setPlan((prev) => {
       if (!prev) return prev
       const steps = [...prev.steps]
@@ -417,6 +442,7 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   }
 
   const deleteFilter = (stepIndex: number, filterKey: string) => {
+    markDirty(stepIndex)
     setPlan((prev) => {
       if (!prev) return prev
       const steps = [...prev.steps]
@@ -429,6 +455,7 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   }
 
   const addFilter = (stepIndex: number) => {
+    markDirty(stepIndex)
     setPlan((prev) => {
       if (!prev) return prev
       const steps = [...prev.steps]
@@ -447,6 +474,7 @@ const [isEditingReport, setIsEditingReport] = useState(false)
 
   const renameFilterKey = (stepIndex: number, oldKey: string, newKey: string) => {
     if (!newKey.trim() || oldKey === newKey) return
+    markDirty(stepIndex)
     setPlan((prev) => {
       if (!prev) return prev
       const steps = [...prev.steps]
@@ -459,7 +487,8 @@ const [isEditingReport, setIsEditingReport] = useState(false)
     })
   }
 
-  const updateQueryField = (stepIndex: number, field: 'columns' | 'logic' | 'join_on', value: string[] | string) => {
+  const updateQueryField = (stepIndex: number, field: 'columns' | 'logic' | 'join_on' | 'sql', value: string[] | string) => {
+    markDirty(stepIndex)
     setPlan((prev) => {
       if (!prev) return prev
       const steps = [...prev.steps]
@@ -1242,6 +1271,16 @@ const handleSaveReport = async () => {
                         <span className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center">
                           {step.step_number}
                         </span>
+                        <select
+                          value={step.step_type ?? 'query'}
+                          onChange={(e) => updateStep(idx, 'step_type', e.target.value as 'query' | 'aggregate' | 'list')}
+                          disabled={isWorking}
+                          className="flex-shrink-0 text-xs font-semibold rounded px-2 py-0.5 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 focus:ring-1 focus:ring-blue-500"
+                        >
+                          <option value="query">query</option>
+                          <option value="aggregate">aggregate</option>
+                          <option value="list">list</option>
+                        </select>
                         <input
                           type="text"
                           value={step.purpose}
@@ -1249,33 +1288,84 @@ const handleSaveReport = async () => {
                           className="flex-1 bg-transparent text-sm font-medium text-gray-900 dark:text-white border-none outline-none focus:ring-0 p-0"
                           disabled={isWorking}
                         />
+                        {dirtySteps.has(idx) && !isWorking && (
+                          <button
+                            onClick={() => handleUpdateStep(idx)}
+                            disabled={savingSteps.has(idx)}
+                            className="flex-shrink-0 text-xs px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-50"
+                          >
+                            {savingSteps.has(idx) ? 'Saving…' : 'Update'}
+                          </button>
+                        )}
                       </div>
 
                       <div className="px-4 py-3 space-y-3">
-                        {/* Dataset */}
-                        <div className="flex items-center gap-2 text-sm">
-                          <span className="text-gray-500 dark:text-gray-400 font-medium w-20 flex-shrink-0">Dataset:</span>
-                          <span className="text-blue-600 dark:text-blue-400">{step.dataset_id ? getDatasetName(step.dataset_id) : '—'}</span>
-                          <span className="text-gray-400 dark:text-gray-500 text-xs font-mono">{step.dataset_id ? `(${step.dataset_id})` : ''}</span>
-                        </div>
-
-                        {/* Dependencies */}
-                        {step.dependencies.length > 0 && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="text-gray-500 dark:text-gray-400 font-medium w-20 flex-shrink-0">Depends:</span>
-                            <div className="flex gap-1">
-                              {step.dependencies.map(dep => (
-                                <span key={dep} className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded text-xs font-medium">
-                                  Step {dep}
+                        {/* Dataset + Dependencies row */}
+                        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500 dark:text-gray-400 font-medium text-xs w-16 flex-shrink-0">Dataset:</span>
+                            <span className="text-blue-600 dark:text-blue-400 text-xs">{step.dataset_id ? getDatasetName(step.dataset_id) : '—'}</span>
+                            {step.dataset_id && (
+                              <span className="text-gray-400 dark:text-gray-500 text-xs font-mono">({step.dataset_id})</span>
+                            )}
+                          </div>
+                          {step.dependencies.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-500 dark:text-gray-400 font-medium text-xs w-16 flex-shrink-0">Depends:</span>
+                              <div className="flex gap-1">
+                                {step.dependencies.map(dep => (
+                                  <span key={dep} className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded text-xs font-medium">
+                                    Step {dep}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500 dark:text-gray-400 font-medium text-xs w-16 flex-shrink-0">Output:</span>
+                            <div className="flex gap-1 flex-wrap">
+                              {step.expected_output.map((out, oi) => (
+                                <span key={oi} className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded text-xs font-mono">
+                                  {out}
                                 </span>
                               ))}
                             </div>
                           </div>
-                        )}
+                        </div>
 
                         {/* Query Strategy */}
                         <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-2">
                           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Query Strategy</p>
+
+                          {/* SQL (list/query steps with generated SQL) */}
+                          {(step.step_type === 'list' || step.query_strategy.sql) && (
+                            <div>
+                              <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">SQL:</p>
+                              <textarea
+                                value={step.query_strategy.sql ?? ''}
+                                onChange={(e) => updateQueryField(idx, 'sql', e.target.value)}
+                                rows={5}
+                                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-mono text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 resize-y"
+                                disabled={isWorking}
+                                placeholder="SELECT ..."
+                              />
+                            </div>
+                          )}
+
+                          {/* Logic */}
+                          {(step.query_strategy.logic !== undefined || step.step_type !== 'list') && (
+                            <div>
+                              <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Logic:</p>
+                              <textarea
+                                value={step.query_strategy.logic ?? ''}
+                                onChange={(e) => updateQueryField(idx, 'logic', e.target.value)}
+                                rows={3}
+                                className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 resize-y"
+                                disabled={isWorking}
+                                placeholder="Describe logic..."
+                              />
+                            </div>
+                          )}
 
                           {/* Filters */}
                           <div className="space-y-1">
@@ -1285,10 +1375,7 @@ const handleSaveReport = async () => {
                                 <button
                                   onClick={() => addFilter(idx)}
                                   className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
-                                  title="Add filter"
-                                >
-                                  + Add
-                                </button>
+                                >+ Add</button>
                               )}
                             </div>
                             {Object.keys(step.query_strategy.filters ?? {}).length > 0 ? (
@@ -1322,9 +1409,7 @@ const handleSaveReport = async () => {
                                           onClick={() => deleteFilter(idx, key)}
                                           className="flex-shrink-0 text-red-400 hover:text-red-600 dark:text-red-500 dark:hover:text-red-400 p-0.5"
                                           title={`Remove filter "${key}"`}
-                                        >
-                                          &#10005;
-                                        </button>
+                                        >&#10005;</button>
                                       )}
                                     </div>
                                   )
@@ -1344,18 +1429,7 @@ const handleSaveReport = async () => {
                               onChange={(e) => updateQueryField(idx, 'columns', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
                               className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-mono text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
                               disabled={isWorking}
-                            />
-                          </div>
-
-                          {/* Logic */}
-                          <div>
-                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Logic:</p>
-                            <input
-                              type="text"
-                              value={step.query_strategy.logic}
-                              onChange={(e) => updateQueryField(idx, 'logic', e.target.value)}
-                              className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
-                              disabled={isWorking}
+                              placeholder="col1, col2, col3"
                             />
                           </div>
 
@@ -1370,18 +1444,6 @@ const handleSaveReport = async () => {
                               className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded px-2 py-1 text-xs font-mono text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
                               disabled={isWorking}
                             />
-                          </div>
-                        </div>
-
-                        {/* Expected output */}
-                        <div className="flex items-center gap-2 text-sm">
-                          <span className="text-gray-500 dark:text-gray-400 font-medium text-xs">Output:</span>
-                          <div className="flex gap-1 flex-wrap">
-                            {step.expected_output.map((out, oi) => (
-                              <span key={oi} className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded text-xs font-mono">
-                                {out}
-                              </span>
-                            ))}
                           </div>
                         </div>
                       </div>

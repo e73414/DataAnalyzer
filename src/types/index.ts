@@ -214,7 +214,7 @@ export interface ReportPlanQueryStrategy {
 
 export interface ReportPlanStep {
   step_number: number
-  step_type?: 'query' | 'aggregate'
+  step_type?: 'query' | 'aggregate' | 'list'
   dataset_id: string | null
   purpose: string
   query_strategy: ReportPlanQueryStrategy

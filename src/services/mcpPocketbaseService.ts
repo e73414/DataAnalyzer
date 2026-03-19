@@ -249,7 +249,7 @@ export const pocketbaseService = {
     }))
   },
 
-  async updateConversation(id: string, data: { response?: string; prompt?: string }): Promise<void> {
+  async updateConversation(id: string, data: { response?: string; prompt?: string; report_plan?: string }): Promise<void> {
     await mcpN8nApi.patch(`/conversations/${id}`, data)
   },
 
