@@ -38,6 +38,18 @@ function calcChunkSize(columnCount: number | undefined, maxChunkRows: number): n
   return Math.min(maxChunkRows, Math.max(MIN_CHUNK_ROWS, Math.floor(target / cols)))
 }
 
+// Infers implicit dependencies from SQL when the plan's dependencies array is empty.
+// Looks for step1, step2, ... stepN references in sql or logic fields.
+function inferDepsFromSql(step: ReportPlanStep): number[] {
+  if (step.dependencies && step.dependencies.length > 0) return step.dependencies
+  const sql = (step.query_strategy?.sql ?? '') + (step.query_strategy?.logic ?? '')
+  const found: number[] = []
+  for (let i = 1; i <= 20; i++) {
+    if (sql.toLowerCase().indexOf('step' + i) !== -1 && !found.includes(i)) found.push(i)
+  }
+  return found.length > 0 ? found : (step.dependencies ?? [])
+}
+
 // Expands plan steps for datasets exceeding CHUNK_THRESHOLD rows.
 // Each oversized step is replaced with N parallel chunk steps + 1 merge step.
 // All step numbers and dependencies are renumbered consistently.
@@ -52,7 +64,8 @@ function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[], thres
     const rowCount    = rowCountMap.get(step.dataset_id ?? '')    ?? 0
     const columnCount = columnCountMap.get(step.dataset_id ?? '')
     const chunkSize   = calcChunkSize(columnCount, maxChunkRows)
-    const remappedDeps = step.dependencies
+    const effectiveDeps = inferDepsFromSql(step)
+    const remappedDeps = effectiveDeps
       .map(d => mergeStepFor.get(d))
       .filter((n): n is number => n !== undefined)
 
@@ -120,6 +133,30 @@ Aggregation rules (when chunks have different values):
     }
   }
 
+  // Rewrite step{N} references in SQL/logic text so downstream steps reference
+  // the correct new step numbers after expansion. Sort by descending old step
+  // number to prevent "step1" matching inside "step10" during replacement.
+  const sortedMappings = [...mergeStepFor.entries()]
+    .filter(([oldNum, newNum]) => oldNum !== newNum)
+    .sort((a, b) => b[0] - a[0])
+
+  if (sortedMappings.length > 0) {
+    for (const step of newSteps) {
+      const qs = step.query_strategy
+      if (!qs) continue
+      let sql = qs.sql ?? ''
+      let logic = qs.logic ?? ''
+      for (const [oldNum, newNum] of sortedMappings) {
+        const re = new RegExp('\\bstep' + oldNum + '\\b', 'gi')
+        sql = sql.replace(re, 'step' + newNum)
+        logic = logic.replace(re, 'step' + newNum)
+      }
+      if (sql !== (qs.sql ?? '') || logic !== (qs.logic ?? '')) {
+        step.query_strategy = { ...qs, sql: sql || undefined, logic: logic || undefined }
+      }
+    }
+  }
+
   return { ...plan, total_steps: newSteps.length, steps: newSteps }
 }
 
@@ -131,7 +168,7 @@ function groupStepsByBatch(steps: ReportPlanStep[]): ReportPlanStep[][] {
   let remaining = [...steps]
   while (remaining.length > 0) {
     const batch = remaining.filter(s =>
-      (s.dependencies ?? []).every(dep => completed.has(dep))
+      inferDepsFromSql(s).every(dep => completed.has(dep))
     )
     if (batch.length === 0) {
       // Cycle or unresolvable deps — fall back to running all remaining one at a time
@@ -153,7 +190,7 @@ function groupRetryStepsByBatch(failedSteps: ReportPlanStep[], alreadyCompleted:
   let remaining = [...failedSteps]
   while (remaining.length > 0) {
     const batch = remaining.filter(s =>
-      (s.dependencies ?? []).every(dep => completed.has(dep))
+      inferDepsFromSql(s).every(dep => completed.has(dep))
     )
     if (batch.length === 0) {
       batches.push(...remaining.map(s => [s]))
@@ -217,6 +254,7 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   const pollProgressRef = useRef<((rptId: string) => Promise<void>) | null>(null)
   const previewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const executionCancelledRef = useRef(false)
+  const expandedPlanRef = useRef<ReportPlan | null>(null)
 
   const {
     datasets: datasets = [],
@@ -548,6 +586,13 @@ const [isEditingReport, setIsEditingReport] = useState(false)
     stopPolling()
     setIsExecuting(false)
     setWasStopped(true)
+    // Mark any in-progress steps as error so they stop spinning visually
+    setExecutionProgress(prev => prev ? {
+      ...prev,
+      steps: prev.steps.map(s =>
+        s.status === 'started' ? { ...s, status: 'error' as const, step_result: 'Stopped by user' } : s
+      ),
+    } : null)
     toast('Execution stopped', { icon: '\u23F9' })
   }, [stopPolling])
 
@@ -793,6 +838,7 @@ const handleSaveReport = async () => {
     setWasStopped(false)
     const sharedReportId = 'rpt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)
     const expandedPlan = expandPlanForLargeDatasets(plan, datasets, CHUNK_THRESHOLD, chunkThreshold)
+    expandedPlanRef.current = expandedPlan
     const batches = groupStepsByBatch(expandedPlan.steps)
     const hasParallelism = batches.some(b => b.length > 1)
 
@@ -878,16 +924,14 @@ const handleSaveReport = async () => {
   }, [plan, session, effectivePlanModel, effectiveExecuteModel, userProfile, detailLevel, reportDetail, chunkThreshold, datasets, waitForBatchCompletion, stopPolling])
 
   const handleResumeExecution = useCallback(async () => {
-    if (!plan || !session?.email || !reportId || !executionProgress) return
+    const expandedPlan = expandedPlanRef.current
+    if (!expandedPlan || !session?.email || !reportId || !executionProgress) return
 
     const completedNums = new Set(
       executionProgress.steps.filter(s => s.status === 'completed').map(s => s.step_number)
     )
-    // Match against executionProgress step numbers (expanded plan) not original plan
-    const allTrackedStepNums = new Set(executionProgress.steps.map(s => s.step_number))
-    const incompleteSteps = plan.steps.filter(s =>
-      !completedNums.has(s.step_number) && allTrackedStepNums.has(s.step_number)
-    ).concat(plan.steps.filter(s => !allTrackedStepNums.has(s.step_number)))
+    // Use expanded plan steps so chunk/merge steps are included correctly
+    const incompleteSteps = expandedPlan.steps.filter(s => !completedNums.has(s.step_number))
     if (incompleteSteps.length === 0) return
 
     const batches = groupRetryStepsByBatch(incompleteSteps, completedNums)
@@ -914,7 +958,7 @@ const handleSaveReport = async () => {
         await Promise.all(
           batch.map(step =>
             n8nService.executePlan({
-              plan: JSON.stringify({ ...plan, steps: [step] }),
+              plan: JSON.stringify({ ...expandedPlan, steps: [step] }),
               email: session.email,
               model: effectiveExecuteModel,
               templateId: userProfile?.template_id,
@@ -951,7 +995,7 @@ const handleSaveReport = async () => {
       setExecutionProgress(prev => prev ? { ...prev, status: 'error', error_message: msg } : null)
       toast.error(msg)
     }
-  }, [plan, session, effectiveExecuteModel, userProfile, reportId, executionProgress, detailLevel, reportDetail, waitForBatchCompletion, stopPolling])
+  }, [session, effectiveExecuteModel, userProfile, reportId, executionProgress, detailLevel, reportDetail, waitForBatchCompletion, stopPolling])
 
   const handleRetryFailed = useCallback(async () => {
     if (!plan || !session?.email || !reportId || !executionProgress) return
