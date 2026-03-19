@@ -541,10 +541,13 @@ const [isEditingReport, setIsEditingReport] = useState(false)
     }
   }, [])
 
+  const [wasStopped, setWasStopped] = useState(false)
+
   const handleStopExecution = useCallback(() => {
     executionCancelledRef.current = true
     stopPolling()
     setIsExecuting(false)
+    setWasStopped(true)
     toast('Execution stopped', { icon: '\u23F9' })
   }, [stopPolling])
 
@@ -787,6 +790,7 @@ const handleSaveReport = async () => {
     if (!plan || !session?.email) return
 
     executionCancelledRef.current = false
+    setWasStopped(false)
     const sharedReportId = 'rpt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)
     const expandedPlan = expandPlanForLargeDatasets(plan, datasets, CHUNK_THRESHOLD, chunkThreshold)
     const batches = groupStepsByBatch(expandedPlan.steps)
@@ -872,6 +876,78 @@ const handleSaveReport = async () => {
       toast.error(msg)
     }
   }, [plan, session, effectivePlanModel, effectiveExecuteModel, userProfile, detailLevel, reportDetail, chunkThreshold, datasets, waitForBatchCompletion, stopPolling])
+
+  const handleResumeExecution = useCallback(async () => {
+    if (!plan || !session?.email || !reportId || !executionProgress) return
+
+    const completedNums = new Set(
+      executionProgress.steps.filter(s => s.status === 'completed').map(s => s.step_number)
+    )
+    const incompleteSteps = plan.steps.filter(s => !completedNums.has(s.step_number))
+    if (incompleteSteps.length === 0) return
+
+    const batches = groupRetryStepsByBatch(incompleteSteps, completedNums)
+    const incompleteNums = incompleteSteps.map(s => s.step_number)
+
+    executionCancelledRef.current = false
+    setIsExecuting(true)
+    setWasStopped(false)
+    setFormatterTriggered(false)
+    formatterTriggeredRef.current = false
+    setExecutionProgress(prev => prev ? {
+      ...prev,
+      status: 'in_progress',
+      error_message: null,
+      steps: prev.steps.map(s =>
+        incompleteNums.includes(s.step_number) ? { ...s, status: 'started' as const } : s
+      ),
+    } : null)
+    toast.success(`Resuming ${incompleteSteps.length} remaining step${incompleteSteps.length > 1 ? 's' : ''}...`)
+
+    try {
+      for (const batch of batches) {
+        if (executionCancelledRef.current) return
+        await Promise.all(
+          batch.map(step =>
+            n8nService.executePlan({
+              plan: JSON.stringify({ ...plan, steps: [step] }),
+              email: session.email,
+              model: effectiveExecuteModel,
+              templateId: userProfile?.template_id,
+              reportId,
+              stepsOnly: true,
+            })
+          )
+        )
+        await waitForBatchCompletion(reportId, batch.map(s => s.step_number))
+      }
+
+      if (executionCancelledRef.current) return
+
+      setFormatterTriggered(true)
+      formatterTriggeredRef.current = true
+      await n8nService.runFormatter({
+        reportId,
+        email: session.email,
+        model: effectiveExecuteModel,
+        templateId: userProfile?.template_id,
+        detailLevel,
+        reportDetail,
+        prompt,
+      })
+
+      pollingRef.current = setInterval(() => pollProgressRef.current?.(reportId), 5000)
+      setTimeout(() => pollProgressRef.current?.(reportId), 2000)
+
+    } catch (err) {
+      if (executionCancelledRef.current) return
+      stopPolling()
+      setIsExecuting(false)
+      const msg = err instanceof Error ? err.message : 'Resume failed'
+      setExecutionProgress(prev => prev ? { ...prev, status: 'error', error_message: msg } : null)
+      toast.error(msg)
+    }
+  }, [plan, session, effectiveExecuteModel, userProfile, reportId, executionProgress, detailLevel, reportDetail, waitForBatchCompletion, stopPolling])
 
   const handleRetryFailed = useCallback(async () => {
     if (!plan || !session?.email || !reportId || !executionProgress) return
@@ -1711,6 +1787,26 @@ const handleSaveReport = async () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Resume after stop */}
+                  {wasStopped && !isExecuting && plan && reportId && (() => {
+                    const completedNums = new Set(executionProgress.steps.filter(s => s.status === 'completed').map(s => s.step_number))
+                    const remaining = plan.steps.filter(s => !completedNums.has(s.step_number)).length
+                    return remaining > 0 ? (
+                      <div className="flex items-center gap-3 pt-1">
+                        <button
+                          type="button"
+                          onClick={handleResumeExecution}
+                          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
+                        >
+                          Resume Execution ({remaining} remaining)
+                        </button>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          Completed steps will be reused
+                        </span>
+                      </div>
+                    ) : null
+                  })()}
 
                   {/* Retry failed steps */}
                   {!isExecuting && executionProgress.steps.some(s => s.status === 'error') && plan && reportId && (
