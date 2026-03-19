@@ -1664,7 +1664,7 @@ const handleSaveReport = async () => {
           )}
 
           {/* Execution Progress */}
-          {(isExecuting || executionProgress?.status === 'error') && executionProgress && (
+          {(isExecuting || wasStopped || executionProgress?.status === 'error') && executionProgress && (
             <div ref={progressRef} className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6">
               <div className="flex items-center gap-3 mb-4">
                 <h3 className="label mb-0">Execution Progress</h3>
