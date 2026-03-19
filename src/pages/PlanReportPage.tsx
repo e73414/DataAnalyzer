@@ -883,7 +883,11 @@ const handleSaveReport = async () => {
     const completedNums = new Set(
       executionProgress.steps.filter(s => s.status === 'completed').map(s => s.step_number)
     )
-    const incompleteSteps = plan.steps.filter(s => !completedNums.has(s.step_number))
+    // Match against executionProgress step numbers (expanded plan) not original plan
+    const allTrackedStepNums = new Set(executionProgress.steps.map(s => s.step_number))
+    const incompleteSteps = plan.steps.filter(s =>
+      !completedNums.has(s.step_number) && allTrackedStepNums.has(s.step_number)
+    ).concat(plan.steps.filter(s => !allTrackedStepNums.has(s.step_number)))
     if (incompleteSteps.length === 0) return
 
     const batches = groupRetryStepsByBatch(incompleteSteps, completedNums)
@@ -1690,6 +1694,25 @@ const handleSaveReport = async () => {
                 )}
               </div>
 
+              {/* Resume after stop — shown at top level so it's always visible */}
+              {wasStopped && !isExecuting && (() => {
+                const remaining = executionProgress.steps.filter(s => s.status !== 'completed').length
+                return remaining > 0 ? (
+                  <div className="flex items-center gap-3 mb-3">
+                    <button
+                      type="button"
+                      onClick={handleResumeExecution}
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
+                    >
+                      Resume Execution ({remaining} remaining)
+                    </button>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Completed steps will be reused
+                    </span>
+                  </div>
+                ) : null
+              })()}
+
               {executionProgress.steps.length === 0 ? (
                 <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                   <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></span>
@@ -1787,26 +1810,6 @@ const handleSaveReport = async () => {
                       </div>
                     </div>
                   )}
-
-                  {/* Resume after stop */}
-                  {wasStopped && !isExecuting && plan && reportId && (() => {
-                    const completedNums = new Set(executionProgress.steps.filter(s => s.status === 'completed').map(s => s.step_number))
-                    const remaining = plan.steps.filter(s => !completedNums.has(s.step_number)).length
-                    return remaining > 0 ? (
-                      <div className="flex items-center gap-3 pt-1">
-                        <button
-                          type="button"
-                          onClick={handleResumeExecution}
-                          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
-                        >
-                          Resume Execution ({remaining} remaining)
-                        </button>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          Completed steps will be reused
-                        </span>
-                      </div>
-                    ) : null
-                  })()}
 
                   {/* Retry failed steps */}
                   {!isExecuting && executionProgress.steps.some(s => s.status === 'error') && plan && reportId && (
