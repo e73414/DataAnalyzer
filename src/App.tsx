@@ -20,6 +20,7 @@ import TemplateManagerPage from './pages/admin/TemplateManagerPage'
 import AppSettingsPage from './pages/admin/AppSettingsPage'
 import QuestionPage from './pages/QuestionPage'
 import ManageQuestionsPage from './pages/ManageQuestionsPage'
+import BrowseQuestionsPage from './pages/BrowseQuestionsPage'
 
 function UnauthorizedPage() {
   const navigate = useNavigate()
@@ -210,6 +211,14 @@ function App() {
         }
       />
       <Route path="/question/:id" element={<QuestionPage />} />
+      <Route
+        path="/browse-questions"
+        element={
+          <ProtectedRoute>
+            <BrowseQuestionsPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/manage-questions"
         element={

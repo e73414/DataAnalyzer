@@ -316,6 +316,10 @@ export interface ReportTemplate {
   is_public: boolean
 }
 
+export interface BrowsableQuestion extends SavedQuestion {
+  owner_profile?: string  // 9-char profile code from the owner's user record
+}
+
 export interface SavedQuestion {
   id: string
   prompt: string

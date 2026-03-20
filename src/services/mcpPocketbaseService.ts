@@ -405,6 +405,13 @@ export const pocketbaseService = {
     return response.data
   },
 
+  async browseSavedQuestions(email: string): Promise<import('../types').BrowsableQuestion[]> {
+    const response = await mcpN8nApi.get<import('../types').BrowsableQuestion[]>('/saved-questions/browse', {
+      params: { email }
+    })
+    return response.data || []
+  },
+
   async getSavedQuestions(email: string, all?: boolean): Promise<SavedQuestion[]> {
     const response = await mcpN8nApi.get<SavedQuestion[]>('/saved-questions', {
       params: { email, ...(all ? { all: 'true' } : {}) }
