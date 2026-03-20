@@ -1,0 +1,31 @@
+{
+  "updatedAt": "2026-02-25T15:24:04.006Z",
+  "createdAt": "2026-02-25T15:23:51.303Z",
+  "id": "h8hBzjh_jfsoXe4Y0R_ue",
+  "name": "Data Analyzer - React",
+  "active": false,
+  "isArchived": true,
+  "nodes": [],
+  "connections": {},
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "907375e4-3c1b-4cb2-81e6-4df27c1ef20a",
+  "activeVersionId": null,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-02-25T15:23:51.303Z",
+      "createdAt": "2026-02-25T15:23:51.303Z",
+      "role": "workflow:owner",
+      "workflowId": "h8hBzjh_jfsoXe4Y0R_ue",
+      "projectId": "1Tt3UeBU40oNvF7P"
+    }
+  ],
+  "activeVersion": null,
+  "tags": []
+}

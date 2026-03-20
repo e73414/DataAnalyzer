@@ -1,0 +1,581 @@
+{
+  "updatedAt": "2026-03-09T04:02:59.792Z",
+  "createdAt": "2026-02-07T00:13:44.136Z",
+  "id": "G8MwoyXPPw3lNQa4",
+  "name": "Data Analyzer - Delete Dataset API",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "delete-dataset",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -608,
+        208
+      ],
+      "id": "webhook-delete",
+      "name": "Webhook",
+      "webhookId": "delete-dataset-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT dataset_id, dataset_name, owner_email FROM n8n_data.dataset_record_manager WHERE dataset_id = $1::uuid ",
+        "options": {
+          "queryReplacement": "=$1\t{{ $json.body.datasetId }}\n$2\t{{ $json.body.email }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -400,
+        208
+      ],
+      "id": "verify-ownership",
+      "name": "Verify Ownership",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "check-exists",
+              "leftValue": "={{ $json.dataset_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -208,
+        208
+      ],
+      "id": "if-exists",
+      "name": "Dataset Exists?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://qdrant:6333/collections/optimal-ai-outputs/points/delete",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filter\": {\n    \"must\": [\n      {\n        \"key\": \"metadata.dataset_id\",\n        \"match\": {\n          \"value\": \"{{ $('Verify Ownership').first().json.dataset_id }}\"\n        }\n      }\n    ]\n  }\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        0,
+        112
+      ],
+      "id": "delete-qdrant",
+      "name": "Delete Qdrant Points",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM n8n_data.universal_datatable WHERE dataset_id = $1::uuid",
+        "options": {
+          "queryReplacement": "=$1\t{{ $('Verify Ownership').first().json.dataset_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        256
+      ],
+      "id": "delete-data",
+      "name": "Delete Data",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM n8n_data.dataset_record_manager WHERE dataset_id = $1::uuid RETURNING dataset_name",
+        "options": {
+          "queryReplacement": "=$1\t{{ $('Verify Ownership').first().json.dataset_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        208,
+        256
+      ],
+      "id": "delete-record",
+      "name": "Delete Record",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: \"ok\", message: \"Dataset deleted successfully\", datasetName: $json.dataset_name } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        400,
+        256
+      ],
+      "id": "respond-success",
+      "name": "Respond Success"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: \"error\", message: \"Dataset not found or you don't have permission to delete it\" } }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        592
+      ],
+      "id": "respond-not-found",
+      "name": "Respond Not Found"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DROP VIEW IF EXISTS n8n_data.v_ds_{{ $input.first().json.dataset_id.replace(/-/g, '_') }};\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        432
+      ],
+      "id": "d815bc85-d497-4f81-b2c0-8add794601d5",
+      "name": "Delete View",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify Ownership",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Ownership": {
+      "main": [
+        [
+          {
+            "node": "Dataset Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dataset Exists?": {
+      "main": [
+        [
+          {
+            "node": "Delete Qdrant Points",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Delete Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Delete View",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Data": {
+      "main": [
+        [
+          {
+            "node": "Delete Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Record": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "6c1d2c23-5774-43b4-8e0c-fe76b38a1aca",
+  "activeVersionId": "6c1d2c23-5774-43b4-8e0c-fe76b38a1aca",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-02-07T00:13:44.136Z",
+      "createdAt": "2026-02-07T00:13:44.136Z",
+      "role": "workflow:owner",
+      "workflowId": "G8MwoyXPPw3lNQa4",
+      "projectId": "1Tt3UeBU40oNvF7P"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-03-09T04:03:02.506Z",
+    "createdAt": "2026-03-09T04:02:59.794Z",
+    "versionId": "6c1d2c23-5774-43b4-8e0c-fe76b38a1aca",
+    "workflowId": "G8MwoyXPPw3lNQa4",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "delete-dataset",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -608,
+          208
+        ],
+        "id": "webhook-delete",
+        "name": "Webhook",
+        "webhookId": "delete-dataset-webhook"
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT dataset_id, dataset_name, owner_email FROM n8n_data.dataset_record_manager WHERE dataset_id = $1::uuid ",
+          "options": {
+            "queryReplacement": "=$1\t{{ $json.body.datasetId }}\n$2\t{{ $json.body.email }}"
+          }
+        },
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          -400,
+          208
+        ],
+        "id": "verify-ownership",
+        "name": "Verify Ownership",
+        "credentials": {
+          "postgres": {
+            "id": "5JhwTls4nSPISJqU",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "check-exists",
+                "leftValue": "={{ $json.dataset_id }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "exists",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          -208,
+          208
+        ],
+        "id": "if-exists",
+        "name": "Dataset Exists?"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "http://qdrant:6333/collections/optimal-ai-outputs/points/delete",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"filter\": {\n    \"must\": [\n      {\n        \"key\": \"metadata.dataset_id\",\n        \"match\": {\n          \"value\": \"{{ $('Verify Ownership').first().json.dataset_id }}\"\n        }\n      }\n    ]\n  }\n}",
+          "options": {
+            "timeout": 10000
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.3,
+        "position": [
+          0,
+          112
+        ],
+        "id": "delete-qdrant",
+        "name": "Delete Qdrant Points",
+        "continueOnFail": true
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "DELETE FROM n8n_data.universal_datatable WHERE dataset_id = $1::uuid",
+          "options": {
+            "queryReplacement": "=$1\t{{ $('Verify Ownership').first().json.dataset_id }}"
+          }
+        },
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          0,
+          256
+        ],
+        "id": "delete-data",
+        "name": "Delete Data",
+        "credentials": {
+          "postgres": {
+            "id": "5JhwTls4nSPISJqU",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "DELETE FROM n8n_data.dataset_record_manager WHERE dataset_id = $1::uuid RETURNING dataset_name",
+          "options": {
+            "queryReplacement": "=$1\t{{ $('Verify Ownership').first().json.dataset_id }}"
+          }
+        },
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          208,
+          256
+        ],
+        "id": "delete-record",
+        "name": "Delete Record",
+        "credentials": {
+          "postgres": {
+            "id": "5JhwTls4nSPISJqU",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ { status: \"ok\", message: \"Dataset deleted successfully\", datasetName: $json.dataset_name } }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          400,
+          256
+        ],
+        "id": "respond-success",
+        "name": "Respond Success"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ { status: \"error\", message: \"Dataset not found or you don't have permission to delete it\" } }}",
+          "options": {
+            "responseCode": 404
+          }
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          0,
+          592
+        ],
+        "id": "respond-not-found",
+        "name": "Respond Not Found"
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "DROP VIEW IF EXISTS n8n_data.v_ds_{{ $input.first().json.dataset_id.replace(/-/g, '_') }};\n",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          0,
+          432
+        ],
+        "id": "d815bc85-d497-4f81-b2c0-8add794601d5",
+        "name": "Delete View",
+        "credentials": {
+          "postgres": {
+            "id": "5JhwTls4nSPISJqU",
+            "name": "Postgres account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Verify Ownership",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Verify Ownership": {
+        "main": [
+          [
+            {
+              "node": "Dataset Exists?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Dataset Exists?": {
+        "main": [
+          [
+            {
+              "node": "Delete Qdrant Points",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Delete Data",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Delete View",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Respond Not Found",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Delete Data": {
+        "main": [
+          [
+            {
+              "node": "Delete Record",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Delete Record": {
+        "main": [
+          [
+            {
+              "node": "Respond Success",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "EUN ed.e.lee@gmail.com",
+    "name": "Version 6c1d2c23",
+    "description": "",
+    "autosaved": true
+  },
+  "tags": []
+}

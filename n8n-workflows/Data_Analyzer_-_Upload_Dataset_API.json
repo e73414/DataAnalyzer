@@ -1,0 +1,2455 @@
+{
+  "updatedAt": "2026-03-09T03:42:38.809Z",
+  "createdAt": "2026-02-06T04:16:34.484Z",
+  "id": "tkZS0zlAIT5YaR4l",
+  "name": "Data Analyzer - Upload Dataset API",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "model": "x-ai/grok-4.1-fast",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        544,
+        672
+      ],
+      "id": "e4997a0d-a386-48d1-b1c1-24eed3508366",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "SScyp7rqdYRmN9lx",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "deepseek/deepseek-v3.2",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        816,
+        672
+      ],
+      "id": "04a7cda0-a082-4baf-b20c-3ba5b7d68d04",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "SScyp7rqdYRmN9lx",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "upload-dataset",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        16
+      ],
+      "id": "4ddf12fd-8588-4765-938e-5730265418c4",
+      "name": "Webhook",
+      "webhookId": "upload-dataset-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "var webhookData = $input.first().json.body;\nvar base64Data = webhookData.csvData;\nif (!base64Data) {\n  throw new Error(\"No csvData found in request\");\n}\n\nvar datasetName = webhookData.datasetName || \"Unnamed Dataset\";\nvar description = webhookData.description || \"\";\nvar email = webhookData.email || \"\";\n\nvar csvText = Buffer.from(base64Data, \"base64\").toString(\"utf-8\");\n\n// Strip BOM if present\nif (csvText.charCodeAt(0) === 0xFEFF) {\n  csvText = csvText.slice(1);\n}\n\n// --- MULTILINE-AWARE CSV PARSER ---\nfunction parseCSV(text) {\n  const rows = [];\n  let row = [];\n  let cell = '';\n  let inQuotes = false;\n\n  for (let i = 0; i < text.length; i++) {\n    const char = text[i];\n    const next = text[i + 1];\n\n    if (char === '\"') {\n      if (inQuotes && next === '\"') {\n        cell += '\"';\n        i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (char === ',' && !inQuotes) {\n      row.push(cell.trim());\n      cell = '';\n    } else if (!inQuotes && (char === '\\n' || char === '\\r')) {\n      if (char === '\\r' && next === '\\n') i++;\n      row.push(cell.trim());\n      if (row.some(v => v !== '')) {\n        rows.push(row);\n      }\n      row = [];\n      cell = '';\n    } else {\n      cell += char;\n    }\n  }\n\n  // Flush final row\n  if (cell || row.length) {\n    row.push(cell.trim());\n    if (row.some(v => v !== '')) {\n      rows.push(row);\n    }\n  }\n\n  return rows;\n}\n// ----------------------------------\n\nvar allRows = parseCSV(csvText);\n\nif (allRows.length < 2) {\n  throw new Error(\"CSV must have header and data rows\");\n}\n\nvar headers = allRows[0];\nvar rows = [];\n\nfor (var i = 1; i < allRows.length; i++) {\n  var values = allRows[i];\n  var row = {};\n  for (var j = 0; j < headers.length; j++) {\n    row[headers[j]] = values[j] !== undefined ? values[j] : \"\";\n  }\n  rows.push({ json: row });\n}\n\nif (rows.length === 0) {\n  throw new Error(\"No data rows found\");\n}\n\n$execution.customData.set(\"datasetName\", datasetName);\n$execution.customData.set(\"description\", description);\n$execution.customData.set(\"email\", email);\n\nreturn rows;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        16
+      ],
+      "id": "3eadfa54-09ab-4cfc-996e-306103abd424",
+      "name": "Parse CSV"
+    },
+    {
+      "parameters": {
+        "jsCode": "var items = $input.all();\nif (items.length === 0) return { error: \"No data received.\" };\n\nvar datasetName = $execution.customData.get(\"datasetName\") || \"Test\";\nvar datasetDesc = $execution.customData.get(\"description\") || \"\";\nvar email = $execution.customData.get(\"email\") || \"\";\n\nfunction detectType(val) {\n  if (val === null || val === undefined || String(val).trim() === \"\") return \"null\";\n  var str = String(val).trim();\n\n  // 1. Enhanced Date Detection (Strict ISO, US Slanted, and Dash formats)\n  var strictDate = /^\\d{4}-\\d{2}-\\d{2}$|^\\d{1,2}[\\/-]\\d{1,2}[\\/-]\\d{2,4}$/;\n  // Also check if it's a valid date object string (like \"2023-10-27T10:00:00Z\")\n  if (strictDate.test(str) || !isNaN(Date.parse(str)) && isNaN(str)) {\n    return \"date\";\n  }\n\n  // 2. Boolean Detection\n  if (str.toLowerCase() === \"true\" || str.toLowerCase() === \"false\") return \"bool\";\n\n  // 3. Numeric Detection (Cleaned of currency/commas)\n  var cleanNum = str.replace(/[$,]/g, \"\");\n  if (cleanNum !== \"\" && !isNaN(cleanNum)) {\n    if (str.indexOf(\".\") !== -1 || Math.abs(parseFloat(cleanNum)) > 999999) {\n      return \"real\";\n    }\n    return \"int\";\n  }\n\n  return \"string\";\n}\n\nfunction getWinnerType(current, next) {\n  if (!current || current === \"null\") return next;\n  if (next === \"null\") return current;\n  \n  // Hierarchy: String kills everything. \n  // Dates should stay Dates unless mixed with text.\n  if (current === \"string\" || next === \"string\") return \"string\";\n  \n  // If we have mixed Date and Numbers, we usually default to String\n  if ((current === \"date\" && next !== \"date\") || (next === \"date\" && current !== \"date\")) {\n    return \"string\";\n  }\n\n  if (current === \"real\" || next === \"real\") return \"real\";\n  if (current === \"int\" && next === \"int\") return \"int\";\n  \n  return current;\n}\n\nvar columnTypes = {};\nitems.forEach(function(item) {\n  var entries = Object.entries(item.json);\n  for (var i = 0; i < entries.length; i++) {\n    var key = entries[i][0];\n    var value = entries[i][1];\n    var type = detectType(value);\n    columnTypes[key] = getWinnerType(columnTypes[key], type);\n  }\n});\n\nvar counters = { string: 1, real: 1, int: 1, date: 1, bool: 1 };\nvar mapping = {};\nvar dictionary = {};\n// Trim and deduplicate headers (trim before sort to group identical trimmed names)\nvar headers = [...new Set(Object.keys(columnTypes).map(k => k.trim()))].sort();\n// Rebuild columnTypes with trimmed keys\nvar trimmedColumnTypes = {};\nObject.keys(columnTypes).forEach(k => {\n  var tk = k.trim();\n  trimmedColumnTypes[tk] = getWinnerType(trimmedColumnTypes[tk], columnTypes[k]);\n});\ncolumnTypes = trimmedColumnTypes;\n\nfor (var i = 0; i < headers.length; i++) {\n  var header = headers[i].trim();\n  var type = columnTypes[header];\n  if (type === \"null\") type = \"string\";\n\n  // This creates column names like date1, date2, etc.\n  var dbColumn = type + counters[type];\n  mapping[header] = dbColumn;\n  dictionary[dbColumn] = { \n    original_name: header, \n    data_type: type \n  };\n  counters[type]++;\n}\n\nreturn {\n  dataset_name: datasetName,\n  dataset_summary: datasetDesc,\n  owner_email: email,\n  column_mapping: mapping,\n  column_dictionary: dictionary,\n  total_row_count: items.length\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        16
+      ],
+      "id": "bc9088b5-ca71-4e36-bb05-7dcac71c3696",
+      "name": "Mapping Logic"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "check-summary",
+              "leftValue": "={{ $json.dataset_summary }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        416,
+        16
+      ],
+      "id": "911536ee-bc7f-4ab1-864a-6bc1e08c0251",
+      "name": "If Summary Empty"
+    },
+    {
+      "parameters": {
+        "jsCode": "var items = $(\"Parse CSV\").all();\nif (items.length === 0) return [];\n\nvar shuffled = items.slice();\nfor (var i = shuffled.length - 1; i > 0; i--) {\n  var j = Math.floor(Math.random() * (i + 1));\n  var temp = shuffled[i];\n  shuffled[i] = shuffled[j];\n  shuffled[j] = temp;\n}\n\nreturn shuffled.slice(0, 300);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        -80
+      ],
+      "id": "819b7655-728e-49dc-9d80-6db11031fcbc",
+      "name": "Sample Data"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "dataset_name",
+              "value": "={{ $(\"Mapping Logic\").first().json.dataset_name }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "dataset_summary",
+              "value": "={{ $json.cleaned_summary }}",
+              "type": "string"
+            },
+            {
+              "id": "a6",
+              "name": "owner_email",
+              "value": "={{ $(\"Mapping Logic\").first().json.owner_email }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "column_mapping",
+              "value": "={{ $(\"Mapping Logic\").first().json.column_mapping }}",
+              "type": "object"
+            },
+            {
+              "id": "a4",
+              "name": "column_dictionary",
+              "value": "={{ $(\"Mapping Logic\").first().json.column_dictionary }}",
+              "type": "object"
+            },
+            {
+              "id": "a5",
+              "name": "total_row_count",
+              "value": "={{ $(\"Mapping Logic\").first().json.total_row_count }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1344,
+        -96
+      ],
+      "id": "b9798b57-db41-42b9-bb1d-0d140616f8d4",
+      "name": "Set With AI Summary"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1",
+              "name": "dataset_name",
+              "value": "={{ $(\"Mapping Logic\").first().json.dataset_name }}",
+              "type": "string"
+            },
+            {
+              "id": "b2",
+              "name": "dataset_summary",
+              "value": "={{ $(\"Mapping Logic\").first().json.dataset_summary }}",
+              "type": "string"
+            },
+            {
+              "id": "b6",
+              "name": "owner_email",
+              "value": "={{ $(\"Mapping Logic\").first().json.owner_email }}",
+              "type": "string"
+            },
+            {
+              "id": "b3",
+              "name": "column_mapping",
+              "value": "={{ $(\"Mapping Logic\").first().json.column_mapping }}",
+              "type": "object"
+            },
+            {
+              "id": "b4",
+              "name": "column_dictionary",
+              "value": "={{ $(\"Mapping Logic\").item.json.column_dictionary }}",
+              "type": "object"
+            },
+            {
+              "id": "b5",
+              "name": "total_row_count",
+              "value": "={{ $(\"Mapping Logic\").first().json.total_row_count }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        608,
+        112
+      ],
+      "id": "6f7e0c23-3a62-4ce9-9825-1bb4f99bbf19",
+      "name": "Set Without AI"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO n8n_data.dataset_record_manager (\n    dataset_name,\n    dataset_summary,\n    row_count,\n    column_mapping,\n    column_dictionary,\n    owner_email,\n    dataset_desc\n) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7)\nRETURNING dataset_id",
+        "options": {
+          "queryReplacement": "={{ [$json.dataset_name, $json.dataset_summary, $json.total_row_count, JSON.stringify($('Mapping Logic').first().json.column_mapping), JSON.stringify($('Mapping Logic').first().json.column_dictionary), $json.owner_email, $('Webhook').first().json.body.dataset_desc] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1616,
+        16
+      ],
+      "id": "1ec6d7cd-7cc5-4b55-b5ee-886c1f51f26f",
+      "name": "Insert Record Manager",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get mapping and ID\nconst mappingNode = $(\"Mapping Logic\").first();\nconst managerNode = $(\"Insert Record Manager\").first();\n\nif (!mappingNode || !managerNode) {\n    throw new Error(\"Missing input from Mapping Logic or Insert Record Manager\");\n} \n\nconst mapping = mappingNode.json.column_mapping;\nconst datasetId = managerNode.json.dataset_id;\n\n// --- FIX IS HERE: Reference \"Parse CSV\" directly to get the data rows ---\nconst allRows = $(\"Parse CSV\").all(); \n\nconst results = [];\nconst batchSize = 100; // Smaller batches are safer for large SQL strings\nconst mapEntries = Object.entries(mapping);\nconst dbColumnNames = mapEntries.map(entry => entry[1]);\n\nfunction isDateColumn(colName) {\n    const lower = colName.toLowerCase();\n    return lower.includes(\"date\") || lower.includes(\"_at\") || lower.includes(\"time\");\n}\n\nfunction standardizeDate(val) {\n    const d = new Date(val);\n    return isNaN(d.getTime()) ? null : d.toISOString().split(\"T\")[0];\n}\n\nfunction prepareValue(val, targetColumn) {\n    if (val === null || val === undefined || String(val).trim() === \"\") return \"NULL\";\n    \n    let stringVal = String(val).trim();\n    const colLower = targetColumn.toLowerCase();\n    \n    // Numeric handling (strip currency symbols and commas)\n    if (colLower.startsWith(\"int\") || colLower.startsWith(\"real\") || colLower.startsWith(\"numeric\")) {\n        const cleanNum = stringVal.replace(/[,\\s$]/g, \"\");\n        if (cleanNum === \"\" || isNaN(cleanNum)) return \"NULL\";\n        return cleanNum;\n    }\n    \n    // Date handling\n    if (isDateColumn(targetColumn)) {\n        if (/^\\d+$/.test(stringVal) && parseInt(stringVal) > 9999) return \"NULL\";\n        const correctedDate = standardizeDate(stringVal);\n        return correctedDate ? `'${correctedDate}'` : \"NULL\";\n    }\n    \n    // String handling: Escape single quotes AND dollar signs\n    const escaped = stringVal\n        .replace(/'/g, \"''\")\n        .replace(/\\$/g, \"$$$$\"); \n        \n    return `'${escaped}'`;\n}\n\nconst columns = ['\"dataset_id\"', '\"row_index\"'].concat(dbColumnNames.map(c => `\"${c}\"`));\n\nfor (let i = 0; i < allRows.length; i += batchSize) {\n    const chunk = allRows.slice(i, i + batchSize);\n    const valuesList = chunk.map((item, idx) => {\n        const row = item.json;\n        // Ensure datasetId is wrapped in single quotes as it is a UUID/String\n        const rowValues = [`'${datasetId}'`, i + idx + 1]; \n        \n        mapEntries.forEach(entry => {\n            rowValues.push(prepareValue(row[entry[0]], entry[1]));\n        });\n        return `(${rowValues.join(\",\")})`;\n    });\n\n    results.push({ \n        json: { \n            sql: `INSERT INTO n8n_data.universal_datatable (${columns.join(\",\")}) VALUES ${valuesList.join(\",\")};` \n        } \n    });\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1824,
+        16
+      ],
+      "id": "44c829af-ecba-4080-ae7e-c07454d90f93",
+      "name": "Data Transformer"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.sql }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2032,
+        16
+      ],
+      "id": "de35b093-c07f-4ba1-aa23-98225524b9e9",
+      "name": "Insert Data",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: \"ok\", datasetId: $(\"Insert Record Manager\").first().json.dataset_id, rowsInserted: $(\"Mapping Logic\").first().json.total_row_count, datasetName:$(\"Mapping Logic\").first().json.dataset_name } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2496,
+        32
+      ],
+      "id": "8ae3658c-8b43-442d-9b3a-d0da12c2bafa",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=CREATE OR REPLACE VIEW n8n_data.v_ds_{{ $('Insert Record Manager').first().json.dataset_id.replace(/-/g, '_') }} AS\nSELECT\n    {{\n      Object.entries($('Mapping Logic').first().json.column_mapping)\n      .map(([name, col]) => {\n        const safeName = (name && name.trim() !== \"\") ? name.trim() : `unnamed_${col}`;\n        return `${col} AS \"${safeName}\"`;\n      })\n      .join(',\\n    ')\n    }}\nFROM n8n_data.universal_datatable\nWHERE dataset_id = '{{ $('Insert Record Manager').first().json.dataset_id }}';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2240,
+        16
+      ],
+      "id": "199722ae-918f-4dc0-b2da-f1b22ffa80eb",
+      "name": "Create View",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze the following dataset as a single block to build a SQL Search Index:\n{{ JSON.stringify($input.all().map(i => i.json)) }}",
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "ROLE\nYou are a Senior Database Engineer and Metadata Architect. Your objective is to analyze a 300-row sample of CSV data and generate a highly structured metadata map. This map will be used by a downstream AI to construct 100% accurate, high-performance SQL queries.\n\nYOUR TASK\nAnalyze the data and identify \"Filtering Columns.\" These are columns used in SQL WHERE, HAVING, or GROUP BY clauses.\n\nCategorical Discovery: Identify columns with low-to-medium cardinality (categories, statuses, regions, types). Extract the exact unique values.\n\nTemporal & Numeric Discovery: Identify date/time columns and numerical columns. Note their exact formatting (e.g., YYYY-MM-DD, presence of $ or , in numbers) so the SQL agent knows how to cast or parse them.\n\nSemantic Mapping: Infer the precise business logic of each column based on its header and values. Do not hallucinate; stick to what the data clearly represents.\n\nData Quality & Quirks: Detect if the column contains empty strings, NULL, N/A, or formatting quirks (e.g., case sensitivity, leading spaces).\n\nGranularity/Double-Counting: Identify rows that represent Subtotals, Totals, or Rollups (e.g., a \"Region\" column that contains the value \"All Regions\").\n\nSTRICT OUTPUT FORMAT\nYou must output strictly valid JSON. Do not include markdown formatting, conversational filler, or explanations. Start immediately with the JSON array [.\n\nUse this exact JSON schema:\n[\n  {\n    \"column_header\": \"Exact Column Name\",\n    \"data_type\": \"Categorical | Date | Numeric | Boolean\",\n    \"business_logic\": \"Brief, precise description of what this filters (e.g., Transaction lifecycle stage).\",\n    \"exact_values\": [\"Value A\", \"Value B\", \"Value C\"], \n    \"format_notes\": \"For Dates: format like MM/DD/YYYY. For Numerics: note currency symbols or commas. For Categories: note case sensitivity or special characters.\",\n    \"null_handling\": \"Note if empty strings, NULLs, or N/A are present.\",\n    \"aggregation_warning\": \"Include specific instructions if this column contains 'Total', 'Subtotal', or 'All' values that must be excluded in standard SUM() queries to avoid double-counting. Otherwise, output null.\"\n  }\n]\n\nCONSTRAINTS:\n\nIgnore purely unique identifiers (e.g., Transaction ID, Employee SSN, full names) UNLESS they are highly relevant for grouping (e.g., Manager ID).\n\nLimit exact_values to a maximum of 15 items. If there are more, list the top 10 and add \"...[High Cardinality]\".\n\nOutput ONLY the raw JSON array.",
+          "maxIterations": 25,
+          "returnIntermediateSteps": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        800,
+        -144
+      ],
+      "id": "9bececbd-8567-4c18-a295-7f5c50acb32f",
+      "name": "AI Agent",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "var rawText = $json.output || \"\";\n\n// 1. Strip any markdown formatting the AI might add (e.g., ```json ... ```)\nvar jsonString = rawText.replace(/```[a-z]*\\n?/g, \"\").replace(/```/g, \"\").trim();\n\nvar parsedData;\ntry {\n  // 2. Parse the pure JSON array\n  parsedData = JSON.parse(jsonString);\n} catch (e) {\n  // Safe fallback if the AI hallucinates bad JSON\n  return { cleaned_summary: \"Error parsing AI output: \" + e.message + \"\\n\\nRaw Output:\\n\" + rawText };\n}\n\nvar mdRows = [];\n\n// 3. Loop through the JSON objects and build your clean Markdown string\nparsedData.forEach(function(col) {\n  var sectionMd = \"### Column name:\" + col.column_header + \"\\n\";\n  \n  if (col.data_type) sectionMd += \"* **Data Type:** \" + col.data_type + \"\\n\";\n  if (col.business_logic) sectionMd += \"* **Business Logic:** \" + col.business_logic + \"\\n\";\n  \n  // Join the array of exact values with commas\n  if (col.exact_values && col.exact_values.length > 0) {\n    sectionMd += \"* **Exact Values:** \" + col.exact_values.join(\", \") + \"\\n\";\n  }\n  \n  if (col.format_notes) sectionMd += \"* **Format Notes:** \" + col.format_notes + \"\\n\";\n  if (col.null_handling) sectionMd += \"* **Null Handling:** \" + col.null_handling + \"\\n\";\n  if (col.aggregation_warning) sectionMd += \"* **Aggregation Warning:** \" + col.aggregation_warning + \"\\n\";\n  \n  mdRows.push(sectionMd);\n});\n\n// 4. Return the formatted markdown string to be passed to Postgres\nreturn { cleaned_summary: mdRows.join(\"\\n\\n\") };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -176
+      ],
+      "id": "53c9afb9-5d75-409b-844e-1d8e651f4e3f",
+      "name": "Clean Summary"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Description of the Dataset by User: {{ $('Webhook').first().json.body.dataset_desc }}\n\nDataset Summary: {{ $('Clean Summary').first().json.cleaned_summary }}\n",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a data analyst who analyzes datasets based on the Description of the Dataset by User and Dataset Summary to come up with a set of 5 questions or queries that would be made by a real user who would use the dataset to answer real world business questions.\n\nEach question must consider:\n- The nature of the dataset -- the subject matter of the data (e.g. sales funnel, revenue, list of employees, etc.), type of data (e.g. time-based? monthly / annual / time stamped log or book of records, etc.)\n- Potential key takeaways (e.g. the number of deals in various deal stages?, total number of employees in different job level, total revenue, revenue variance year-over-year, total number of customers in the US, etc.)\n- Other potential insights to the user that the dataset could bring\n\nEach question must include:\n- Structured terms and language that provides clarity for AI to build an effective and accurate SQL query\n- Language that would be easily understood by users not very familiar with the data (i.e. use layman's terms)\n- Objective / insight the question is trying to extract\n\nThe response should be a list of 3 sample questions in JSON format."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2128,
+        320
+      ],
+      "id": "f8a6dfde-0267-45f9-9a48-17f883fe45e8",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "model": "x-ai/grok-4.1-fast",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        2128,
+        608
+      ],
+      "id": "da75b5b9-9981-4bac-9ff3-6da2a87d2abe",
+      "name": "OpenRouter Chat Model2",
+      "credentials": {
+        "openRouterApi": {
+          "id": "SScyp7rqdYRmN9lx",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"questions\": [\n    {\n      \"id\": \"1\",\n      \"question\": \"What time period should this report cover?\"\n    },\n    {\n      \"id\": \"1\",\n      \"question\": \"How should the results be broken down or grouped?\"\n    },\n    {\n      \"id\": \"3\",\n      \"question\": \"Which key metrics or KPIs are most important for this report?\"\n    }\n  ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2304,
+        528
+      ],
+      "id": "d0d3e10f-ba77-4ee4-8bef-e464eec0a106",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "value": "n8n_data",
+          "mode": "list",
+          "cachedResultName": "n8n_data"
+        },
+        "table": {
+          "__rl": true,
+          "value": "dataset_record_manager",
+          "mode": "list",
+          "cachedResultName": "dataset_record_manager"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "sample_questions": "={{ $json.output }}",
+            "dataset_id": "={{ $('Insert Record Manager').item.json.dataset_id }}"
+          },
+          "matchingColumns": [
+            "dataset_id"
+          ],
+          "schema": [
+            {
+              "id": "dataset_id",
+              "displayName": "dataset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "dataset_name",
+              "displayName": "dataset_name",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "dataset_summary",
+              "displayName": "dataset_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_count",
+              "displayName": "row_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "dataset_headers",
+              "displayName": "dataset_headers",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "dataset_header_types",
+              "displayName": "dataset_header_types",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "column_mapping",
+              "displayName": "column_mapping",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "column_dictionary",
+              "displayName": "column_dictionary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "owner_email",
+              "displayName": "owner_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "auth",
+              "displayName": "auth",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "dataset_desc",
+              "displayName": "dataset_desc",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "sample_questions",
+              "displayName": "sample_questions",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2480,
+        320
+      ],
+      "id": "24d1b2e9-2b05-45f9-87e6-674c2fe5ec80",
+      "name": "Update rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        912,
+        992
+      ],
+      "id": "c4665068-4f48-4b77-8397-534500dbc313",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "value": "n8n_data",
+          "mode": "list",
+          "cachedResultName": "n8n_data"
+        },
+        "table": {
+          "__rl": true,
+          "value": "dataset_record_manager",
+          "mode": "list",
+          "cachedResultName": "dataset_record_manager"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "sample_questions",
+              "condition": "IS NULL"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1120,
+        992
+      ],
+      "id": "8e13b377-60b1-430e-a0ff-f0b37652dee8",
+      "name": "Select rows from a table",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1536,
+        992
+      ],
+      "id": "16fc4f0d-a477-4271-aa6e-4ea8e58e267f",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Description of the Dataset by User: {{ $('Loop Over Items').item.json.dataset_desc }}\n\nDataset Summary: {{  $('Loop Over Items').item.json.dataset_summary }}\n",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a data analyst who analyzes datasets based on the Description of the Dataset by User and Dataset Summary to come up with a set of 5 questions or queries that would be made by a real user who would use the dataset to answer real world business questions.\n\nEach question must consider:\n- The nature of the dataset -- the subject matter of the data (e.g. sales funnel, revenue, list of employees, etc.), type of data (e.g. time-based? monthly / annual / time stamped log or book of records, etc.)\n- Potential key takeaways (e.g. the number of deals in various deal stages?, total number of employees in different job level, total revenue, revenue variance year-over-year, total number of customers in the US, etc.)\n- Other potential insights to the user that the dataset could bring\n\nEach question must include:\n- Structured terms and language that provides clarity for AI to build an effective and accurate SQL query\n\n** IMPORTANT **\nDo not put SQL query directly in the question. \nBe brief and talk in layman's terms that anyone can understand. (like to a 12-year old)\nThe response should be a list of 3 sample questions in JSON format."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1840,
+        976
+      ],
+      "id": "571cbcca-c58c-498a-bd9b-c32ecdcb64b6",
+      "name": "AI Agent2"
+    },
+    {
+      "parameters": {
+        "model": "x-ai/grok-4.1-fast",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        1264
+      ],
+      "id": "a58d8e59-3d7d-4bb4-ba53-011a06670dd4",
+      "name": "OpenRouter Chat Model3",
+      "credentials": {
+        "openRouterApi": {
+          "id": "SScyp7rqdYRmN9lx",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"questions\": [\n    {\n      \"id\": \"1\",\n      \"question\": \"What time period should this report cover?\"\n    },\n    {\n      \"id\": \"1\",\n      \"question\": \"How should the results be broken down or grouped?\"\n    },\n    {\n      \"id\": \"3\",\n      \"question\": \"Which key metrics or KPIs are most important for this report?\"\n    }\n  ]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2016,
+        1184
+      ],
+      "id": "c6b10e58-dfbf-4fb3-8b1e-3a9773ea1468",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "value": "n8n_data",
+          "mode": "list",
+          "cachedResultName": "n8n_data"
+        },
+        "table": {
+          "__rl": true,
+          "value": "dataset_record_manager",
+          "mode": "list",
+          "cachedResultName": "dataset_record_manager"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_count": 0,
+            "auth": 0,
+            "sample_questions": "={{ $json.output }}",
+            "dataset_id": "={{ $('Loop Over Items').item.json.dataset_id }}"
+          },
+          "matchingColumns": [
+            "dataset_id"
+          ],
+          "schema": [
+            {
+              "id": "dataset_id",
+              "displayName": "dataset_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "dataset_name",
+              "displayName": "dataset_name",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "dataset_summary",
+              "displayName": "dataset_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_count",
+              "displayName": "row_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "dataset_headers",
+              "displayName": "dataset_headers",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "dataset_header_types",
+              "displayName": "dataset_header_types",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "column_mapping",
+              "displayName": "column_mapping",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "column_dictionary",
+              "displayName": "column_dictionary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "owner_email",
+              "displayName": "owner_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "auth",
+              "displayName": "auth",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "dataset_desc",
+              "displayName": "dataset_desc",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sample_questions",
+              "displayName": "sample_questions",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2192,
+        976
+      ],
+      "id": "da5db44e-287d-4454-86b3-1f9858ba9be0",
+      "name": "Update rows in a table1",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "dataset_id",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1328,
+        992
+      ],
+      "id": "55fe47fe-6887-4783-b92e-ba284062cd7d",
+      "name": "Split Out"
+    }
+  ],
+  "connections": {
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse CSV": {
+      "main": [
+        [
+          {
+            "node": "Mapping Logic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mapping Logic": {
+      "main": [
+        [
+          {
+            "node": "If Summary Empty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Summary Empty": {
+      "main": [
+        [
+          {
+            "node": "Sample Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Without AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sample Data": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set With AI Summary": {
+      "main": [
+        [
+          {
+            "node": "Insert Record Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Without AI": {
+      "main": [
+        [
+          {
+            "node": "Insert Record Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Record Manager": {
+      "main": [
+        [
+          {
+            "node": "Data Transformer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Transformer": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Insert Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Data": {
+      "main": [
+        [
+          {
+            "node": "Create View",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create View": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Clean Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Summary": {
+      "main": [
+        [
+          {
+            "node": "Set With AI Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Update rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Select rows from a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select rows from a table": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "AI Agent2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent2": {
+      "main": [
+        [
+          {
+            "node": "Update rows in a table1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update rows in a table1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "84a7df54-23b1-4467-8c3e-bb5d95b16e83",
+  "activeVersionId": "84a7df54-23b1-4467-8c3e-bb5d95b16e83",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-02-06T04:16:34.484Z",
+      "createdAt": "2026-02-06T04:16:34.484Z",
+      "role": "workflow:owner",
+      "workflowId": "tkZS0zlAIT5YaR4l",
+      "projectId": "1Tt3UeBU40oNvF7P"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-03-09T03:42:42.778Z",
+    "createdAt": "2026-03-09T03:42:38.811Z",
+    "versionId": "84a7df54-23b1-4467-8c3e-bb5d95b16e83",
+    "workflowId": "tkZS0zlAIT5YaR4l",
+    "nodes": [
+      {
+        "parameters": {
+          "model": "x-ai/grok-4.1-fast",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+        "typeVersion": 1,
+        "position": [
+          544,
+          672
+        ],
+        "id": "e4997a0d-a386-48d1-b1c1-24eed3508366",
+        "name": "OpenRouter Chat Model",
+        "credentials": {
+          "openRouterApi": {
+            "id": "SScyp7rqdYRmN9lx",
+            "name": "OpenRouter account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "model": "deepseek/deepseek-v3.2",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+        "typeVersion": 1,
+        "position": [
+          816,
+          672
+        ],
+        "id": "04a7cda0-a082-4baf-b20c-3ba5b7d68d04",
+        "name": "OpenRouter Chat Model1",
+        "credentials": {
+          "openRouterApi": {
+            "id": "SScyp7rqdYRmN9lx",
+            "name": "OpenRouter account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "upload-dataset",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -192,
+          16
+        ],
+        "id": "4ddf12fd-8588-4765-938e-5730265418c4",
+        "name": "Webhook",
+        "webhookId": "upload-dataset-webhook"
+      },
+      {
+        "parameters": {
+          "jsCode": "var webhookData = $input.first().json.body;\nvar base64Data = webhookData.csvData;\nif (!base64Data) {\n  throw new Error(\"No csvData found in request\");\n}\n\nvar datasetName = webhookData.datasetName || \"Unnamed Dataset\";\nvar description = webhookData.description || \"\";\nvar email = webhookData.email || \"\";\n\nvar csvText = Buffer.from(base64Data, \"base64\").toString(\"utf-8\");\n\n// Strip BOM if present\nif (csvText.charCodeAt(0) === 0xFEFF) {\n  csvText = csvText.slice(1);\n}\n\n// --- MULTILINE-AWARE CSV PARSER ---\nfunction parseCSV(text) {\n  const rows = [];\n  let row = [];\n  let cell = '';\n  let inQuotes = false;\n\n  for (let i = 0; i < text.length; i++) {\n    const char = text[i];\n    const next = text[i + 1];\n\n    if (char === '\"') {\n      if (inQuotes && next === '\"') {\n        cell += '\"';\n        i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (char === ',' && !inQuotes) {\n      row.push(cell.trim());\n      cell = '';\n    } else if (!inQuotes && (char === '\\n' || char === '\\r')) {\n      if (char === '\\r' && next === '\\n') i++;\n      row.push(cell.trim());\n      if (row.some(v => v !== '')) {\n        rows.push(row);\n      }\n      row = [];\n      cell = '';\n    } else {\n      cell += char;\n    }\n  }\n\n  // Flush final row\n  if (cell || row.length) {\n    row.push(cell.trim());\n    if (row.some(v => v !== '')) {\n      rows.push(row);\n    }\n  }\n\n  return rows;\n}\n// ----------------------------------\n\nvar allRows = parseCSV(csvText);\n\nif (allRows.length < 2) {\n  throw new Error(\"CSV must have header and data rows\");\n}\n\nvar headers = allRows[0];\nvar rows = [];\n\nfor (var i = 1; i < allRows.length; i++) {\n  var values = allRows[i];\n  var row = {};\n  for (var j = 0; j < headers.length; j++) {\n    row[headers[j]] = values[j] !== undefined ? values[j] : \"\";\n  }\n  rows.push({ json: row });\n}\n\nif (rows.length === 0) {\n  throw new Error(\"No data rows found\");\n}\n\n$execution.customData.set(\"datasetName\", datasetName);\n$execution.customData.set(\"description\", description);\n$execution.customData.set(\"email\", email);\n\nreturn rows;\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          16,
+          16
+        ],
+        "id": "3eadfa54-09ab-4cfc-996e-306103abd424",
+        "name": "Parse CSV"
+      },
+      {
+        "parameters": {
+          "jsCode": "var items = $input.all();\nif (items.length === 0) return { error: \"No data received.\" };\n\nvar datasetName = $execution.customData.get(\"datasetName\") || \"Test\";\nvar datasetDesc = $execution.customData.get(\"description\") || \"\";\nvar email = $execution.customData.get(\"email\") || \"\";\n\nfunction detectType(val) {\n  if (val === null || val === undefined || String(val).trim() === \"\") return \"null\";\n  var str = String(val).trim();\n\n  // 1. Enhanced Date Detection (Strict ISO, US Slanted, and Dash formats)\n  var strictDate = /^\\d{4}-\\d{2}-\\d{2}$|^\\d{1,2}[\\/-]\\d{1,2}[\\/-]\\d{2,4}$/;\n  // Also check if it's a valid date object string (like \"2023-10-27T10:00:00Z\")\n  if (strictDate.test(str) || !isNaN(Date.parse(str)) && isNaN(str)) {\n    return \"date\";\n  }\n\n  // 2. Boolean Detection\n  if (str.toLowerCase() === \"true\" || str.toLowerCase() === \"false\") return \"bool\";\n\n  // 3. Numeric Detection (Cleaned of currency/commas)\n  var cleanNum = str.replace(/[$,]/g, \"\");\n  if (cleanNum !== \"\" && !isNaN(cleanNum)) {\n    if (str.indexOf(\".\") !== -1 || Math.abs(parseFloat(cleanNum)) > 999999) {\n      return \"real\";\n    }\n    return \"int\";\n  }\n\n  return \"string\";\n}\n\nfunction getWinnerType(current, next) {\n  if (!current || current === \"null\") return next;\n  if (next === \"null\") return current;\n  \n  // Hierarchy: String kills everything. \n  // Dates should stay Dates unless mixed with text.\n  if (current === \"string\" || next === \"string\") return \"string\";\n  \n  // If we have mixed Date and Numbers, we usually default to String\n  if ((current === \"date\" && next !== \"date\") || (next === \"date\" && current !== \"date\")) {\n    return \"string\";\n  }\n\n  if (current === \"real\" || next === \"real\") return \"real\";\n  if (current === \"int\" && next === \"int\") return \"int\";\n  \n  return current;\n}\n\nvar columnTypes = {};\nitems.forEach(function(item) {\n  var entries = Object.entries(item.json);\n  for (var i = 0; i < entries.length; i++) {\n    var key = entries[i][0];\n    var value = entries[i][1];\n    var type = detectType(value);\n    columnTypes[key] = getWinnerType(columnTypes[key], type);\n  }\n});\n\nvar counters = { string: 1, real: 1, int: 1, date: 1, bool: 1 };\nvar mapping = {};\nvar dictionary = {};\n// Trim and deduplicate headers (trim before sort to group identical trimmed names)\nvar headers = [...new Set(Object.keys(columnTypes).map(k => k.trim()))].sort();\n// Rebuild columnTypes with trimmed keys\nvar trimmedColumnTypes = {};\nObject.keys(columnTypes).forEach(k => {\n  var tk = k.trim();\n  trimmedColumnTypes[tk] = getWinnerType(trimmedColumnTypes[tk], columnTypes[k]);\n});\ncolumnTypes = trimmedColumnTypes;\n\nfor (var i = 0; i < headers.length; i++) {\n  var header = headers[i].trim();\n  var type = columnTypes[header];\n  if (type === \"null\") type = \"string\";\n\n  // This creates column names like date1, date2, etc.\n  var dbColumn = type + counters[type];\n  mapping[header] = dbColumn;\n  dictionary[dbColumn] = { \n    original_name: header, \n    data_type: type \n  };\n  counters[type]++;\n}\n\nreturn {\n  dataset_name: datasetName,\n  dataset_summary: datasetDesc,\n  owner_email: email,\n  column_mapping: mapping,\n  column_dictionary: dictionary,\n  total_row_count: items.length\n};"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          208,
+          16
+        ],
+        "id": "bc9088b5-ca71-4e36-bb05-7dcac71c3696",
+        "name": "Mapping Logic"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "check-summary",
+                "leftValue": "={{ $json.dataset_summary }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "empty",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          416,
+          16
+        ],
+        "id": "911536ee-bc7f-4ab1-864a-6bc1e08c0251",
+        "name": "If Summary Empty"
+      },
+      {
+        "parameters": {
+          "jsCode": "var items = $(\"Parse CSV\").all();\nif (items.length === 0) return [];\n\nvar shuffled = items.slice();\nfor (var i = shuffled.length - 1; i > 0; i--) {\n  var j = Math.floor(Math.random() * (i + 1));\n  var temp = shuffled[i];\n  shuffled[i] = shuffled[j];\n  shuffled[j] = temp;\n}\n\nreturn shuffled.slice(0, 300);"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          608,
+          -80
+        ],
+        "id": "819b7655-728e-49dc-9d80-6db11031fcbc",
+        "name": "Sample Data"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "a1",
+                "name": "dataset_name",
+                "value": "={{ $(\"Mapping Logic\").first().json.dataset_name }}",
+                "type": "string"
+              },
+              {
+                "id": "a2",
+                "name": "dataset_summary",
+                "value": "={{ $json.cleaned_summary }}",
+                "type": "string"
+              },
+              {
+                "id": "a6",
+                "name": "owner_email",
+                "value": "={{ $(\"Mapping Logic\").first().json.owner_email }}",
+                "type": "string"
+              },
+              {
+                "id": "a3",
+                "name": "column_mapping",
+                "value": "={{ $(\"Mapping Logic\").first().json.column_mapping }}",
+                "type": "object"
+              },
+              {
+                "id": "a4",
+                "name": "column_dictionary",
+                "value": "={{ $(\"Mapping Logic\").first().json.column_dictionary }}",
+                "type": "object"
+              },
+              {
+                "id": "a5",
+                "name": "total_row_count",
+                "value": "={{ $(\"Mapping Logic\").first().json.total_row_count }}",
+                "type": "number"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1344,
+          -96
+        ],
+        "id": "b9798b57-db41-42b9-bb1d-0d140616f8d4",
+        "name": "Set With AI Summary"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "b1",
+                "name": "dataset_name",
+                "value": "={{ $(\"Mapping Logic\").first().json.dataset_name }}",
+                "type": "string"
+              },
+              {
+                "id": "b2",
+                "name": "dataset_summary",
+                "value": "={{ $(\"Mapping Logic\").first().json.dataset_summary }}",
+                "type": "string"
+              },
+              {
+                "id": "b6",
+                "name": "owner_email",
+                "value": "={{ $(\"Mapping Logic\").first().json.owner_email }}",
+                "type": "string"
+              },
+              {
+                "id": "b3",
+                "name": "column_mapping",
+                "value": "={{ $(\"Mapping Logic\").first().json.column_mapping }}",
+                "type": "object"
+              },
+              {
+                "id": "b4",
+                "name": "column_dictionary",
+                "value": "={{ $(\"Mapping Logic\").item.json.column_dictionary }}",
+                "type": "object"
+              },
+              {
+                "id": "b5",
+                "name": "total_row_count",
+                "value": "={{ $(\"Mapping Logic\").first().json.total_row_count }}",
+                "type": "number"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          608,
+          112
+        ],
+        "id": "6f7e0c23-3a62-4ce9-9825-1bb4f99bbf19",
+        "name": "Set Without AI"
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "INSERT INTO n8n_data.dataset_record_manager (\n    dataset_name,\n    dataset_summary,\n    row_count,\n    column_mapping,\n    column_dictionary,\n    owner_email,\n    dataset_desc\n) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7)\nRETURNING dataset_id",
+          "options": {
+            "queryReplacement": "={{ [$json.dataset_name, $json.dataset_summary, $json.total_row_count, JSON.stringify($('Mapping Logic').first().json.column_mapping), JSON.stringify($('Mapping Logic').first().json.column_dictionary), $json.owner_email, $('Webhook').first().json.body.dataset_desc] }}"
+          }
+        },
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          1616,
+          16
+        ],
+        "id": "1ec6d7cd-7cc5-4b55-b5ee-886c1f51f26f",
+        "name": "Insert Record Manager",
+        "credentials": {
+          "postgres": {
+            "id": "5JhwTls4nSPISJqU",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// 1. Get mapping and ID\nconst mappingNode = $(\"Mapping Logic\").first();\nconst managerNode = $(\"Insert Record Manager\").first();\n\nif (!mappingNode || !managerNode) {\n    throw new Error(\"Missing input from Mapping Logic or Insert Record Manager\");\n} \n\nconst mapping = mappingNode.json.column_mapping;\nconst datasetId = managerNode.json.dataset_id;\n\n// --- FIX IS HERE: Reference \"Parse CSV\" directly to get the data rows ---\nconst allRows = $(\"Parse CSV\").all(); \n\nconst results = [];\nconst batchSize = 100; // Smaller batches are safer for large SQL strings\nconst mapEntries = Object.entries(mapping);\nconst dbColumnNames = mapEntries.map(entry => entry[1]);\n\nfunction isDateColumn(colName) {\n    const lower = colName.toLowerCase();\n    return lower.includes(\"date\") || lower.includes(\"_at\") || lower.includes(\"time\");\n}\n\nfunction standardizeDate(val) {\n    const d = new Date(val);\n    return isNaN(d.getTime()) ? null : d.toISOString().split(\"T\")[0];\n}\n\nfunction prepareValue(val, targetColumn) {\n    if (val === null || val === undefined || String(val).trim() === \"\") return \"NULL\";\n    \n    let stringVal = String(val).trim();\n    const colLower = targetColumn.toLowerCase();\n    \n    // Numeric handling (strip currency symbols and commas)\n    if (colLower.startsWith(\"int\") || colLower.startsWith(\"real\") || colLower.startsWith(\"numeric\")) {\n        const cleanNum = stringVal.replace(/[,\\s$]/g, \"\");\n        if (cleanNum === \"\" || isNaN(cleanNum)) return \"NULL\";\n        return cleanNum;\n    }\n    \n    // Date handling\n    if (isDateColumn(targetColumn)) {\n        if (/^\\d+$/.test(stringVal) && parseInt(stringVal) > 9999) return \"NULL\";\n        const correctedDate = standardizeDate(stringVal);\n        return correctedDate ? `'${correctedDate}'` : \"NULL\";\n    }\n    \n    // String handling: Escape single quotes AND dollar signs\n    const escaped = stringVal\n        .replace(/'/g, \"''\")\n        .replace(/\\$/g, \"$$$$\"); \n        \n    return `'${escaped}'`;\n}\n\nconst columns = ['\"dataset_id\"', '\"row_index\"'].concat(dbColumnNames.map(c => `\"${c}\"`));\n\nfor (let i = 0; i < allRows.length; i += batchSize) {\n    const chunk = allRows.slice(i, i + batchSize);\n    const valuesList = chunk.map((item, idx) => {\n        const row = item.json;\n        // Ensure datasetId is wrapped in single quotes as it is a UUID/String\n        const rowValues = [`'${datasetId}'`, i + idx + 1]; \n        \n        mapEntries.forEach(entry => {\n            rowValues.push(prepareValue(row[entry[0]], entry[1]));\n        });\n        return `(${rowValues.join(\",\")})`;\n    });\n\n    results.push({ \n        json: { \n            sql: `INSERT INTO n8n_data.universal_datatable (${columns.join(\",\")}) VALUES ${valuesList.join(\",\")};` \n        } \n    });\n}\n\nreturn results;"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1824,
+          16
+        ],
+        "id": "44c829af-ecba-4080-ae7e-c07454d90f93",
+        "name": "Data Transformer"
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "{{ $json.sql }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          2032,
+          16
+        ],
+        "id": "de35b093-c07f-4ba1-aa23-98225524b9e9",
+        "name": "Insert Data",
+        "credentials": {
+          "postgres": {
+            "id": "5JhwTls4nSPISJqU",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ { status: \"ok\", datasetId: $(\"Insert Record Manager\").first().json.dataset_id, rowsInserted: $(\"Mapping Logic\").first().json.total_row_count, datasetName:$(\"Mapping Logic\").first().json.dataset_name } }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          2496,
+          32
+        ],
+        "id": "8ae3658c-8b43-442d-9b3a-d0da12c2bafa",
+        "name": "Respond to Webhook"
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=CREATE OR REPLACE VIEW n8n_data.v_ds_{{ $('Insert Record Manager').first().json.dataset_id.replace(/-/g, '_') }} AS\nSELECT\n    {{\n      Object.entries($('Mapping Logic').first().json.column_mapping)\n      .map(([name, col]) => {\n        const safeName = (name && name.trim() !== \"\") ? name.trim() : `unnamed_${col}`;\n        return `${col} AS \"${safeName}\"`;\n      })\n      .join(',\\n    ')\n    }}\nFROM n8n_data.universal_datatable\nWHERE dataset_id = '{{ $('Insert Record Manager').first().json.dataset_id }}';",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          2240,
+          16
+        ],
+        "id": "199722ae-918f-4dc0-b2da-f1b22ffa80eb",
+        "name": "Create View",
+        "credentials": {
+          "postgres": {
+            "id": "5JhwTls4nSPISJqU",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=Analyze the following dataset as a single block to build a SQL Search Index:\n{{ JSON.stringify($input.all().map(i => i.json)) }}",
+          "needsFallback": true,
+          "options": {
+            "systemMessage": "ROLE\nYou are a Senior Database Engineer and Metadata Architect. Your objective is to analyze a 300-row sample of CSV data and generate a highly structured metadata map. This map will be used by a downstream AI to construct 100% accurate, high-performance SQL queries.\n\nYOUR TASK\nAnalyze the data and identify \"Filtering Columns.\" These are columns used in SQL WHERE, HAVING, or GROUP BY clauses.\n\nCategorical Discovery: Identify columns with low-to-medium cardinality (categories, statuses, regions, types). Extract the exact unique values.\n\nTemporal & Numeric Discovery: Identify date/time columns and numerical columns. Note their exact formatting (e.g., YYYY-MM-DD, presence of $ or , in numbers) so the SQL agent knows how to cast or parse them.\n\nSemantic Mapping: Infer the precise business logic of each column based on its header and values. Do not hallucinate; stick to what the data clearly represents.\n\nData Quality & Quirks: Detect if the column contains empty strings, NULL, N/A, or formatting quirks (e.g., case sensitivity, leading spaces).\n\nGranularity/Double-Counting: Identify rows that represent Subtotals, Totals, or Rollups (e.g., a \"Region\" column that contains the value \"All Regions\").\n\nSTRICT OUTPUT FORMAT\nYou must output strictly valid JSON. Do not include markdown formatting, conversational filler, or explanations. Start immediately with the JSON array [.\n\nUse this exact JSON schema:\n[\n  {\n    \"column_header\": \"Exact Column Name\",\n    \"data_type\": \"Categorical | Date | Numeric | Boolean\",\n    \"business_logic\": \"Brief, precise description of what this filters (e.g., Transaction lifecycle stage).\",\n    \"exact_values\": [\"Value A\", \"Value B\", \"Value C\"], \n    \"format_notes\": \"For Dates: format like MM/DD/YYYY. For Numerics: note currency symbols or commas. For Categories: note case sensitivity or special characters.\",\n    \"null_handling\": \"Note if empty strings, NULLs, or N/A are present.\",\n    \"aggregation_warning\": \"Include specific instructions if this column contains 'Total', 'Subtotal', or 'All' values that must be excluded in standard SUM() queries to avoid double-counting. Otherwise, output null.\"\n  }\n]\n\nCONSTRAINTS:\n\nIgnore purely unique identifiers (e.g., Transaction ID, Employee SSN, full names) UNLESS they are highly relevant for grouping (e.g., Manager ID).\n\nLimit exact_values to a maximum of 15 items. If there are more, list the top 10 and add \"...[High Cardinality]\".\n\nOutput ONLY the raw JSON array.",
+            "maxIterations": 25,
+            "returnIntermediateSteps": false
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3.1,
+        "position": [
+          800,
+          -144
+        ],
+        "id": "9bececbd-8567-4c18-a295-7f5c50acb32f",
+        "name": "AI Agent",
+        "executeOnce": true
+      },
+      {
+        "parameters": {
+          "jsCode": "var rawText = $json.output || \"\";\n\n// 1. Strip any markdown formatting the AI might add (e.g., ```json ... ```)\nvar jsonString = rawText.replace(/```[a-z]*\\n?/g, \"\").replace(/```/g, \"\").trim();\n\nvar parsedData;\ntry {\n  // 2. Parse the pure JSON array\n  parsedData = JSON.parse(jsonString);\n} catch (e) {\n  // Safe fallback if the AI hallucinates bad JSON\n  return { cleaned_summary: \"Error parsing AI output: \" + e.message + \"\\n\\nRaw Output:\\n\" + rawText };\n}\n\nvar mdRows = [];\n\n// 3. Loop through the JSON objects and build your clean Markdown string\nparsedData.forEach(function(col) {\n  var sectionMd = \"### Column name:\" + col.column_header + \"\\n\";\n  \n  if (col.data_type) sectionMd += \"* **Data Type:** \" + col.data_type + \"\\n\";\n  if (col.business_logic) sectionMd += \"* **Business Logic:** \" + col.business_logic + \"\\n\";\n  \n  // Join the array of exact values with commas\n  if (col.exact_values && col.exact_values.length > 0) {\n    sectionMd += \"* **Exact Values:** \" + col.exact_values.join(\", \") + \"\\n\";\n  }\n  \n  if (col.format_notes) sectionMd += \"* **Format Notes:** \" + col.format_notes + \"\\n\";\n  if (col.null_handling) sectionMd += \"* **Null Handling:** \" + col.null_handling + \"\\n\";\n  if (col.aggregation_warning) sectionMd += \"* **Aggregation Warning:** \" + col.aggregation_warning + \"\\n\";\n  \n  mdRows.push(sectionMd);\n});\n\n// 4. Return the formatted markdown string to be passed to Postgres\nreturn { cleaned_summary: mdRows.join(\"\\n\\n\") };"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1120,
+          -176
+        ],
+        "id": "53c9afb9-5d75-409b-844e-1d8e651f4e3f",
+        "name": "Clean Summary"
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=Description of the Dataset by User: {{ $('Webhook').first().json.body.dataset_desc }}\n\nDataset Summary: {{ $('Clean Summary').first().json.cleaned_summary }}\n",
+          "hasOutputParser": true,
+          "options": {
+            "systemMessage": "You are a data analyst who analyzes datasets based on the Description of the Dataset by User and Dataset Summary to come up with a set of 5 questions or queries that would be made by a real user who would use the dataset to answer real world business questions.\n\nEach question must consider:\n- The nature of the dataset -- the subject matter of the data (e.g. sales funnel, revenue, list of employees, etc.), type of data (e.g. time-based? monthly / annual / time stamped log or book of records, etc.)\n- Potential key takeaways (e.g. the number of deals in various deal stages?, total number of employees in different job level, total revenue, revenue variance year-over-year, total number of customers in the US, etc.)\n- Other potential insights to the user that the dataset could bring\n\nEach question must include:\n- Structured terms and language that provides clarity for AI to build an effective and accurate SQL query\n- Language that would be easily understood by users not very familiar with the data (i.e. use layman's terms)\n- Objective / insight the question is trying to extract\n\nThe response should be a list of 3 sample questions in JSON format."
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3.1,
+        "position": [
+          2128,
+          320
+        ],
+        "id": "f8a6dfde-0267-45f9-9a48-17f883fe45e8",
+        "name": "AI Agent1"
+      },
+      {
+        "parameters": {
+          "model": "x-ai/grok-4.1-fast",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+        "typeVersion": 1,
+        "position": [
+          2128,
+          608
+        ],
+        "id": "da75b5b9-9981-4bac-9ff3-6da2a87d2abe",
+        "name": "OpenRouter Chat Model2",
+        "credentials": {
+          "openRouterApi": {
+            "id": "SScyp7rqdYRmN9lx",
+            "name": "OpenRouter account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsonSchemaExample": "{\n  \"questions\": [\n    {\n      \"id\": \"1\",\n      \"question\": \"What time period should this report cover?\"\n    },\n    {\n      \"id\": \"1\",\n      \"question\": \"How should the results be broken down or grouped?\"\n    },\n    {\n      \"id\": \"3\",\n      \"question\": \"Which key metrics or KPIs are most important for this report?\"\n    }\n  ]\n}"
+        },
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3,
+        "position": [
+          2304,
+          528
+        ],
+        "id": "d0d3e10f-ba77-4ee4-8bef-e464eec0a106",
+        "name": "Structured Output Parser"
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "schema": {
+            "__rl": true,
+            "value": "n8n_data",
+            "mode": "list",
+            "cachedResultName": "n8n_data"
+          },
+          "table": {
+            "__rl": true,
+            "value": "dataset_record_manager",
+            "mode": "list",
+            "cachedResultName": "dataset_record_manager"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "sample_questions": "={{ $json.output }}",
+              "dataset_id": "={{ $('Insert Record Manager').item.json.dataset_id }}"
+            },
+            "matchingColumns": [
+              "dataset_id"
+            ],
+            "schema": [
+              {
+                "id": "dataset_id",
+                "displayName": "dataset_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "dataset_name",
+                "displayName": "dataset_name",
+                "required": true,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "dataset_summary",
+                "displayName": "dataset_summary",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "row_count",
+                "displayName": "row_count",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "dataset_headers",
+                "displayName": "dataset_headers",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "object",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "dataset_header_types",
+                "displayName": "dataset_header_types",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "object",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "column_mapping",
+                "displayName": "column_mapping",
+                "required": true,
+                "defaultMatch": false,
+                "display": true,
+                "type": "object",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "column_dictionary",
+                "displayName": "column_dictionary",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "object",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "created_at",
+                "displayName": "created_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "dateTime",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "updated_at",
+                "displayName": "updated_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "dateTime",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "owner_email",
+                "displayName": "owner_email",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "auth",
+                "displayName": "auth",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "dataset_desc",
+                "displayName": "dataset_desc",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "sample_questions",
+                "displayName": "sample_questions",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "object",
+                "canBeUsedToMatch": true
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          2480,
+          320
+        ],
+        "id": "24d1b2e9-2b05-45f9-87e6-674c2fe5ec80",
+        "name": "Update rows in a table",
+        "credentials": {
+          "postgres": {
+            "id": "5JhwTls4nSPISJqU",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          912,
+          992
+        ],
+        "id": "c4665068-4f48-4b77-8397-534500dbc313",
+        "name": "When clicking ‘Execute workflow’"
+      },
+      {
+        "parameters": {
+          "operation": "select",
+          "schema": {
+            "__rl": true,
+            "value": "n8n_data",
+            "mode": "list",
+            "cachedResultName": "n8n_data"
+          },
+          "table": {
+            "__rl": true,
+            "value": "dataset_record_manager",
+            "mode": "list",
+            "cachedResultName": "dataset_record_manager"
+          },
+          "where": {
+            "values": [
+              {
+                "column": "sample_questions",
+                "condition": "IS NULL"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          1120,
+          992
+        ],
+        "id": "8e13b377-60b1-430e-a0ff-f0b37652dee8",
+        "name": "Select rows from a table",
+        "credentials": {
+          "postgres": {
+            "id": "5JhwTls4nSPISJqU",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          1536,
+          992
+        ],
+        "id": "16fc4f0d-a477-4271-aa6e-4ea8e58e267f",
+        "name": "Loop Over Items"
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=Description of the Dataset by User: {{ $('Loop Over Items').item.json.dataset_desc }}\n\nDataset Summary: {{  $('Loop Over Items').item.json.dataset_summary }}\n",
+          "hasOutputParser": true,
+          "options": {
+            "systemMessage": "You are a data analyst who analyzes datasets based on the Description of the Dataset by User and Dataset Summary to come up with a set of 5 questions or queries that would be made by a real user who would use the dataset to answer real world business questions.\n\nEach question must consider:\n- The nature of the dataset -- the subject matter of the data (e.g. sales funnel, revenue, list of employees, etc.), type of data (e.g. time-based? monthly / annual / time stamped log or book of records, etc.)\n- Potential key takeaways (e.g. the number of deals in various deal stages?, total number of employees in different job level, total revenue, revenue variance year-over-year, total number of customers in the US, etc.)\n- Other potential insights to the user that the dataset could bring\n\nEach question must include:\n- Structured terms and language that provides clarity for AI to build an effective and accurate SQL query\n\n** IMPORTANT **\nDo not put SQL query directly in the question. \nBe brief and talk in layman's terms that anyone can understand. (like to a 12-year old)\nThe response should be a list of 3 sample questions in JSON format."
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3.1,
+        "position": [
+          1840,
+          976
+        ],
+        "id": "571cbcca-c58c-498a-bd9b-c32ecdcb64b6",
+        "name": "AI Agent2"
+      },
+      {
+        "parameters": {
+          "model": "x-ai/grok-4.1-fast",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+        "typeVersion": 1,
+        "position": [
+          1840,
+          1264
+        ],
+        "id": "a58d8e59-3d7d-4bb4-ba53-011a06670dd4",
+        "name": "OpenRouter Chat Model3",
+        "credentials": {
+          "openRouterApi": {
+            "id": "SScyp7rqdYRmN9lx",
+            "name": "OpenRouter account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsonSchemaExample": "{\n  \"questions\": [\n    {\n      \"id\": \"1\",\n      \"question\": \"What time period should this report cover?\"\n    },\n    {\n      \"id\": \"1\",\n      \"question\": \"How should the results be broken down or grouped?\"\n    },\n    {\n      \"id\": \"3\",\n      \"question\": \"Which key metrics or KPIs are most important for this report?\"\n    }\n  ]\n}"
+        },
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3,
+        "position": [
+          2016,
+          1184
+        ],
+        "id": "c6b10e58-dfbf-4fb3-8b1e-3a9773ea1468",
+        "name": "Structured Output Parser1"
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "schema": {
+            "__rl": true,
+            "value": "n8n_data",
+            "mode": "list",
+            "cachedResultName": "n8n_data"
+          },
+          "table": {
+            "__rl": true,
+            "value": "dataset_record_manager",
+            "mode": "list",
+            "cachedResultName": "dataset_record_manager"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "row_count": 0,
+              "auth": 0,
+              "sample_questions": "={{ $json.output }}",
+              "dataset_id": "={{ $('Loop Over Items').item.json.dataset_id }}"
+            },
+            "matchingColumns": [
+              "dataset_id"
+            ],
+            "schema": [
+              {
+                "id": "dataset_id",
+                "displayName": "dataset_id",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "dataset_name",
+                "displayName": "dataset_name",
+                "required": true,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "dataset_summary",
+                "displayName": "dataset_summary",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "row_count",
+                "displayName": "row_count",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "dataset_headers",
+                "displayName": "dataset_headers",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "object",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "dataset_header_types",
+                "displayName": "dataset_header_types",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "object",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "column_mapping",
+                "displayName": "column_mapping",
+                "required": true,
+                "defaultMatch": false,
+                "display": true,
+                "type": "object",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "column_dictionary",
+                "displayName": "column_dictionary",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "object",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "created_at",
+                "displayName": "created_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "dateTime",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "updated_at",
+                "displayName": "updated_at",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "dateTime",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "owner_email",
+                "displayName": "owner_email",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "auth",
+                "displayName": "auth",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "dataset_desc",
+                "displayName": "dataset_desc",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "sample_questions",
+                "displayName": "sample_questions",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "object",
+                "canBeUsedToMatch": true
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.6,
+        "position": [
+          2192,
+          976
+        ],
+        "id": "da5db44e-287d-4454-86b3-1f9858ba9be0",
+        "name": "Update rows in a table1",
+        "credentials": {
+          "postgres": {
+            "id": "5JhwTls4nSPISJqU",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "fieldToSplitOut": "dataset_id",
+          "include": "allOtherFields",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.splitOut",
+        "typeVersion": 1,
+        "position": [
+          1328,
+          992
+        ],
+        "id": "55fe47fe-6887-4783-b92e-ba284062cd7d",
+        "name": "Split Out"
+      }
+    ],
+    "connections": {
+      "OpenRouter Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenRouter Chat Model1": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "ai_languageModel",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Parse CSV",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse CSV": {
+        "main": [
+          [
+            {
+              "node": "Mapping Logic",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Mapping Logic": {
+        "main": [
+          [
+            {
+              "node": "If Summary Empty",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "If Summary Empty": {
+        "main": [
+          [
+            {
+              "node": "Sample Data",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Set Without AI",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Sample Data": {
+        "main": [
+          [
+            {
+              "node": "AI Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set With AI Summary": {
+        "main": [
+          [
+            {
+              "node": "Insert Record Manager",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set Without AI": {
+        "main": [
+          [
+            {
+              "node": "Insert Record Manager",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Insert Record Manager": {
+        "main": [
+          [
+            {
+              "node": "Data Transformer",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Data Transformer": {
+        "main": [
+          [
+            {
+              "node": "AI Agent1",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Insert Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Insert Data": {
+        "main": [
+          [
+            {
+              "node": "Create View",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Create View": {
+        "main": [
+          [
+            {
+              "node": "Respond to Webhook",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AI Agent": {
+        "main": [
+          [
+            {
+              "node": "Clean Summary",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Clean Summary": {
+        "main": [
+          [
+            {
+              "node": "Set With AI Summary",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenRouter Chat Model2": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "AI Agent1",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Structured Output Parser": {
+        "ai_outputParser": [
+          [
+            {
+              "node": "AI Agent1",
+              "type": "ai_outputParser",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AI Agent1": {
+        "main": [
+          [
+            {
+              "node": "Update rows in a table",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "When clicking ‘Execute workflow’": {
+        "main": [
+          [
+            {
+              "node": "Select rows from a table",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Select rows from a table": {
+        "main": [
+          [
+            {
+              "node": "Split Out",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Loop Over Items": {
+        "main": [
+          [],
+          [
+            {
+              "node": "AI Agent2",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "AI Agent2": {
+        "main": [
+          [
+            {
+              "node": "Update rows in a table1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenRouter Chat Model3": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "AI Agent2",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Structured Output Parser1": {
+        "ai_outputParser": [
+          [
+            {
+              "node": "AI Agent2",
+              "type": "ai_outputParser",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Update rows in a table1": {
+        "main": [
+          [
+            {
+              "node": "Loop Over Items",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Split Out": {
+        "main": [
+          [
+            {
+              "node": "Loop Over Items",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "EUN ed.e.lee@gmail.com",
+    "name": "Version 84a7df54",
+    "description": "",
+    "autosaved": true
+  },
+  "tags": []
+}

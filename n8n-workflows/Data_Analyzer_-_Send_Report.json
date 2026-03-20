@@ -1,0 +1,928 @@
+{
+  "updatedAt": "2026-02-24T01:08:24.340Z",
+  "createdAt": "2026-02-08T03:51:48.911Z",
+  "id": "-2r6ny6GrA5OXSDtyjN-c",
+  "name": "Data Analyzer - Send Report",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.content }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=Role: You are a UI Redesign Agent.\n1. Query the 'Report Template' tool using template_Id: {{ $('Webhook').item.json.body.templateId || \"None\" }} to fetch and use as Reference HTML code from the Report Template tool. \nIf template_Id is 'None', do not fetch reference HTML code from the Report Template tool.\n\nObjective: Redesign the Source HTML so it is visually identical to the Reference HTML while retaining all original source data unless Reference HTML is not available. If no Reference HTML is available, do the best to make the output professional and visually pleasing.\n\nInstructions:\n\nUse the CSS and structure of the Reference HTML as the master template.\n\nMap the data from the Source HTML into this template.\n\nIf the tool returns a reference, prioritize its styles (colors, fonts, borders) above all else.\n\nOutput the updated HTML into JSON with a key \"content\" but do not include any of the planning or thinking in answering the inquiry.\n\n2. summarize the content of the HTML suitable as an email subject and output the summarized text into JSON with a key \"subject\". "
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        544,
+        -16
+      ],
+      "id": "3057e69d-5b1a-4d8c-bc20-c584ab3a04eb",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ (Array.isArray($('Webhook').first().json.body.emails) ? $('Webhook').first().json.body.emails.join(',') : $('Webhook').first().json.body.emails) || '' }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.cleanHtml }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1520,
+        160
+      ],
+      "id": "ed481012-615e-43af-9a82-cf533593d1a8",
+      "name": "Send a message",
+      "webhookId": "99b4f3b2-1719-4ae9-8d4b-0eb1d0ee03fb",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "TNOWPl9UgCcBg1hz",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"subject\": \"Technical Analysis\",\n  \"content\": \"Multiple short positions were initiated based on technical patterns indicating overextended moves and impending pullbacks.\"\n}",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        576,
+        224
+      ],
+      "id": "341fff1e-2594-4178-b3fa-b990a23b1b92",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        576,
+        416
+      ],
+      "id": "66ff73b9-15e2-44da-8fd0-e04d40e27852",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "SScyp7rqdYRmN9lx",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "send-report",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        32,
+        -16
+      ],
+      "id": "25b95f5f-30f8-4ae5-96bc-7c500b8df4ca",
+      "name": "Webhook",
+      "webhookId": "7ed9522d-0f7c-49ce-8b93-50b34720d7cd"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1728,
+        160
+      ],
+      "id": "a0fbe310-c581-42e8-bbe3-23130c8eccc4",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "02d59a9f-cf59-4795-86e1-b5a0d9c458a9",
+              "leftValue": "={{ $('Webhook').first().json.body.review }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1056,
+        -16
+      ],
+      "id": "d2b6fbb4-8dc3-4329-8f24-2c020b856071",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\nJSON.stringify({\n  \"subject\": $('Code in JavaScript').item.json.subject,\n  \"content\": $('Code in JavaScript').item.json.cleanHtml,\n  \"emails\":  $('Code in JavaScript').item.json.emails\n})\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1312,
+        -112
+      ],
+      "id": "4d853c8d-4a12-42a5-a029-10aad728a3bd",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4c3a934e-615c-40c1-8888-70c79ceb6983",
+              "leftValue": "={{ $json.body.reviewed }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        240,
+        -16
+      ],
+      "id": "0b9e9967-4b82-4478-9b30-6f0e11d374f5",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ ($('Webhook').item.json.body.emails ?? []).join(',') }}",
+        "subject": "={{ $('Webhook').item.json.body.subject }}",
+        "message": "={{ $('Webhook').item.json.body.content }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        464,
+        -224
+      ],
+      "id": "b24b4b3d-9a92-4816-a155-ad1e97809fc9",
+      "name": "Send a message1",
+      "webhookId": "99b4f3b2-1719-4ae9-8d4b-0eb1d0ee03fb",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "TNOWPl9UgCcBg1hz",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        672,
+        -224
+      ],
+      "id": "4f6a4a2d-01b7-43f6-9b5d-81b4979cfd45",
+      "name": "Respond to Webhook2"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Uses template_id to query and fetch report template HTML",
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "value": "n8n_data",
+          "mode": "list",
+          "cachedResultName": "n8n_data"
+        },
+        "table": {
+          "__rl": true,
+          "value": "data-analyzer-report-templates",
+          "mode": "list",
+          "cachedResultName": "data-analyzer-report-templates"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "template_id",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('values0_Value', `Use the template_id from the system prompt to fetch template.`, 'string') }}"
+            }
+          ]
+        },
+        "options": {
+          "outputColumns": [
+            "html"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        896,
+        320
+      ],
+      "id": "e2542a56-6a1e-4aae-98f1-6fe86ebf4411",
+      "name": "Report Template",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        400,
+        192
+      ],
+      "id": "ff0decb7-41e2-43d6-9b05-0c961f0ab17f",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "SScyp7rqdYRmN9lx",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Access the input data from the AI Agent node\nconst inputData = $input.first();\nif (!inputData) return { status: 'error', message: 'No input received' };\n\n// Target the 'content' field from your structured output\nlet rawHtml = inputData.json.output?.content || \"\";\n\n// 2. Perform the cleanup\nconst cleanHtml = rawHtml\n  .replace(/```html|```/g, '')     // Remove Markdown code block wrappers\n  .replace(/\\\\n/g, '\\n')          // Convert escaped literal '\\n' to actual newlines\n  .replace(/\\\\\"/g, '\"')           // Unescape double quotes\n  .replace(/\\\\'/g, \"'\")           // Unescape single quotes\n  .replace(/\\\\t/g, ' ')           // Convert escaped tabs to spaces\n  .replace(/\\s+/g, ' ')           // Collapse multiple spaces/newlines into one for cleaner code\n  .replace(/>\\s+</g, '><')        // Strip whitespace between HTML tags\n  .trim();\n\n// 3. Return the sanitized HTML\nreturn {\n  cleanHtml: cleanHtml,\n  // Keep original metadata if needed for next steps\n  subject: inputData.json.output?.subject || \"No Subject\",\n  emails: $('Webhook').first().json.body.emails.join(',')\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        -16
+      ],
+      "id": "b8af2748-6fe6-427e-96cd-ce36a21eba67",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "connections": {
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report Template": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "bb389b70-aed3-49e7-aeac-5a3b4a333b17",
+  "activeVersionId": "bb389b70-aed3-49e7-aeac-5a3b4a333b17",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-02-08T03:51:48.911Z",
+      "createdAt": "2026-02-08T03:51:48.911Z",
+      "role": "workflow:owner",
+      "workflowId": "-2r6ny6GrA5OXSDtyjN-c",
+      "projectId": "1Tt3UeBU40oNvF7P"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-02-24T01:08:27.482Z",
+    "createdAt": "2026-02-24T01:08:24.342Z",
+    "versionId": "bb389b70-aed3-49e7-aeac-5a3b4a333b17",
+    "workflowId": "-2r6ny6GrA5OXSDtyjN-c",
+    "nodes": [
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $json.body.content }}",
+          "hasOutputParser": true,
+          "options": {
+            "systemMessage": "=Role: You are a UI Redesign Agent.\n1. Query the 'Report Template' tool using template_Id: {{ $('Webhook').item.json.body.templateId || \"None\" }} to fetch and use as Reference HTML code from the Report Template tool. \nIf template_Id is 'None', do not fetch reference HTML code from the Report Template tool.\n\nObjective: Redesign the Source HTML so it is visually identical to the Reference HTML while retaining all original source data unless Reference HTML is not available. If no Reference HTML is available, do the best to make the output professional and visually pleasing.\n\nInstructions:\n\nUse the CSS and structure of the Reference HTML as the master template.\n\nMap the data from the Source HTML into this template.\n\nIf the tool returns a reference, prioritize its styles (colors, fonts, borders) above all else.\n\nOutput the updated HTML into JSON with a key \"content\" but do not include any of the planning or thinking in answering the inquiry.\n\n2. summarize the content of the HTML suitable as an email subject and output the summarized text into JSON with a key \"subject\". "
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3.1,
+        "position": [
+          544,
+          -16
+        ],
+        "id": "3057e69d-5b1a-4d8c-bc20-c584ab3a04eb",
+        "name": "AI Agent1"
+      },
+      {
+        "parameters": {
+          "sendTo": "={{ (Array.isArray($('Webhook').first().json.body.emails) ? $('Webhook').first().json.body.emails.join(',') : $('Webhook').first().json.body.emails) || '' }}",
+          "subject": "={{ $json.subject }}",
+          "message": "={{ $json.cleanHtml }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.2,
+        "position": [
+          1520,
+          160
+        ],
+        "id": "ed481012-615e-43af-9a82-cf533593d1a8",
+        "name": "Send a message",
+        "webhookId": "99b4f3b2-1719-4ae9-8d4b-0eb1d0ee03fb",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "TNOWPl9UgCcBg1hz",
+            "name": "Gmail account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsonSchemaExample": "{\n  \"subject\": \"Technical Analysis\",\n  \"content\": \"Multiple short positions were initiated based on technical patterns indicating overextended moves and impending pullbacks.\"\n}",
+          "autoFix": true
+        },
+        "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+        "typeVersion": 1.3,
+        "position": [
+          576,
+          224
+        ],
+        "id": "341fff1e-2594-4178-b3fa-b990a23b1b92",
+        "name": "Structured Output Parser"
+      },
+      {
+        "parameters": {
+          "model": "openai/gpt-oss-120b",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+        "typeVersion": 1,
+        "position": [
+          576,
+          416
+        ],
+        "id": "66ff73b9-15e2-44da-8fd0-e04d40e27852",
+        "name": "OpenRouter Chat Model1",
+        "credentials": {
+          "openRouterApi": {
+            "id": "SScyp7rqdYRmN9lx",
+            "name": "OpenRouter account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "send-report",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          32,
+          -16
+        ],
+        "id": "25b95f5f-30f8-4ae5-96bc-7c500b8df4ca",
+        "name": "Webhook",
+        "webhookId": "7ed9522d-0f7c-49ce-8b93-50b34720d7cd"
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          1728,
+          160
+        ],
+        "id": "a0fbe310-c581-42e8-bbe3-23130c8eccc4",
+        "name": "Respond to Webhook"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "02d59a9f-cf59-4795-86e1-b5a0d9c458a9",
+                "leftValue": "={{ $('Webhook').first().json.body.review }}",
+                "rightValue": "true",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "looseTypeValidation": true,
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          1056,
+          -16
+        ],
+        "id": "d2b6fbb4-8dc3-4329-8f24-2c020b856071",
+        "name": "If"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{\nJSON.stringify({\n  \"subject\": $('Code in JavaScript').item.json.subject,\n  \"content\": $('Code in JavaScript').item.json.cleanHtml,\n  \"emails\":  $('Code in JavaScript').item.json.emails\n})\n}}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          1312,
+          -112
+        ],
+        "id": "4d853c8d-4a12-42a5-a029-10aad728a3bd",
+        "name": "Respond to Webhook1"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "4c3a934e-615c-40c1-8888-70c79ceb6983",
+                "leftValue": "={{ $json.body.reviewed }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          240,
+          -16
+        ],
+        "id": "0b9e9967-4b82-4478-9b30-6f0e11d374f5",
+        "name": "If1"
+      },
+      {
+        "parameters": {
+          "sendTo": "={{ ($('Webhook').item.json.body.emails ?? []).join(',') }}",
+          "subject": "={{ $('Webhook').item.json.body.subject }}",
+          "message": "={{ $('Webhook').item.json.body.content }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.gmail",
+        "typeVersion": 2.2,
+        "position": [
+          464,
+          -224
+        ],
+        "id": "b24b4b3d-9a92-4816-a155-ad1e97809fc9",
+        "name": "Send a message1",
+        "webhookId": "99b4f3b2-1719-4ae9-8d4b-0eb1d0ee03fb",
+        "credentials": {
+          "gmailOAuth2": {
+            "id": "TNOWPl9UgCcBg1hz",
+            "name": "Gmail account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          672,
+          -224
+        ],
+        "id": "4f6a4a2d-01b7-43f6-9b5d-81b4979cfd45",
+        "name": "Respond to Webhook2"
+      },
+      {
+        "parameters": {
+          "descriptionType": "manual",
+          "toolDescription": "Uses template_id to query and fetch report template HTML",
+          "operation": "select",
+          "schema": {
+            "__rl": true,
+            "value": "n8n_data",
+            "mode": "list",
+            "cachedResultName": "n8n_data"
+          },
+          "table": {
+            "__rl": true,
+            "value": "data-analyzer-report-templates",
+            "mode": "list",
+            "cachedResultName": "data-analyzer-report-templates"
+          },
+          "limit": 1,
+          "where": {
+            "values": [
+              {
+                "column": "template_id",
+                "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('values0_Value', `Use the template_id from the system prompt to fetch template.`, 'string') }}"
+              }
+            ]
+          },
+          "options": {
+            "outputColumns": [
+              "html"
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.postgresTool",
+        "typeVersion": 2.6,
+        "position": [
+          896,
+          320
+        ],
+        "id": "e2542a56-6a1e-4aae-98f1-6fe86ebf4411",
+        "name": "Report Template",
+        "credentials": {
+          "postgres": {
+            "id": "5JhwTls4nSPISJqU",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "model": "openai/gpt-oss-120b",
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+        "typeVersion": 1,
+        "position": [
+          400,
+          192
+        ],
+        "id": "ff0decb7-41e2-43d6-9b05-0c961f0ab17f",
+        "name": "OpenRouter Chat Model",
+        "credentials": {
+          "openRouterApi": {
+            "id": "SScyp7rqdYRmN9lx",
+            "name": "OpenRouter account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// 1. Access the input data from the AI Agent node\nconst inputData = $input.first();\nif (!inputData) return { status: 'error', message: 'No input received' };\n\n// Target the 'content' field from your structured output\nlet rawHtml = inputData.json.output?.content || \"\";\n\n// 2. Perform the cleanup\nconst cleanHtml = rawHtml\n  .replace(/```html|```/g, '')     // Remove Markdown code block wrappers\n  .replace(/\\\\n/g, '\\n')          // Convert escaped literal '\\n' to actual newlines\n  .replace(/\\\\\"/g, '\"')           // Unescape double quotes\n  .replace(/\\\\'/g, \"'\")           // Unescape single quotes\n  .replace(/\\\\t/g, ' ')           // Convert escaped tabs to spaces\n  .replace(/\\s+/g, ' ')           // Collapse multiple spaces/newlines into one for cleaner code\n  .replace(/>\\s+</g, '><')        // Strip whitespace between HTML tags\n  .trim();\n\n// 3. Return the sanitized HTML\nreturn {\n  cleanHtml: cleanHtml,\n  // Keep original metadata if needed for next steps\n  subject: inputData.json.output?.subject || \"No Subject\",\n  emails: $('Webhook').first().json.body.emails.join(',')\n};"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          880,
+          -16
+        ],
+        "id": "b8af2748-6fe6-427e-96cd-ce36a21eba67",
+        "name": "Code in JavaScript"
+      }
+    ],
+    "connections": {
+      "AI Agent1": {
+        "main": [
+          [
+            {
+              "node": "Code in JavaScript",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Structured Output Parser": {
+        "ai_outputParser": [
+          [
+            {
+              "node": "AI Agent1",
+              "type": "ai_outputParser",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenRouter Chat Model1": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Structured Output Parser",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "If1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send a message": {
+        "main": [
+          [
+            {
+              "node": "Respond to Webhook",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "If": {
+        "main": [
+          [
+            {
+              "node": "Respond to Webhook1",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Send a message",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "If1": {
+        "main": [
+          [
+            {
+              "node": "Send a message1",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "AI Agent1",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send a message1": {
+        "main": [
+          [
+            {
+              "node": "Respond to Webhook2",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Report Template": {
+        "ai_tool": [
+          [
+            {
+              "node": "AI Agent1",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenRouter Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "AI Agent1",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Code in JavaScript": {
+        "main": [
+          [
+            {
+              "node": "If",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "EUN ed.e.lee@gmail.com",
+    "name": "Version bb389b70",
+    "description": "",
+    "autosaved": true
+  },
+  "tags": []
+}

@@ -1,0 +1,197 @@
+{
+  "updatedAt": "2026-02-10T23:59:53.248Z",
+  "createdAt": "2026-02-10T22:39:48.898Z",
+  "id": "I1wxpJ997wScZfPR",
+  "name": "Data Analyzer - Delete Template",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "delete-template",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook - Delete Template",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        -128
+      ],
+      "webhookId": "delete-template-webhook",
+      "id": "9812ad50-a7de-4304-b02e-bc78fefb9e52"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM n8n_data.\"data-analyzer-report-templates\" WHERE template_id = '{{ $json.body.templateId }}' AND owner_email = '{{ $json.body.email }}' RETURNING template_id",
+        "options": {}
+      },
+      "name": "Delete Template",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -64,
+        -128
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      },
+      "id": "1d757e13-4fab-4f54-981a-e64c734e6de6"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'ok', data: { message: 'Template deleted' } } }}",
+        "options": {}
+      },
+      "name": "Respond with Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        144,
+        -128
+      ],
+      "id": "2d24ed79-3f3b-4600-906f-ba540f158e31"
+    }
+  ],
+  "connections": {
+    "Webhook - Delete Template": {
+      "main": [
+        [
+          {
+            "node": "Delete Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Template": {
+      "main": [
+        [
+          {
+            "node": "Respond with Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "6453be19-b660-4463-9ed8-1a1ece7d1d69",
+  "activeVersionId": "6453be19-b660-4463-9ed8-1a1ece7d1d69",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-02-10T22:39:48.898Z",
+      "createdAt": "2026-02-10T22:39:48.898Z",
+      "role": "workflow:owner",
+      "workflowId": "I1wxpJ997wScZfPR",
+      "projectId": "1Tt3UeBU40oNvF7P"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-02-10T22:39:48.907Z",
+    "createdAt": "2026-02-10T22:39:48.907Z",
+    "versionId": "6453be19-b660-4463-9ed8-1a1ece7d1d69",
+    "workflowId": "I1wxpJ997wScZfPR",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "delete-template",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "name": "Webhook - Delete Template",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -256,
+          -128
+        ],
+        "webhookId": "delete-template-webhook",
+        "id": "9812ad50-a7de-4304-b02e-bc78fefb9e52"
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "DELETE FROM n8n_data.\"data-analyzer-report-templates\" WHERE template_id = '{{ $json.body.templateId }}' AND owner_email = '{{ $json.body.email }}' RETURNING template_id",
+          "options": {}
+        },
+        "name": "Delete Template",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          -64,
+          -128
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "5JhwTls4nSPISJqU",
+            "name": "Postgres account"
+          }
+        },
+        "id": "1d757e13-4fab-4f54-981a-e64c734e6de6"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ { status: 'ok', data: { message: 'Template deleted' } } }}",
+          "options": {}
+        },
+        "name": "Respond with Result",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          144,
+          -128
+        ],
+        "id": "2d24ed79-3f3b-4600-906f-ba540f158e31"
+      }
+    ],
+    "connections": {
+      "Webhook - Delete Template": {
+        "main": [
+          [
+            {
+              "node": "Delete Template",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Delete Template": {
+        "main": [
+          [
+            {
+              "node": "Respond with Result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "EUN ed.e.lee@gmail.com",
+    "name": null,
+    "description": null,
+    "autosaved": false
+  },
+  "tags": []
+}

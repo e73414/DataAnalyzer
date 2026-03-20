@@ -1,0 +1,248 @@
+{
+  "updatedAt": "2026-03-19T06:07:30.731Z",
+  "createdAt": "2026-02-22T23:52:08.269Z",
+  "id": "jfcc1mEc_mhD2Unl-3RRz",
+  "name": "Data Analyzer - Check Report Progress v1.01",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "check-report-progress",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        832,
+        -208
+      ],
+      "id": "91dbd015-25eb-47df-9724-adf5d7680989",
+      "name": "Webhook",
+      "webhookId": "crp-webhook-id-001"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT step_number, purpose, dataset_id, status, step_result FROM n8n_data.report_step_results WHERE report_id = '{{ $json.body.report_id }}' ORDER BY step_number",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1056,
+        -208
+      ],
+      "id": "0f23be2e-7eeb-49ee-bc73-db26ceb548a9",
+      "name": "Query Step Results",
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(item => item.json);\nconst reportId = $('Webhook').first().json.body.report_id;\n\nfunction lastSentence(text) {\n  if (!text) return text;\n  const parts = text.split(/(?<=[.!?])\\s+/);\n  const last = parts.map(s => s.trim()).filter(Boolean).pop();\n  return last || text;\n}\n\n// Handle empty results\nif (rows.length === 0 || (rows.length === 1 && !rows[0].step_number && !rows[0].status)) {\n  return [{ json: { report_id: reportId, steps: [], final_report: null, status: 'starting' } }];\n}\n\n// step_number=0 rows are special: final_report or formatter error\nconst finalRow = rows.find(r => r.step_number === 0 && r.status === 'final_report');\nconst formatterErrorRow = rows.find(r => r.step_number === 0 && r.status === 'error');\n\n// Deduplicate step rows (step_number > 0) — retried steps produce multiple rows.\n// Prefer 'completed' status; among equal or non-completed, keep the last (most recently inserted).\nconst allStepRows = rows.filter(r => r.step_number > 0);\nconst stepMap = new Map();\nfor (const r of allStepRows) {\n  const existing = stepMap.get(r.step_number);\n  if (!existing || r.status === 'completed' || existing.status !== 'completed') {\n    stepMap.set(r.step_number, r);\n  }\n}\nconst stepRows = Array.from(stepMap.values()).sort((a, b) => a.step_number - b.step_number);\n\nconst steps = stepRows.map(r => ({\n  step_number: r.step_number,\n  purpose: r.purpose || '',\n  dataset_id: r.dataset_id || '',\n  status: r.status || 'pending',\n  step_result: r.status === 'error'\n    ? (r.step_result || 'Unknown error')\n    : r.status === 'completed' && r.step_result\n      ? (r.step_result.includes('<!--LIST_CSV:') ? r.step_result : lastSentence(r.step_result))\n      : undefined\n}));\n\n// Determine overall status.\n// Priority: final_report > formatter_error > in_progress\nlet status = 'in_progress';\nlet errorMessage = null;\nif (finalRow) {\n  status = 'completed';\n} else if (formatterErrorRow) {\n  status = 'error';\n  errorMessage = formatterErrorRow.step_result || 'Formatter failed';\n  const errorSteps = stepRows.filter(r => r.status === 'error');\n  if (errorSteps.length > 0) {\n    errorMessage += '\\n\\nStep errors: ' + errorSteps.map(r => 'Step ' + r.step_number + ': ' + (r.step_result || 'failed')).join('; ');\n  }\n}\n\nreturn [{\n  json: {\n    report_id: reportId,\n    steps,\n    final_report: finalRow ? finalRow.step_result : null,\n    status,\n    error_message: errorMessage\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        -208
+      ],
+      "id": "cb245434-cd22-4ff9-99d5-5dae0c0c5d6b",
+      "name": "Format Progress",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1504,
+        -208
+      ],
+      "id": "53ecf688-9460-4673-8038-f1c9a5ad3964",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Query Step Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Step Results": {
+      "main": [
+        [
+          {
+            "node": "Format Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Progress": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "f7914033-a371-4aab-99dd-cbaa9859de27",
+  "activeVersionId": "f7914033-a371-4aab-99dd-cbaa9859de27",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-02-22T23:52:08.269Z",
+      "createdAt": "2026-02-22T23:52:08.269Z",
+      "role": "workflow:owner",
+      "workflowId": "jfcc1mEc_mhD2Unl-3RRz",
+      "projectId": "1Tt3UeBU40oNvF7P"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-03-19T06:07:34.831Z",
+    "createdAt": "2026-03-19T06:07:25.645Z",
+    "versionId": "f7914033-a371-4aab-99dd-cbaa9859de27",
+    "workflowId": "jfcc1mEc_mhD2Unl-3RRz",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "check-report-progress",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          832,
+          -208
+        ],
+        "id": "91dbd015-25eb-47df-9724-adf5d7680989",
+        "name": "Webhook",
+        "webhookId": "crp-webhook-id-001"
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "=SELECT step_number, purpose, dataset_id, status, step_result FROM n8n_data.report_step_results WHERE report_id = '{{ $json.body.report_id }}' ORDER BY step_number",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          1056,
+          -208
+        ],
+        "id": "0f23be2e-7eeb-49ee-bc73-db26ceb548a9",
+        "name": "Query Step Results",
+        "credentials": {
+          "postgres": {
+            "id": "5JhwTls4nSPISJqU",
+            "name": "Postgres account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const rows = $input.all().map(item => item.json);\nconst reportId = $('Webhook').first().json.body.report_id;\n\nfunction lastSentence(text) {\n  if (!text) return text;\n  const parts = text.split(/(?<=[.!?])\\s+/);\n  const last = parts.map(s => s.trim()).filter(Boolean).pop();\n  return last || text;\n}\n\n// Handle empty results\nif (rows.length === 0 || (rows.length === 1 && !rows[0].step_number && !rows[0].status)) {\n  return [{ json: { report_id: reportId, steps: [], final_report: null, status: 'starting' } }];\n}\n\n// step_number=0 rows are special: final_report or formatter error\nconst finalRow = rows.find(r => r.step_number === 0 && r.status === 'final_report');\nconst formatterErrorRow = rows.find(r => r.step_number === 0 && r.status === 'error');\n\n// Deduplicate step rows (step_number > 0) — retried steps produce multiple rows.\n// Prefer 'completed' status; among equal or non-completed, keep the last (most recently inserted).\nconst allStepRows = rows.filter(r => r.step_number > 0);\nconst stepMap = new Map();\nfor (const r of allStepRows) {\n  const existing = stepMap.get(r.step_number);\n  if (!existing || r.status === 'completed' || existing.status !== 'completed') {\n    stepMap.set(r.step_number, r);\n  }\n}\nconst stepRows = Array.from(stepMap.values()).sort((a, b) => a.step_number - b.step_number);\n\nconst steps = stepRows.map(r => ({\n  step_number: r.step_number,\n  purpose: r.purpose || '',\n  dataset_id: r.dataset_id || '',\n  status: r.status || 'pending',\n  step_result: r.status === 'error'\n    ? (r.step_result || 'Unknown error')\n    : r.status === 'completed' && r.step_result\n      ? (r.step_result.includes('<!--LIST_CSV:') ? r.step_result : lastSentence(r.step_result))\n      : undefined\n}));\n\n// Determine overall status.\n// Priority: final_report > formatter_error > in_progress\nlet status = 'in_progress';\nlet errorMessage = null;\nif (finalRow) {\n  status = 'completed';\n} else if (formatterErrorRow) {\n  status = 'error';\n  errorMessage = formatterErrorRow.step_result || 'Formatter failed';\n  const errorSteps = stepRows.filter(r => r.status === 'error');\n  if (errorSteps.length > 0) {\n    errorMessage += '\\n\\nStep errors: ' + errorSteps.map(r => 'Step ' + r.step_number + ': ' + (r.step_result || 'failed')).join('; ');\n  }\n}\n\nreturn [{\n  json: {\n    report_id: reportId,\n    steps,\n    final_report: finalRow ? finalRow.step_result : null,\n    status,\n    error_message: errorMessage\n  }\n}];\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1280,
+          -208
+        ],
+        "id": "cb245434-cd22-4ff9-99d5-5dae0c0c5d6b",
+        "name": "Format Progress",
+        "alwaysOutputData": true
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify($json) }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          1504,
+          -208
+        ],
+        "id": "53ecf688-9460-4673-8038-f1c9a5ad3964",
+        "name": "Respond to Webhook"
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Query Step Results",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Query Step Results": {
+        "main": [
+          [
+            {
+              "node": "Format Progress",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Progress": {
+        "main": [
+          [
+            {
+              "node": "Respond to Webhook",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "EUN ed.e.lee@gmail.com",
+    "name": "Version f7914033",
+    "description": "",
+    "autosaved": true
+  },
+  "tags": []
+}

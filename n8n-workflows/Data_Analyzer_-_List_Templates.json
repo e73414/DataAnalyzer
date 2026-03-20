@@ -1,0 +1,197 @@
+{
+  "updatedAt": "2026-02-10T23:59:55.295Z",
+  "createdAt": "2026-02-10T22:39:39.739Z",
+  "id": "FBlOFa07NGZPVkI6",
+  "name": "Data Analyzer - List Templates",
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "list-templates",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook - List Templates",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        -128
+      ],
+      "webhookId": "list-templates-webhook",
+      "id": "c8150855-2725-4f9e-a36e-897d62409ac4"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT template_id, template_name AS title, template_desc AS description, html AS html_content, owner_email, CASE WHEN template_access = 'public' THEN true ELSE false END AS is_public FROM n8n_data.\"data-analyzer-report-templates\" WHERE template_access = 'public' OR owner_email = '{{ $json.body.email }}' ORDER BY template_name",
+        "options": {}
+      },
+      "name": "Get Templates",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -64,
+        -128
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "5JhwTls4nSPISJqU",
+          "name": "Postgres account"
+        }
+      },
+      "id": "3289fca0-a5e7-4ac9-ac14-829dfeb49416"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'ok', data: $input.all().map(item => item.json) } }}",
+        "options": {}
+      },
+      "name": "Respond with Templates",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        144,
+        -128
+      ],
+      "id": "d6a385f3-a37c-4529-b9ae-fbba8abd1264"
+    }
+  ],
+  "connections": {
+    "Webhook - List Templates": {
+      "main": [
+        [
+          {
+            "node": "Get Templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Templates": {
+      "main": [
+        [
+          {
+            "node": "Respond with Templates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "d5ab2fd6-39a2-40fa-8d01-27fed3bc9015",
+  "activeVersionId": "d5ab2fd6-39a2-40fa-8d01-27fed3bc9015",
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-02-10T22:39:39.739Z",
+      "createdAt": "2026-02-10T22:39:39.739Z",
+      "role": "workflow:owner",
+      "workflowId": "FBlOFa07NGZPVkI6",
+      "projectId": "1Tt3UeBU40oNvF7P"
+    }
+  ],
+  "activeVersion": {
+    "updatedAt": "2026-02-10T22:39:39.749Z",
+    "createdAt": "2026-02-10T22:39:39.749Z",
+    "versionId": "d5ab2fd6-39a2-40fa-8d01-27fed3bc9015",
+    "workflowId": "FBlOFa07NGZPVkI6",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "list-templates",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "name": "Webhook - List Templates",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -256,
+          -128
+        ],
+        "webhookId": "list-templates-webhook",
+        "id": "c8150855-2725-4f9e-a36e-897d62409ac4"
+      },
+      {
+        "parameters": {
+          "operation": "executeQuery",
+          "query": "SELECT template_id, template_name AS title, template_desc AS description, html AS html_content, owner_email, CASE WHEN template_access = 'public' THEN true ELSE false END AS is_public FROM n8n_data.\"data-analyzer-report-templates\" WHERE template_access = 'public' OR owner_email = '{{ $json.body.email }}' ORDER BY template_name",
+          "options": {}
+        },
+        "name": "Get Templates",
+        "type": "n8n-nodes-base.postgres",
+        "typeVersion": 2.5,
+        "position": [
+          -64,
+          -128
+        ],
+        "credentials": {
+          "postgres": {
+            "id": "5JhwTls4nSPISJqU",
+            "name": "Postgres account"
+          }
+        },
+        "id": "3289fca0-a5e7-4ac9-ac14-829dfeb49416"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ { status: 'ok', data: $input.all().map(item => item.json) } }}",
+          "options": {}
+        },
+        "name": "Respond with Templates",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.1,
+        "position": [
+          144,
+          -128
+        ],
+        "id": "d6a385f3-a37c-4529-b9ae-fbba8abd1264"
+      }
+    ],
+    "connections": {
+      "Webhook - List Templates": {
+        "main": [
+          [
+            {
+              "node": "Get Templates",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Templates": {
+        "main": [
+          [
+            {
+              "node": "Respond with Templates",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "EUN ed.e.lee@gmail.com",
+    "name": null,
+    "description": null,
+    "autosaved": false
+  },
+  "tags": []
+}
