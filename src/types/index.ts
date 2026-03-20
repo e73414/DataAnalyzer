@@ -7,10 +7,12 @@ export interface Session {
 }
 
 export interface AIModel {
-  id: string
+  id: string        // maps to model_id in DB (used for API calls)
+  db_id?: string    // UUID primary key — used for CRUD operations
   name: string
   provider?: string
   description?: string
+  display_order?: number
 }
 
 export interface Dataset {

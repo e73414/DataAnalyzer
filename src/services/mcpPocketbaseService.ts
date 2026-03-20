@@ -54,6 +54,7 @@ interface PgAiModel {
   name: string
   provider: string | null
   description: string | null
+  display_order: number
 }
 
 // ── Service ───────────────────────────────────────────────────────────────────
@@ -98,10 +99,40 @@ export const pocketbaseService = {
     const response = await mcpN8nApi.get<PgAiModel[]>('/ai-models')
     return (response.data || []).map((r) => ({
       id: r.model_id,
+      db_id: r.id,
       name: r.name,
       provider: r.provider ?? undefined,
       description: r.description ?? undefined,
+      display_order: r.display_order ?? 0,
     }))
+  },
+
+  async createNavLink(data: { name: string; path: string; order?: number; color?: string; separator_before?: boolean }): Promise<NavLink> {
+    const response = await mcpN8nApi.post<NavLink>('/nav-links', data)
+    return response.data
+  },
+
+  async updateNavLink(id: string, data: Partial<{ name: string; path: string; order: number; color: string | null; separator_before: boolean }>): Promise<NavLink> {
+    const response = await mcpN8nApi.patch<NavLink>(`/nav-links/${encodeURIComponent(id)}`, data)
+    return response.data
+  },
+
+  async deleteNavLink(id: string): Promise<void> {
+    await mcpN8nApi.delete(`/nav-links/${encodeURIComponent(id)}`)
+  },
+
+  async createAIModel(data: { model_id: string; name: string; provider?: string; description?: string; display_order?: number }): Promise<AIModel> {
+    const response = await mcpN8nApi.post<PgAiModel>('/ai-models', data)
+    return { id: response.data.model_id, db_id: response.data.id, name: response.data.name, provider: response.data.provider ?? undefined, description: response.data.description ?? undefined, display_order: response.data.display_order ?? 0 }
+  },
+
+  async updateAIModel(dbId: string, data: Partial<{ model_id: string; name: string; provider: string | null; description: string | null; display_order: number }>): Promise<AIModel> {
+    const response = await mcpN8nApi.patch<PgAiModel>(`/ai-models/${encodeURIComponent(dbId)}`, data)
+    return { id: response.data.model_id, db_id: response.data.id, name: response.data.name, provider: response.data.provider ?? undefined, description: response.data.description ?? undefined, display_order: response.data.display_order ?? 0 }
+  },
+
+  async deleteAIModel(dbId: string): Promise<void> {
+    await mcpN8nApi.delete(`/ai-models/${encodeURIComponent(dbId)}`)
   },
 
   // Fetch datasets from PostgreSQL via n8n webhook (unchanged)
