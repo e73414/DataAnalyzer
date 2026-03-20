@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { n8nService } from '../services/mcpN8nService'
+import { mcpN8nApi } from '../services/api'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { ProfilePicker, composeProfile } from '../components/ProfilePicker'
 import DatasetSearchSelect from '../components/DatasetSearchSelect'
@@ -231,41 +232,18 @@ export default function EditSummaryPage() {
   }
 
   const handleDownloadCsv = async () => {
-    if (!selectedDatasetId || !session?.email) return
+    if (!selectedDatasetId) return
     setIsDownloading(true)
     try {
-      const preview = await n8nService.getDatasetView(selectedDatasetId)
-      const escape = (val: string) => {
-        if (val.includes(',') || val.includes('"') || val.includes('\n')) {
-          return `"${val.replace(/"/g, '""')}"`
-        }
-        return val
-      }
-      // Build db→original mapping so headers use original column names from the view
-      const columnMapping = (() => {
-        if (!datasetDetail?.column_mapping) return {} as Record<string, string>
-        if (typeof datasetDetail.column_mapping === 'string') {
-          try { return JSON.parse(datasetDetail.column_mapping) as Record<string, string> } catch { return {} as Record<string, string> }
-        }
-        return datasetDetail.column_mapping as Record<string, string>
-      })()
-      const dbToOriginal: Record<string, string> = {}
-      Object.entries(columnMapping).forEach(([orig, db]) => { dbToOriginal[db] = orig })
-      const columns = Object.keys(dbToOriginal).length > 0
-        ? preview.columns.filter(col => dbToOriginal[col])
-        : preview.columns
-      const header = columns.map(col => escape(dbToOriginal[col] ?? col)).join(',')
-      const dataRows = preview.rows.map(row =>
-        columns.map(col => escape(String(row[col] ?? ''))).join(',')
-      )
-      const csv = [header, ...dataRows].join('\n')
-      const blob = new Blob([csv], { type: 'text/csv' })
-      const url = URL.createObjectURL(blob)
+      const response = await mcpN8nApi.get(`/datasets/${encodeURIComponent(selectedDatasetId)}/download-csv`, {
+        responseType: 'blob',
+      })
+      const url = URL.createObjectURL(response.data as Blob)
       const a = document.createElement('a')
       a.href = url
       a.download = `${datasetName || selectedDatasetId}.csv`
       a.click()
-      URL.revokeObjectURL(url)
+      setTimeout(() => URL.revokeObjectURL(url), 100)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to download CSV')
     } finally {
