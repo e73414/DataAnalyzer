@@ -536,7 +536,7 @@ export default function HistoryPage() {
                   </svg>
                 </button>
               )}
-              <button
+              {promptType !== 'Execute Plan' && <button
                 onClick={(e) => { e.stopPropagation(); setShowSaveModal(conv) }}
                 className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 title="Save question"
@@ -544,7 +544,7 @@ export default function HistoryPage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                 </svg>
-              </button>
+              </button>}
               <button
                 onClick={(e) => {
                   e.stopPropagation()
