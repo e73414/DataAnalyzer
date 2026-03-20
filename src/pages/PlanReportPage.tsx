@@ -1900,9 +1900,9 @@ const handleSaveReport = async () => {
                         key={s.step_number}
                         type="button"
                         onClick={() => downloadListCsv(s.step_result!, s.purpose || `step_${s.step_number}`)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors"
+                        className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
                         Download Full Data
@@ -1933,15 +1933,15 @@ const handleSaveReport = async () => {
                     type="button"
                     onClick={handleSaveReport}
                     disabled={isSavingReport || reportSaved}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-lg shadow-sm transition-colors ${
+                    className={`px-2 py-1 text-xs font-medium rounded-lg shadow-sm transition-colors ${
                       reportSaved
                         ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 cursor-default'
                         : 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white disabled:cursor-not-allowed'
                     }`}
                   >
                     {isSavingReport ? (
-                      <span className="flex items-center gap-2">
-                        <span className="inline-block animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="inline-block animate-spin rounded-full h-2.5 w-2.5 border-2 border-white border-t-transparent"></span>
                         Saving...
                       </span>
                     ) : reportSaved ? (
@@ -1958,11 +1958,11 @@ const handleSaveReport = async () => {
                     type="button"
                     onClick={handleValidateReport}
                     disabled={isValidating || isExecuting}
-                    className="px-3 py-1.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-lg shadow-sm transition-colors flex items-center gap-2"
+                    className="px-2 py-1 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
                   >
                     {isValidating ? (
                       <>
-                        <span className="inline-block animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
+                        <span className="inline-block animate-spin rounded-full h-2.5 w-2.5 border-2 border-white border-t-transparent" />
                         Validating...
                       </>
                     ) : (
