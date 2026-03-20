@@ -54,8 +54,8 @@ export function useAccessibleDatasets(): {
   const { session } = useSession()
 
   const { data: datasets = [], isLoading, error } = useQuery({
-    queryKey: ['datasets', session?.email, session?.profile, (session?.profiles ?? []).join(',')],
-    queryFn: () => pocketbaseService.getAccessibleDatasets(session!.email, session?.profile, session?.profiles ?? []),
+    queryKey: ['datasets', session?.email],
+    queryFn: () => pocketbaseService.getAccessibleDatasets(session!.email),
     enabled: !!session?.email,
   })
 

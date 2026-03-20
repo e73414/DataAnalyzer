@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { pocketbaseService } from '../../services/mcpPocketbaseService'
 import type { ProfileCompany, ProfileBusinessUnit, ProfileTeam } from '../../types'
 import Navigation from '../../components/Navigation'
+import { useSession } from '../../context/SessionContext'
 
 type Tab = 'companies' | 'business-units' | 'teams'
 
@@ -40,6 +41,7 @@ function ConfirmDialog({
 // ── Companies Tab ─────────────────────────────────────────────────────────────
 
 function CompaniesTab() {
+  const { session } = useSession()
   const qc = useQueryClient()
   const [newName, setNewName] = useState('')
   const [editId, setEditId] = useState<string | null>(null)
@@ -52,7 +54,7 @@ function CompaniesTab() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (name: string) => pocketbaseService.createCompany(name),
+    mutationFn: (name: string) => pocketbaseService.createCompany(name, session!.email),
     onSuccess: (company) => {
       qc.invalidateQueries({ queryKey: ['admin-companies'] })
       toast.success(`Company created with code: ${company.code}`)
@@ -62,7 +64,7 @@ function CompaniesTab() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => pocketbaseService.updateCompany(id, name),
+    mutationFn: ({ id, name }: { id: string; name: string }) => pocketbaseService.updateCompany(id, name, session!.email),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-companies'] })
       toast.success('Company updated')
@@ -72,7 +74,7 @@ function CompaniesTab() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => pocketbaseService.deleteCompany(id),
+    mutationFn: (id: string) => pocketbaseService.deleteCompany(id, session!.email),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-companies'] })
       toast.success('Company deleted')
@@ -191,6 +193,7 @@ function CompaniesTab() {
 // ── Business Units Tab ────────────────────────────────────────────────────────
 
 function BusinessUnitsTab() {
+  const { session } = useSession()
   const qc = useQueryClient()
   const [selectedCompany, setSelectedCompany] = useState<ProfileCompany | null>(null)
   const [newName, setNewName] = useState('')
@@ -210,7 +213,7 @@ function BusinessUnitsTab() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (name: string) => pocketbaseService.createBusinessUnit(name, selectedCompany!.code),
+    mutationFn: (name: string) => pocketbaseService.createBusinessUnit(name, selectedCompany!.code, session!.email),
     onSuccess: (bu) => {
       qc.invalidateQueries({ queryKey: ['admin-bus', selectedCompany?.code] })
       toast.success(`Business unit created with code: ${bu.code}`)
@@ -220,7 +223,7 @@ function BusinessUnitsTab() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => pocketbaseService.updateBusinessUnit(id, name),
+    mutationFn: ({ id, name }: { id: string; name: string }) => pocketbaseService.updateBusinessUnit(id, name, session!.email),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-bus', selectedCompany?.code] })
       toast.success('Business unit updated')
@@ -230,7 +233,7 @@ function BusinessUnitsTab() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => pocketbaseService.deleteBusinessUnit(id),
+    mutationFn: (id: string) => pocketbaseService.deleteBusinessUnit(id, session!.email),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-bus', selectedCompany?.code] })
       toast.success('Business unit deleted')
@@ -371,6 +374,7 @@ function BusinessUnitsTab() {
 // ── Teams Tab ─────────────────────────────────────────────────────────────────
 
 function TeamsTab() {
+  const { session } = useSession()
   const qc = useQueryClient()
   const [selectedCompany, setSelectedCompany] = useState<ProfileCompany | null>(null)
   const [selectedBU, setSelectedBU] = useState<ProfileBusinessUnit | null>(null)
@@ -397,7 +401,7 @@ function TeamsTab() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (name: string) => pocketbaseService.createTeam(name, selectedCompany!.code, selectedBU!.code),
+    mutationFn: (name: string) => pocketbaseService.createTeam(name, selectedCompany!.code, selectedBU!.code, session!.email),
     onSuccess: (team) => {
       qc.invalidateQueries({ queryKey: ['admin-teams', selectedCompany?.code, selectedBU?.code] })
       toast.success(`Team created with code: ${team.code}`)
@@ -407,7 +411,7 @@ function TeamsTab() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => pocketbaseService.updateTeam(id, name),
+    mutationFn: ({ id, name }: { id: string; name: string }) => pocketbaseService.updateTeam(id, name, session!.email),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-teams', selectedCompany?.code, selectedBU?.code] })
       toast.success('Team updated')
@@ -417,7 +421,7 @@ function TeamsTab() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => pocketbaseService.deleteTeam(id),
+    mutationFn: (id: string) => pocketbaseService.deleteTeam(id, session!.email),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-teams', selectedCompany?.code, selectedBU?.code] })
       toast.success('Team deleted')

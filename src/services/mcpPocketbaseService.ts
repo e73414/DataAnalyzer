@@ -75,12 +75,12 @@ export const pocketbaseService = {
     }
   },
 
-  async updatePasswordHash(recordId: string, passwordHash: string): Promise<void> {
-    await mcpN8nApi.patch(`/users/${recordId}`, { password_hash: passwordHash })
+  async updatePasswordHash(recordId: string, passwordHash: string, actorEmail: string): Promise<void> {
+    await mcpN8nApi.patch(`/users/${recordId}`, { password_hash: passwordHash, actor_email: actorEmail })
   },
 
-  async updateUserTemplateId(recordId: string, templateId: string): Promise<void> {
-    await mcpN8nApi.patch(`/users/${recordId}`, { template_id: templateId })
+  async updateUserTemplateId(recordId: string, templateId: string, actorEmail: string): Promise<void> {
+    await mcpN8nApi.patch(`/users/${recordId}`, { template_id: templateId, actor_email: actorEmail })
   },
 
   async getNavLinks(): Promise<NavLink[]> {
@@ -107,32 +107,32 @@ export const pocketbaseService = {
     }))
   },
 
-  async createNavLink(data: { name: string; path: string; order?: number; color?: string; separator_before?: boolean }): Promise<NavLink> {
-    const response = await mcpN8nApi.post<NavLink>('/nav-links', data)
+  async createNavLink(data: { name: string; path: string; order?: number; color?: string; separator_before?: boolean }, actorEmail: string): Promise<NavLink> {
+    const response = await mcpN8nApi.post<NavLink>('/nav-links', { ...data, actor_email: actorEmail })
     return response.data
   },
 
-  async updateNavLink(id: string, data: Partial<{ name: string; path: string; order: number; color: string | null; separator_before: boolean }>): Promise<NavLink> {
-    const response = await mcpN8nApi.patch<NavLink>(`/nav-links/${encodeURIComponent(id)}`, data)
+  async updateNavLink(id: string, data: Partial<{ name: string; path: string; order: number; color: string | null; separator_before: boolean }>, actorEmail: string): Promise<NavLink> {
+    const response = await mcpN8nApi.patch<NavLink>(`/nav-links/${encodeURIComponent(id)}`, { ...data, actor_email: actorEmail })
     return response.data
   },
 
-  async deleteNavLink(id: string): Promise<void> {
-    await mcpN8nApi.delete(`/nav-links/${encodeURIComponent(id)}`)
+  async deleteNavLink(id: string, actorEmail: string): Promise<void> {
+    await mcpN8nApi.delete(`/nav-links/${encodeURIComponent(id)}`, { data: { actor_email: actorEmail } })
   },
 
-  async createAIModel(data: { model_id: string; name: string; provider?: string; description?: string; display_order?: number }): Promise<AIModel> {
-    const response = await mcpN8nApi.post<PgAiModel>('/ai-models', data)
+  async createAIModel(data: { model_id: string; name: string; provider?: string; description?: string; display_order?: number }, actorEmail: string): Promise<AIModel> {
+    const response = await mcpN8nApi.post<PgAiModel>('/ai-models', { ...data, actor_email: actorEmail })
     return { id: response.data.model_id, db_id: response.data.id, name: response.data.name, provider: response.data.provider ?? undefined, description: response.data.description ?? undefined, display_order: response.data.display_order ?? 0 }
   },
 
-  async updateAIModel(dbId: string, data: Partial<{ model_id: string; name: string; provider: string | null; description: string | null; display_order: number }>): Promise<AIModel> {
-    const response = await mcpN8nApi.patch<PgAiModel>(`/ai-models/${encodeURIComponent(dbId)}`, data)
+  async updateAIModel(dbId: string, data: Partial<{ model_id: string; name: string; provider: string | null; description: string | null; display_order: number }>, actorEmail: string): Promise<AIModel> {
+    const response = await mcpN8nApi.patch<PgAiModel>(`/ai-models/${encodeURIComponent(dbId)}`, { ...data, actor_email: actorEmail })
     return { id: response.data.model_id, db_id: response.data.id, name: response.data.name, provider: response.data.provider ?? undefined, description: response.data.description ?? undefined, display_order: response.data.display_order ?? 0 }
   },
 
-  async deleteAIModel(dbId: string): Promise<void> {
-    await mcpN8nApi.delete(`/ai-models/${encodeURIComponent(dbId)}`)
+  async deleteAIModel(dbId: string, actorEmail: string): Promise<void> {
+    await mcpN8nApi.delete(`/ai-models/${encodeURIComponent(dbId)}`, { data: { actor_email: actorEmail } })
   },
 
   // Fetch datasets from PostgreSQL via n8n webhook (unchanged)
@@ -147,9 +147,10 @@ export const pocketbaseService = {
   },
 
   // Fetch datasets accessible to a specific user (server-side profile/email filtering).
-  async getAccessibleDatasets(email: string, profile: string | undefined, profiles: string[] = []): Promise<Dataset[]> {
+  // Profile is resolved server-side — do NOT pass profile params.
+  async getAccessibleDatasets(email: string): Promise<Dataset[]> {
     const response = await mcpN8nApi.get<Record<string, unknown>[]>('/datasets', {
-      params: { email, profile, profiles: profiles.join(',') }
+      params: { email }
     })
     return (response.data || []).map((row) => ({
       id: String(row.id ?? row.dataset_id ?? ''),
@@ -296,8 +297,8 @@ export const pocketbaseService = {
 
   // ── Admin: Users ────────────────────────────────────────────────────────────
 
-  async listAllUsers(): Promise<AdminUser[]> {
-    const response = await mcpN8nApi.get<AdminUser[]>('/admin/users')
+  async listAllUsers(actorEmail: string): Promise<AdminUser[]> {
+    const response = await mcpN8nApi.get<AdminUser[]>('/admin/users', { params: { actor_email: actorEmail } })
     return response.data || []
   },
 
@@ -308,8 +309,8 @@ export const pocketbaseService = {
     profiles?: string[]
     user_timezone?: string
     template_id?: string
-  }): Promise<AdminUser> {
-    const response = await mcpN8nApi.post<AdminUser>('/admin/users', data)
+  }, actorEmail: string): Promise<AdminUser> {
+    const response = await mcpN8nApi.post<AdminUser>('/admin/users', { ...data, actor_email: actorEmail })
     return response.data
   },
 
@@ -320,12 +321,12 @@ export const pocketbaseService = {
     profiles?: string[]
     user_timezone?: string
     template_id?: string
-  }): Promise<void> {
-    await mcpN8nApi.patch(`/users/${id}`, data)
+  }, actorEmail: string): Promise<void> {
+    await mcpN8nApi.patch(`/users/${id}`, { ...data, actor_email: actorEmail })
   },
 
-  async deleteUser(id: string): Promise<void> {
-    await mcpN8nApi.delete(`/admin/users/${id}`)
+  async deleteUser(id: string, actorEmail: string): Promise<void> {
+    await mcpN8nApi.delete(`/admin/users/${id}`, { data: { actor_email: actorEmail } })
   },
 
   // ── Admin: Companies ────────────────────────────────────────────────────────
@@ -335,18 +336,18 @@ export const pocketbaseService = {
     return response.data || []
   },
 
-  async createCompany(name: string): Promise<ProfileCompany> {
-    const response = await mcpN8nApi.post<ProfileCompany>('/admin/companies', { name })
+  async createCompany(name: string, actorEmail: string): Promise<ProfileCompany> {
+    const response = await mcpN8nApi.post<ProfileCompany>('/admin/companies', { name, actor_email: actorEmail })
     return response.data
   },
 
-  async updateCompany(id: string, name: string): Promise<ProfileCompany> {
-    const response = await mcpN8nApi.patch<ProfileCompany>(`/admin/companies/${id}`, { name })
+  async updateCompany(id: string, name: string, actorEmail: string): Promise<ProfileCompany> {
+    const response = await mcpN8nApi.patch<ProfileCompany>(`/admin/companies/${id}`, { name, actor_email: actorEmail })
     return response.data
   },
 
-  async deleteCompany(id: string): Promise<void> {
-    await mcpN8nApi.delete(`/admin/companies/${id}`)
+  async deleteCompany(id: string, actorEmail: string): Promise<void> {
+    await mcpN8nApi.delete(`/admin/companies/${id}`, { data: { actor_email: actorEmail } })
   },
 
   // ── Admin: Business Units ───────────────────────────────────────────────────
@@ -356,18 +357,18 @@ export const pocketbaseService = {
     return response.data || []
   },
 
-  async createBusinessUnit(name: string, company_code: string): Promise<ProfileBusinessUnit> {
-    const response = await mcpN8nApi.post<ProfileBusinessUnit>('/admin/business-units', { name, company_code })
+  async createBusinessUnit(name: string, company_code: string, actorEmail: string): Promise<ProfileBusinessUnit> {
+    const response = await mcpN8nApi.post<ProfileBusinessUnit>('/admin/business-units', { name, company_code, actor_email: actorEmail })
     return response.data
   },
 
-  async updateBusinessUnit(id: string, name: string): Promise<ProfileBusinessUnit> {
-    const response = await mcpN8nApi.patch<ProfileBusinessUnit>(`/admin/business-units/${id}`, { name })
+  async updateBusinessUnit(id: string, name: string, actorEmail: string): Promise<ProfileBusinessUnit> {
+    const response = await mcpN8nApi.patch<ProfileBusinessUnit>(`/admin/business-units/${id}`, { name, actor_email: actorEmail })
     return response.data
   },
 
-  async deleteBusinessUnit(id: string): Promise<void> {
-    await mcpN8nApi.delete(`/admin/business-units/${id}`)
+  async deleteBusinessUnit(id: string, actorEmail: string): Promise<void> {
+    await mcpN8nApi.delete(`/admin/business-units/${id}`, { data: { actor_email: actorEmail } })
   },
 
   // ── Admin: Teams ────────────────────────────────────────────────────────────
@@ -377,18 +378,18 @@ export const pocketbaseService = {
     return response.data || []
   },
 
-  async createTeam(name: string, company_code: string, bu_code: string): Promise<ProfileTeam> {
-    const response = await mcpN8nApi.post<ProfileTeam>('/admin/teams', { name, company_code, bu_code })
+  async createTeam(name: string, company_code: string, bu_code: string, actorEmail: string): Promise<ProfileTeam> {
+    const response = await mcpN8nApi.post<ProfileTeam>('/admin/teams', { name, company_code, bu_code, actor_email: actorEmail })
     return response.data
   },
 
-  async updateTeam(id: string, name: string): Promise<ProfileTeam> {
-    const response = await mcpN8nApi.patch<ProfileTeam>(`/admin/teams/${id}`, { name })
+  async updateTeam(id: string, name: string, actorEmail: string): Promise<ProfileTeam> {
+    const response = await mcpN8nApi.patch<ProfileTeam>(`/admin/teams/${id}`, { name, actor_email: actorEmail })
     return response.data
   },
 
-  async deleteTeam(id: string): Promise<void> {
-    await mcpN8nApi.delete(`/admin/teams/${id}`)
+  async deleteTeam(id: string, actorEmail: string): Promise<void> {
+    await mcpN8nApi.delete(`/admin/teams/${id}`, { data: { actor_email: actorEmail } })
   },
 
   // ── Admin: Template Profiles ────────────────────────────────────────────────

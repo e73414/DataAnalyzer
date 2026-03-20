@@ -237,6 +237,7 @@ export default function EditSummaryPage() {
     try {
       const response = await mcpN8nApi.get(`/datasets/${encodeURIComponent(selectedDatasetId)}/download-csv`, {
         responseType: 'blob',
+        params: { email: session?.email },
       })
       const url = URL.createObjectURL(response.data as Blob)
       const a = document.createElement('a')

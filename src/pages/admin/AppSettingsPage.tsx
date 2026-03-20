@@ -5,6 +5,7 @@ import { pocketbaseService } from '../../services/mcpPocketbaseService'
 import { useAppSettings } from '../../context/AppSettingsContext'
 import Navigation from '../../components/Navigation'
 import type { NavLink, AIModel } from '../../types'
+import { useSession } from '../../context/SessionContext'
 
 const CHUNK_OPTIONS = [
   { value: '5000',  label: '5,000 rows' },
@@ -59,6 +60,7 @@ function useDragReorder<T>(
 // ── Nav Link Manager ──────────────────────────────────────────────────────────
 
 function NavLinkManager() {
+  const { session } = useSession()
   const qc = useQueryClient()
   const { data: serverLinks = [] } = useQuery({
     queryKey: ['nav-links'],
@@ -106,10 +108,10 @@ function NavLinkManager() {
       const deletedIds = [...originalIds].filter(id => !keptIds.has(id))
 
       await Promise.all([
-        ...deletedIds.map(id => pocketbaseService.deleteNavLink(id)),
+        ...deletedIds.map(id => pocketbaseService.deleteNavLink(id, session!.email)),
         ...ordered.map(l => l._isNew
-          ? pocketbaseService.createNavLink({ name: l.name, path: l.path, order: l.order, color: l.color, separator_before: l.separator_before })
-          : pocketbaseService.updateNavLink(l.id, { name: l.name, path: l.path, order: l.order, color: l.color ?? null, separator_before: l.separator_before })
+          ? pocketbaseService.createNavLink({ name: l.name, path: l.path, order: l.order, color: l.color, separator_before: l.separator_before }, session!.email)
+          : pocketbaseService.updateNavLink(l.id, { name: l.name, path: l.path, order: l.order, color: l.color ?? null, separator_before: l.separator_before }, session!.email)
         ),
       ])
 
@@ -225,6 +227,7 @@ function NavLinkManager() {
 // ── AI Model Manager ──────────────────────────────────────────────────────────
 
 function AIModelManager() {
+  const { session } = useSession()
   const qc = useQueryClient()
   const { data: serverModels = [] } = useQuery({
     queryKey: ['ai-models'],
@@ -268,10 +271,10 @@ function AIModelManager() {
       const deletedDbIds = [...originalDbIds].filter(id => id && !keptDbIds.has(id)) as string[]
 
       await Promise.all([
-        ...deletedDbIds.map(dbId => pocketbaseService.deleteAIModel(dbId)),
+        ...deletedDbIds.map(dbId => pocketbaseService.deleteAIModel(dbId, session!.email)),
         ...ordered.map(m => m._isNew
-          ? pocketbaseService.createAIModel({ model_id: m.id, name: m.name, provider: m.provider, description: m.description, display_order: m.display_order })
-          : pocketbaseService.updateAIModel(m.db_id!, { model_id: m.id, name: m.name, provider: m.provider || null, description: m.description || null, display_order: m.display_order })
+          ? pocketbaseService.createAIModel({ model_id: m.id, name: m.name, provider: m.provider, description: m.description, display_order: m.display_order }, session!.email)
+          : pocketbaseService.updateAIModel(m.db_id!, { model_id: m.id, name: m.name, provider: m.provider || null, description: m.description || null, display_order: m.display_order }, session!.email)
         ),
       ])
 

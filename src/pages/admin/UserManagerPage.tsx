@@ -5,6 +5,7 @@ import { pocketbaseService } from '../../services/mcpPocketbaseService'
 import { ProfilePicker, composeProfile } from '../../components/ProfilePicker'
 import type { AdminUser } from '../../types'
 import Navigation from '../../components/Navigation'
+import { useSession } from '../../context/SessionContext'
 
 // ── Timezone list ─────────────────────────────────────────────────────────────
 
@@ -348,13 +349,15 @@ function EmailCell({ userId, email, onSave, isSaving }: EmailCellProps) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function UserManagerPage() {
+  const { session } = useSession()
   const qc = useQueryClient()
   const [modalUser, setModalUser] = useState<AdminUser | null | undefined>(undefined) // undefined = closed
   const [confirmDelete, setConfirmDelete] = useState<AdminUser | null>(null)
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['admin-users'],
-    queryFn: () => pocketbaseService.listAllUsers(),
+    queryFn: () => pocketbaseService.listAllUsers(session!.email),
+    enabled: !!session?.email,
   })
 
   const createMutation = useMutation({
@@ -368,7 +371,7 @@ export default function UserManagerPage() {
         password_hash: hash,
         profiles,
         user_timezone: form.user_timezone,
-      })
+      }, session!.email)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-users'] })
@@ -390,7 +393,7 @@ export default function UserManagerPage() {
       if (form.password.trim()) {
         updates.password_hash = await sha256(form.password)
       }
-      return pocketbaseService.updateUser(user.id, updates)
+      return pocketbaseService.updateUser(user.id, updates, session!.email)
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-users'] })
@@ -401,7 +404,7 @@ export default function UserManagerPage() {
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => pocketbaseService.deleteUser(id),
+    mutationFn: (id: string) => pocketbaseService.deleteUser(id, session!.email),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-users'] })
       toast.success('User deleted')
@@ -412,7 +415,7 @@ export default function UserManagerPage() {
 
   const updateEmailMutation = useMutation({
     mutationFn: ({ id, user_email }: { id: string; user_email: string }) =>
-      pocketbaseService.updateUser(id, { user_email }),
+      pocketbaseService.updateUser(id, { user_email }, session!.email),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-users'] })
       toast.success('Email updated')

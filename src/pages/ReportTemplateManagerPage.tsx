@@ -44,7 +44,7 @@ export default function ReportTemplateManagerPage() {
 
     setUpdatingId(templateId)
     try {
-      await pocketbaseService.updateUserTemplateId(userProfile.id, templateId)
+      await pocketbaseService.updateUserTemplateId(userProfile.id, templateId, session!.email)
       await queryClient.invalidateQueries({ queryKey: ['user-profile', session.email] })
       toast.success('Default template updated')
     } catch (error) {
@@ -65,7 +65,7 @@ export default function ReportTemplateManagerPage() {
 
       // If the deleted template was the user's current one, clear it
       if (userProfile && userProfile.template_id === template.template_id) {
-        await pocketbaseService.updateUserTemplateId(userProfile.id, '')
+        await pocketbaseService.updateUserTemplateId(userProfile.id, '', session!.email)
         await queryClient.invalidateQueries({ queryKey: ['user-profile', session.email] })
       }
 

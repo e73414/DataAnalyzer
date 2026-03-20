@@ -117,7 +117,7 @@ export default function Navigation() {
       }
       // Save new password hash
       const newHash = await sha256Hex(newPassword)
-      await pocketbaseService.updatePasswordHash(profile.id, newHash)
+      await pocketbaseService.updatePasswordHash(profile.id, newHash, session!.email)
       toast.success('Password changed successfully')
       setShowPasswordModal(false)
       setCurrentPassword('')
