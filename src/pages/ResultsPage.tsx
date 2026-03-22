@@ -112,6 +112,7 @@ interface LocationState {
   datasetName: string
   prompt: string
   durationSeconds?: number
+  model?: string
 }
 
 export default function ResultsPage() {
@@ -200,7 +201,7 @@ export default function ResultsPage() {
           email: session.email,
           prompt: `[Conversation] ${state.prompt}`,
           response: state.result.result,
-          aiModel: session.aiModel,
+          aiModel: state.model || session.aiModel,
           datasetId: state.datasetId,
           datasetName: state.datasetName,
           durationSeconds: state.durationSeconds,

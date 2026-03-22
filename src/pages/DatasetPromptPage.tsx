@@ -275,6 +275,7 @@ export default function DatasetPromptPage() {
           datasetName: chosenDataset?.name || 'Unknown Dataset',
           prompt: prompt.trim(),
           durationSeconds,
+          model: effectiveAnalyzeModel,
         },
       })
     } catch (error) {
