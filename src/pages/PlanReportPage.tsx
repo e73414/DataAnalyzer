@@ -255,6 +255,7 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   const previewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const executionCancelledRef = useRef(false)
   const expandedPlanRef = useRef<ReportPlan | null>(null)
+  const completionHandledRef = useRef(false)
 
   const {
     datasets: datasets = [],
@@ -617,6 +618,8 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   }
 
   const handleExecutionComplete = useCallback((progress: CheckReportProgressResult) => {
+    if (completionHandledRef.current) return
+    completionHandledRef.current = true
     stopPolling()
     setIsExecuting(false)
     const finalReport = extractReportHtml(progress.final_report)
@@ -846,6 +849,7 @@ const handleSaveReport = async () => {
     setIsExecuting(true)
     setFormatterTriggered(false)
     formatterTriggeredRef.current = false
+    completionHandledRef.current = false
     setReport('')
     setReportSaved(false)
     setSavedRecordId(null)
@@ -942,6 +946,7 @@ const handleSaveReport = async () => {
     setWasStopped(false)
     setFormatterTriggered(false)
     formatterTriggeredRef.current = false
+    completionHandledRef.current = false
     setExecutionProgress(prev => prev ? {
       ...prev,
       status: 'in_progress',
@@ -1017,6 +1022,7 @@ const handleSaveReport = async () => {
     setIsExecuting(true)
     setFormatterTriggered(false)
     formatterTriggeredRef.current = false
+    completionHandledRef.current = false
     setExecutionProgress(prev => prev ? {
       ...prev,
       status: 'in_progress',
