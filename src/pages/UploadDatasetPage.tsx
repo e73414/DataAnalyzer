@@ -11,6 +11,14 @@ import Navigation from '../components/Navigation'
 interface IncomingFileState {
   csvFile?: File
   fileName?: string
+  ingestionConfig?: {
+    source_type: 'excel' | 'csv'
+    config: {
+      sheets?: Array<{ name: string; header_row?: string; excluded_col_names?: string[] }>
+      no_unpivot?: boolean
+      keep_dupes?: boolean
+    }
+  }
 }
 
 export default function UploadDatasetPage() {
@@ -86,8 +94,17 @@ export default function UploadDatasetPage() {
 
       return result
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ['datasets'] })
+      // Save ingestion config if it was passed from CSV Optimizer PLUS
+      const state = location.state as IncomingFileState | null
+      if (state?.ingestionConfig && result.datasetId) {
+        try {
+          await pocketbaseService.saveIngestionConfig({ dataset_id: result.datasetId, ...state.ingestionConfig })
+        } catch {
+          // Non-fatal — config can be saved later from the ingestion schedule page
+        }
+      }
       toast.success(`Dataset "${result.datasetName}" uploaded successfully! ${result.rowsInserted} rows inserted.`)
       navigate('/analyze', { state: { preSelectedDatasetId: result.datasetId } })
     },

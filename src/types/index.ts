@@ -343,3 +343,62 @@ export interface AppSettings {
   detail_level: string | null
   report_detail: string | null
 }
+
+// ── Ingestion Pipeline ────────────────────────────────────────────────────────
+
+export interface IngestionSheetConfig {
+  name: string
+  header_row?: string | number
+  excluded_col_names?: string[]
+}
+
+export interface IngestionConfig {
+  dataset_id: string
+  source_type: 'excel' | 'csv'
+  config: {
+    sheets?: IngestionSheetConfig[]
+    no_unpivot?: boolean
+    keep_dupes?: boolean
+  }
+  created_at?: string
+  updated_at?: string
+}
+
+export interface IngestionSchedule {
+  id: string
+  dataset_id: string
+  owner_email: string
+  folder_id: string
+  location_type: string
+  schedule: string | null
+  enabled: boolean
+  last_run_at: string | null
+  last_run_status: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface IngestionFile {
+  id: string
+  dataset_id: string
+  file_name: string | null
+  file_id: string | null
+  file_location: string | null
+  location_type: string | null
+  ingested_at: string | null
+  ingestion_result: string
+  error_message: string | null
+  rows_inserted: number | null
+  created_at: string
+}
+
+export interface GoogleTokenStatus {
+  connected: boolean
+}
+
+export interface DriveFile {
+  id: string
+  name: string
+  createdTime: string
+  mimeType: string
+}

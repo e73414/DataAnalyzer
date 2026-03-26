@@ -21,6 +21,7 @@ import AppSettingsPage from './pages/admin/AppSettingsPage'
 import QuestionPage from './pages/QuestionPage'
 import ManageQuestionsPage from './pages/ManageQuestionsPage'
 import BrowseQuestionsPage from './pages/BrowseQuestionsPage'
+import IngestionSchedulePage from './pages/IngestionSchedulePage'
 
 function UnauthorizedPage() {
   const navigate = useNavigate()
@@ -224,6 +225,14 @@ function App() {
         element={
           <ProtectedRoute>
             <ManageQuestionsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ingestion/:datasetId"
+        element={
+          <ProtectedRoute>
+            <IngestionSchedulePage />
           </ProtectedRoute>
         }
       />

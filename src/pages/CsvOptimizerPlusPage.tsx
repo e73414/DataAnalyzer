@@ -363,12 +363,25 @@ export default function CsvOptimizerPlusPage() {
   const handleUploadAsDataset = (conv: SheetConversion) => {
     const csv = getActiveCleanCsv(conv)
     if (!csv) return
+
+    // Build ingestion config so it can be saved alongside the dataset on upload
+    const { headers } = parseCSV(conv.result.cleanCsv)
+    const excludedColNames = headers.filter((_, i) => conv.excludedCols.has(i))
+    const ingestionConfig = {
+      source_type: isExcel ? 'excel' as const : 'csv' as const,
+      config: {
+        sheets: [{ name: conv.sheet, header_row: options.header_row || undefined, excluded_col_names: excludedColNames }],
+        no_unpivot: options.no_unpivot,
+        keep_dupes: options.keep_dupes,
+      },
+    }
+
     const sheetSuffix = sheetConversions.length > 1 ? ` - ${conv.sheet}` : ''
     const displayName = `${sourceName}${sheetSuffix}`
     const fileName = `${displayName}_clean.csv`
     const blob = new Blob([csv], { type: 'text/csv' })
     const file = new File([blob], fileName, { type: 'text/csv' })
-    navigate('/upload-dataset', { state: { csvFile: file, fileName: displayName } })
+    navigate('/upload-dataset', { state: { csvFile: file, fileName: displayName, ingestionConfig } })
   }
 
   const handleReset = () => {

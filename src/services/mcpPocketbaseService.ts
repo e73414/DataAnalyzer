@@ -2,7 +2,7 @@ import { mcpN8nApi } from './api'
 import type {
   Dataset, AIModel, NavLink, ConversationHistory, UserProfile,
   ProfileCompany, ProfileBusinessUnit, ProfileTeam, TemplateProfileAssignment, AdminUser, AppSettings,
-  SavedQuestion
+  SavedQuestion, IngestionConfig, IngestionSchedule, IngestionFile, GoogleTokenStatus, DriveFile
 } from '../types'
 
 // ── Types for Postgres REST responses ─────────────────────────────────────────
@@ -467,6 +467,72 @@ export const pocketbaseService = {
 
   async searchUsers(q: string): Promise<string[]> {
     const response = await mcpN8nApi.get<string[]>('/users/search', { params: { q } })
+    return response.data || []
+  },
+
+  // ── Ingestion Pipeline ──────────────────────────────────────────────────────
+
+  async saveIngestionConfig(payload: Omit<IngestionConfig, 'created_at' | 'updated_at'>): Promise<void> {
+    await mcpN8nApi.post('/ingestion/config', payload)
+  },
+
+  async getIngestionConfig(datasetId: string): Promise<IngestionConfig | null> {
+    const response = await mcpN8nApi.get<IngestionConfig | null>(`/ingestion/config/${encodeURIComponent(datasetId)}`)
+    return response.data
+  },
+
+  async getIngestionSchedule(datasetId: string): Promise<IngestionSchedule | null> {
+    const response = await mcpN8nApi.get<IngestionSchedule | null>(`/ingestion/schedule/${encodeURIComponent(datasetId)}`)
+    return response.data
+  },
+
+  async saveIngestionSchedule(
+    payload: { dataset_id: string; owner_email: string; folder_id: string; schedule?: string | null; enabled?: boolean }
+  ): Promise<IngestionSchedule> {
+    const response = await mcpN8nApi.post<IngestionSchedule>('/ingestion/schedule', payload)
+    return response.data
+  },
+
+  async updateIngestionSchedule(
+    datasetId: string,
+    payload: { folder_id?: string; schedule?: string | null; enabled?: boolean }
+  ): Promise<IngestionSchedule> {
+    const response = await mcpN8nApi.patch<IngestionSchedule>(`/ingestion/schedule/${encodeURIComponent(datasetId)}`, payload)
+    return response.data
+  },
+
+  async deleteIngestionSchedule(datasetId: string): Promise<void> {
+    await mcpN8nApi.delete(`/ingestion/schedule/${encodeURIComponent(datasetId)}`)
+  },
+
+  async runIngestionNow(datasetId: string, email: string): Promise<{ status: string; message?: string }> {
+    const response = await mcpN8nApi.post(`/ingestion/run/${encodeURIComponent(datasetId)}`, { email })
+    return response.data
+  },
+
+  async getIngestionFiles(datasetId: string): Promise<IngestionFile[]> {
+    const response = await mcpN8nApi.get<IngestionFile[]>(`/ingestion/files/${encodeURIComponent(datasetId)}`)
+    return response.data || []
+  },
+
+  async getGoogleAuthUrl(email: string): Promise<string> {
+    const response = await mcpN8nApi.get<{ url: string }>('/google/auth-url', { params: { email } })
+    return response.data.url
+  },
+
+  async getGoogleTokenStatus(email: string): Promise<GoogleTokenStatus> {
+    const response = await mcpN8nApi.get<GoogleTokenStatus>('/google/token-status', { params: { email } })
+    return response.data
+  },
+
+  async disconnectGoogle(email: string): Promise<void> {
+    await mcpN8nApi.delete('/google/disconnect', { params: { email } })
+  },
+
+  async listDriveFiles(email: string, folderId: string): Promise<DriveFile[]> {
+    const response = await mcpN8nApi.get<DriveFile[]>('/google/drive/files', {
+      params: { email, folder_id: folderId },
+    })
     return response.data || []
   },
 }
