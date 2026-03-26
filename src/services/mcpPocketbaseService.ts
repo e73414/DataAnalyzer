@@ -417,12 +417,13 @@ export const pocketbaseService = {
     const response = await mcpN8nApi.get<Record<string, string | null>>('/app-settings')
     const d = response.data ?? {}
     return {
-      analyze_model:   d.analyze_model   ?? null,
-      plan_model:      d.plan_model      ?? null,
-      execute_model:   d.execute_model   ?? null,
-      chunk_threshold: d.chunk_threshold ?? null,
-      detail_level:    d.detail_level    ?? null,
-      report_detail:   d.report_detail   ?? null,
+      analyze_model:            d.analyze_model            ?? null,
+      plan_model:               d.plan_model               ?? null,
+      execute_model:            d.execute_model            ?? null,
+      chunk_threshold:          d.chunk_threshold          ?? null,
+      detail_level:             d.detail_level             ?? null,
+      report_detail:            d.report_detail            ?? null,
+      show_ingestion_schedule:  d.show_ingestion_schedule  ?? null,
     }
   },
 

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
+import { useAppSettings } from '../context/AppSettingsContext'
 import { n8nService } from '../services/mcpN8nService'
 import { mcpN8nApi } from '../services/api'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
@@ -18,6 +19,7 @@ export default function EditSummaryPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { session } = useSession()
+  const { appSettings } = useAppSettings()
   const [selectedDatasetId, setSelectedDatasetId] = useState('')
   const [datasetName, setDatasetName] = useState('')
   const [editedSummary, setEditedSummary] = useState('')
@@ -560,6 +562,16 @@ export default function EditSummaryPage() {
                             'Download CSV'
                           )}
                         </button>
+
+                        {appSettings?.show_ingestion_schedule === 'true' &&
+                          (session?.profile?.trim() === 'admadmadm' || datasets.find(d => d.id === selectedDatasetId)?.owner_email === session?.email) && (
+                          <Link
+                            to={`/ingestion/${selectedDatasetId}`}
+                            className="px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-700 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors duration-200"
+                          >
+                            Ingestion Schedule
+                          </Link>
+                        )}
 
                         {(session?.profile?.trim() === 'admadmadm' || datasets.find(d => d.id === selectedDatasetId)?.owner_email === session?.email) && (
                           confirmDelete ? (

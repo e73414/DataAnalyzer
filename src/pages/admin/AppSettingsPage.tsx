@@ -395,12 +395,13 @@ export default function AppSettingsPage() {
     queryFn: () => pocketbaseService.getAIModels(),
   })
 
-  const [analyzeModel,   setAnalyzeModel]   = useState('')
-  const [planModel,      setPlanModel]      = useState('')
-  const [executeModel,   setExecuteModel]   = useState('')
-  const [chunkThreshold, setChunkThreshold] = useState('')
-  const [detailLevel,    setDetailLevel]    = useState('')
-  const [reportDetail,   setReportDetail]   = useState('')
+  const [analyzeModel,           setAnalyzeModel]           = useState('')
+  const [planModel,              setPlanModel]              = useState('')
+  const [executeModel,           setExecuteModel]           = useState('')
+  const [chunkThreshold,         setChunkThreshold]         = useState('')
+  const [detailLevel,            setDetailLevel]            = useState('')
+  const [reportDetail,           setReportDetail]           = useState('')
+  const [showIngestionSchedule,  setShowIngestionSchedule]  = useState(false)
 
   useEffect(() => {
     if (!appSettings) return
@@ -410,17 +411,19 @@ export default function AppSettingsPage() {
     setChunkThreshold(appSettings.chunk_threshold ?? '')
     setDetailLevel(appSettings.detail_level ?? '')
     setReportDetail(appSettings.report_detail ?? '')
+    setShowIngestionSchedule(appSettings.show_ingestion_schedule === 'true')
   }, [appSettings])
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       await Promise.all([
-        pocketbaseService.updateAppSetting('analyze_model',   analyzeModel   || null),
-        pocketbaseService.updateAppSetting('plan_model',      planModel      || null),
-        pocketbaseService.updateAppSetting('execute_model',   executeModel   || null),
-        pocketbaseService.updateAppSetting('chunk_threshold', chunkThreshold || null),
-        pocketbaseService.updateAppSetting('detail_level',    detailLevel    || null),
-        pocketbaseService.updateAppSetting('report_detail',   reportDetail   || null),
+        pocketbaseService.updateAppSetting('analyze_model',           analyzeModel          || null),
+        pocketbaseService.updateAppSetting('plan_model',              planModel             || null),
+        pocketbaseService.updateAppSetting('execute_model',           executeModel          || null),
+        pocketbaseService.updateAppSetting('chunk_threshold',         chunkThreshold        || null),
+        pocketbaseService.updateAppSetting('detail_level',            detailLevel           || null),
+        pocketbaseService.updateAppSetting('report_detail',           reportDetail          || null),
+        pocketbaseService.updateAppSetting('show_ingestion_schedule', showIngestionSchedule ? 'true' : null),
       ])
     },
     onSuccess: () => {
@@ -501,6 +504,26 @@ export default function AppSettingsPage() {
                     {SHOW_STEPS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
+              </div>
+            </div>
+
+            {/* Section: Feature Flags */}
+            <div className="px-6 py-5">
+              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-4">
+                Feature Flags
+              </h2>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="showIngestionSchedule"
+                  checked={showIngestionSchedule}
+                  onChange={(e) => setShowIngestionSchedule(e.target.checked)}
+                  disabled={saveMutation.isPending}
+                  className="w-4 h-4 rounded accent-blue-600"
+                />
+                <label htmlFor="showIngestionSchedule" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                  Show "Ingestion Schedule" link on Edit Dataset Summary page
+                </label>
               </div>
             </div>
 

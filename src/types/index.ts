@@ -342,6 +342,7 @@ export interface AppSettings {
   chunk_threshold: string | null  // stored as TEXT, parse to number where needed
   detail_level: string | null
   report_detail: string | null
+  show_ingestion_schedule: string | null  // 'true' | null
 }
 
 // ── Ingestion Pipeline ────────────────────────────────────────────────────────
