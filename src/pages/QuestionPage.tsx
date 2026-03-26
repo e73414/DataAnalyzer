@@ -39,8 +39,16 @@ export default function QuestionPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sq])
 
+  // Public questions (anyone with link) skip login and lock the prompt
+  const isPublic = sq?.audience?.includes('__public__')
+
   const runAnalysis = async (prompt: string) => {
     if (!sq) return
+    // Security: public questions must run the exact saved prompt
+    if (isPublic && prompt !== sq.prompt) {
+      setError('This question cannot be modified.')
+      return
+    }
     setIsRunning(true)
     setError(null)
     try {
@@ -58,10 +66,11 @@ export default function QuestionPage() {
     }
   }
 
-  // Access check: always requires login; if audience is set, email must be in it
-  const isNotLoggedIn = sq && !session?.email
+  // Access checks — public questions require neither login nor audience membership
+  const isNotLoggedIn = sq && !isPublic && !session?.email
   const isRestricted =
     sq &&
+    !isPublic &&
     session?.email &&
     sq.audience &&
     sq.audience.length > 0 &&

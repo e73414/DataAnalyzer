@@ -154,7 +154,11 @@ export default function ManageQuestionsPage() {
                     </td>
                     {/* Audience */}
                     <td className="px-4 py-3 hidden md:table-cell">
-                      {q.audience && q.audience.length > 0 ? (
+                      {q.audience?.includes('__public__') ? (
+                        <span className="text-xs text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 px-2 py-0.5 rounded-full">
+                          Public link
+                        </span>
+                      ) : q.audience && q.audience.length > 0 ? (
                         <span className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 px-2 py-0.5 rounded-full">
                           {q.audience.length} email{q.audience.length !== 1 ? 's' : ''}
                         </span>
