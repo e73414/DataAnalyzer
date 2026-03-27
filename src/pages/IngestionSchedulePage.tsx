@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import Navigation from '../components/Navigation'
 import type { DriveFile, IngestionFile } from '../types'
+
+type SourceType = 'google_drive' | 'onedrive'
 
 const SCHEDULE_PRESETS = [
   { label: 'Manual only', value: '' },
@@ -16,10 +18,14 @@ const SCHEDULE_PRESETS = [
   { label: 'Custom cron…', value: '__custom__' },
 ]
 
-function parseFolderId(input: string): string {
-  // Extract folder ID from a Google Drive URL if pasted
-  const match = input.match(/\/folders\/([a-zA-Z0-9_-]+)/)
-  return match ? match[1] : input.trim()
+function parseFolderId(input: string, sourceType: SourceType): string {
+  if (sourceType === 'google_drive') {
+    const m = input.match(/\/folders\/([a-zA-Z0-9_-]+)/)
+    return m ? m[1] : input.trim()
+  }
+  // OneDrive: extract ?id= param from URL
+  const m = input.match(/[?&]id=([^&]+)/)
+  return m ? decodeURIComponent(m[1]) : input.trim()
 }
 
 function statusBadge(status: string | null) {
@@ -40,8 +46,10 @@ export default function IngestionSchedulePage() {
   const { session } = useSession()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
 
   // ── Form state ──────────────────────────────────────────────────────────────
+  const [sourceType, setSourceType] = useState<SourceType>('google_drive')
   const [folderInput, setFolderInput] = useState('')
   const [schedulePreset, setSchedulePreset] = useState('')
   const [customCron, setCustomCron] = useState('')
@@ -53,10 +61,28 @@ export default function IngestionSchedulePage() {
 
   if (!datasetId) return null
 
+  // ── Handle OAuth callback toasts ─────────────────────────────────────────
+  useEffect(() => {
+    if (searchParams.get('ms_connected') === '1') {
+      toast.success('OneDrive connected successfully')
+      queryClient.invalidateQueries({ queryKey: ['microsoft-token-status'] })
+    }
+    if (searchParams.get('error')) {
+      toast.error(`Connection error: ${searchParams.get('error')}`)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Data fetching ───────────────────────────────────────────────────────────
   const { data: tokenStatus } = useQuery({
     queryKey: ['google-token-status', session?.email],
     queryFn: () => pocketbaseService.getGoogleTokenStatus(session!.email),
+    enabled: !!session?.email,
+    refetchOnMount: 'always',
+  })
+
+  const { data: msTokenStatus } = useQuery({
+    queryKey: ['microsoft-token-status', session?.email],
+    queryFn: () => pocketbaseService.getMicrosoftTokenStatus(session!.email),
     enabled: !!session?.email,
     refetchOnMount: 'always',
   })
@@ -86,6 +112,7 @@ export default function IngestionSchedulePage() {
     if (!schedule || formDirty) return
     setFolderInput(schedule.folder_id)
     setEnabled(schedule.enabled)
+    setSourceType((schedule.location_type as SourceType) || 'google_drive')
     if (!schedule.schedule) {
       setSchedulePreset('')
     } else {
@@ -101,7 +128,7 @@ export default function IngestionSchedulePage() {
 
   // ── Access guard ────────────────────────────────────────────────────────────
   const isAdmin = session?.profile?.trim() === 'admadmadm'
-  const isOwner = schedule ? schedule.owner_email === session?.email : true // allow until loaded
+  const isOwner = schedule ? schedule.owner_email === session?.email : true
   if (!isAdmin && !isOwner && schedule) {
     navigate('/')
     return null
@@ -111,7 +138,7 @@ export default function IngestionSchedulePage() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!session?.email) throw new Error('Not logged in')
-      const folderId = parseFolderId(folderInput)
+      const folderId = parseFolderId(folderInput, sourceType)
       if (!folderId) throw new Error('Folder ID is required')
       const cronValue = schedulePreset === '__custom__' ? customCron.trim() : schedulePreset
 
@@ -119,6 +146,7 @@ export default function IngestionSchedulePage() {
         dataset_id: datasetId,
         owner_email: session.email,
         folder_id: folderId,
+        location_type: sourceType,
         schedule: cronValue || null,
         enabled,
       }
@@ -157,9 +185,9 @@ export default function IngestionSchedulePage() {
     }
   }
 
-  const handleDisconnect = async () => {
+  const handleDisconnectGoogle = async () => {
     if (!session?.email) return
-    if (!window.confirm('Disconnect Google Drive? Existing schedules will stop working.')) return
+    if (!window.confirm('Disconnect Google Drive? Existing schedules using Google Drive will stop working.')) return
     try {
       await pocketbaseService.disconnectGoogle(session.email)
       queryClient.invalidateQueries({ queryKey: ['google-token-status'] })
@@ -169,13 +197,39 @@ export default function IngestionSchedulePage() {
     }
   }
 
+  const handleConnectMicrosoft = async () => {
+    if (!session?.email) return
+    try {
+      const url = await pocketbaseService.getMicrosoftAuthUrl(session.email)
+      window.location.href = url
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to get auth URL')
+    }
+  }
+
+  const handleDisconnectMicrosoft = async () => {
+    if (!session?.email) return
+    if (!window.confirm('Disconnect OneDrive? Existing schedules using OneDrive will stop working.')) return
+    try {
+      await pocketbaseService.disconnectMicrosoft(session.email)
+      queryClient.invalidateQueries({ queryKey: ['microsoft-token-status'] })
+      toast.success('OneDrive disconnected')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Disconnect failed')
+    }
+  }
+
+  const activeConnection = sourceType === 'onedrive' ? msTokenStatus?.connected : tokenStatus?.connected
+
   const handlePreview = async () => {
     if (!session?.email || !folderInput.trim()) return
     setIsPreviewing(true)
     setPreviewFiles([])
     try {
-      const folderId = parseFolderId(folderInput)
-      const files = await pocketbaseService.listDriveFiles(session.email, folderId)
+      const folderId = parseFolderId(folderInput, sourceType)
+      const files = sourceType === 'onedrive'
+        ? await pocketbaseService.listOneDriveFiles(session.email, folderId)
+        : await pocketbaseService.listDriveFiles(session.email, folderId)
       setPreviewFiles(files)
       if (files.length === 0) toast('No files found in this folder', { icon: 'ℹ️' })
     } catch (err) {
@@ -213,7 +267,7 @@ export default function IngestionSchedulePage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Ingestion Schedule</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Automate dataset updates by polling a Google Drive folder for new files.
+            Automate dataset updates by polling a cloud storage folder for new files.
           </p>
           {ingestionConfig
             ? <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
@@ -228,39 +282,91 @@ export default function IngestionSchedulePage() {
           }
         </div>
 
-        {/* Google Drive Connection */}
+        {/* Source selector */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-3">
-            Google Drive Connection
+            File Source
           </h2>
-          {tokenStatus?.connected ? (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Google Drive connected
+          <div className="flex gap-6">
+            {([
+              { value: 'google_drive', label: 'Google Drive' },
+              { value: 'onedrive',     label: 'OneDrive' },
+            ] as { value: SourceType; label: string }[]).map(opt => (
+              <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="sourceType"
+                  value={opt.value}
+                  checked={sourceType === opt.value}
+                  onChange={() => { setSourceType(opt.value); setPreviewFiles([]); setFormDirty(true) }}
+                  className="accent-blue-600"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Connection section */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-3">
+            {sourceType === 'onedrive' ? 'OneDrive Connection' : 'Google Drive Connection'}
+          </h2>
+
+          {sourceType === 'google_drive' ? (
+            tokenStatus?.connected ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Google Drive connected
+                </div>
+                <button onClick={handleDisconnectGoogle} className="text-xs text-red-600 dark:text-red-400 hover:underline">
+                  Disconnect
+                </button>
               </div>
-              <button
-                onClick={handleDisconnect}
-                className="text-xs text-red-600 dark:text-red-400 hover:underline"
-              >
-                Disconnect
-              </button>
-            </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Not connected</p>
+                <button
+                  onClick={handleConnectGoogle}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 11.6L6 2H2l6 10.4L2 22h4l6-10.4zm8 0L14 2h-4l6 9.6L10 22h4l6-10.4z" />
+                  </svg>
+                  Connect Google Drive
+                </button>
+              </div>
+            )
           ) : (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Not connected</p>
-              <button
-                onClick={handleConnectGoogle}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 11.6L6 2H2l6 10.4L2 22h4l6-10.4zm8 0L14 2h-4l6 9.6L10 22h4l6-10.4z" />
-                </svg>
-                Connect Google Drive
-              </button>
-            </div>
+            msTokenStatus?.connected ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  OneDrive connected
+                </div>
+                <button onClick={handleDisconnectMicrosoft} className="text-xs text-red-600 dark:text-red-400 hover:underline">
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Not connected</p>
+                <button
+                  onClick={handleConnectMicrosoft}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11.5 2.4L2 7.6V16l9.5 5.5 9.5-5.5V7.6L11.5 2.4zm0 1.6l7.8 4.5-7.8 4.5L3.7 8.5 11.5 4zm-8.5 5.3l8 4.6v7.8L3 17.4V9.3zm9.5 4.6l8-4.6v8.1l-8 4.5v-8z" />
+                  </svg>
+                  Connect OneDrive
+                </button>
+              </div>
+            )
           )}
         </div>
 
@@ -273,24 +379,29 @@ export default function IngestionSchedulePage() {
           {/* Folder input */}
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-              Google Drive Folder ID or URL
+              {sourceType === 'onedrive' ? 'OneDrive Folder Item ID or URL' : 'Google Drive Folder ID or URL'}
             </label>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={folderInput}
                 onChange={e => { setFolderInput(e.target.value); setFormDirty(true) }}
-                placeholder="Paste folder URL or ID"
+                placeholder={sourceType === 'onedrive' ? 'Paste OneDrive folder URL or item ID' : 'Paste folder URL or ID'}
                 className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <button
                 onClick={handlePreview}
-                disabled={isPreviewing || !folderInput.trim() || !tokenStatus?.connected}
+                disabled={isPreviewing || !folderInput.trim() || !activeConnection}
                 className="px-3 py-2 text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition-colors whitespace-nowrap"
               >
                 {isPreviewing ? 'Loading…' : 'Preview files'}
               </button>
             </div>
+            {sourceType === 'onedrive' && (
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                Tip: From OneDrive, open the folder and copy the URL — the item ID is in the <code className="font-mono">?id=</code> parameter.
+              </p>
+            )}
             {previewFiles.length > 0 && (
               <div className="mt-2 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                 {previewFiles.slice(0, 5).map(f => (
@@ -368,7 +479,7 @@ export default function IngestionSchedulePage() {
             {schedule && (
               <button
                 onClick={handleRunNow}
-                disabled={isRunning || !tokenStatus?.connected}
+                disabled={isRunning || !activeConnection}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
               >
                 {isRunning ? (

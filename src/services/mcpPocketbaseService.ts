@@ -2,7 +2,7 @@ import { mcpN8nApi } from './api'
 import type {
   Dataset, AIModel, NavLink, ConversationHistory, UserProfile,
   ProfileCompany, ProfileBusinessUnit, ProfileTeam, TemplateProfileAssignment, AdminUser, AppSettings,
-  SavedQuestion, IngestionConfig, IngestionSchedule, IngestionFile, GoogleTokenStatus, DriveFile
+  SavedQuestion, IngestionConfig, IngestionSchedule, IngestionFile, GoogleTokenStatus, MicrosoftTokenStatus, DriveFile
 } from '../types'
 
 // ── Types for Postgres REST responses ─────────────────────────────────────────
@@ -532,6 +532,29 @@ export const pocketbaseService = {
 
   async listDriveFiles(email: string, folderId: string): Promise<DriveFile[]> {
     const response = await mcpN8nApi.get<DriveFile[]>('/google/drive/files', {
+      params: { email, folder_id: folderId },
+    })
+    return response.data || []
+  },
+
+  // ── Microsoft OneDrive OAuth ──────────────────────────────────────────────
+
+  async getMicrosoftAuthUrl(email: string): Promise<string> {
+    const response = await mcpN8nApi.get<{ url: string }>('/microsoft/auth-url', { params: { email } })
+    return response.data.url
+  },
+
+  async getMicrosoftTokenStatus(email: string): Promise<MicrosoftTokenStatus> {
+    const response = await mcpN8nApi.get<MicrosoftTokenStatus>('/microsoft/token-status', { params: { email } })
+    return response.data
+  },
+
+  async disconnectMicrosoft(email: string): Promise<void> {
+    await mcpN8nApi.delete('/microsoft/disconnect', { params: { email } })
+  },
+
+  async listOneDriveFiles(email: string, folderId: string): Promise<DriveFile[]> {
+    const response = await mcpN8nApi.get<DriveFile[]>('/microsoft/onedrive/files', {
       params: { email, folder_id: folderId },
     })
     return response.data || []

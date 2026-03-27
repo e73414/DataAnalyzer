@@ -397,6 +397,10 @@ export interface GoogleTokenStatus {
   connected: boolean
 }
 
+export interface MicrosoftTokenStatus {
+  connected: boolean
+}
+
 export interface DriveFile {
   id: string
   name: string
