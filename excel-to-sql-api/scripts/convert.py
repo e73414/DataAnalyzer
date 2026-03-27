@@ -157,8 +157,12 @@ def detect_encoding(path: Path) -> str:
     try:
         import chardet
         with open(path, 'rb') as f:
-            raw = f.read(50_000)
-        return chardet.detect(raw).get('encoding') or 'utf-8'
+            raw = f.read()
+        detected = chardet.detect(raw).get('encoding') or 'utf-8'
+        # 'ascii' is a strict codec in pandas — treat it as utf-8 which is a superset
+        if detected.lower() == 'ascii':
+            detected = 'utf-8'
+        return detected
     except ImportError:
         for enc in ('utf-8', 'utf-8-sig', 'latin-1', 'cp1252'):
             try:
@@ -230,8 +234,13 @@ def load_file(path: Path, sheet=0, header_row: int = None,
         df_raw      = pd.read_excel(path, sheet_name=sheet_idx, header=None)
 
     elif ext == '.csv':
-        df_raw = pd.read_csv(path, header=None, encoding=encoding,
-                             low_memory=False, on_bad_lines='warn')
+        try:
+            df_raw = pd.read_csv(path, header=None, encoding=encoding,
+                                 low_memory=False, on_bad_lines='warn')
+        except UnicodeDecodeError:
+            encoding = 'latin-1'
+            df_raw = pd.read_csv(path, header=None, encoding=encoding,
+                                 low_memory=False, on_bad_lines='warn')
     else:
         raise ValueError(f"Unsupported file type: {ext}")
 
@@ -241,8 +250,13 @@ def load_file(path: Path, sheet=0, header_row: int = None,
     if ext in ('.xlsx', '.xls', '.xlsm'):
         df = pd.read_excel(path, sheet_name=sheet_idx, header=header_row)
     else:
-        df = pd.read_csv(path, header=header_row, encoding=encoding,
-                         low_memory=False, on_bad_lines='warn')
+        try:
+            df = pd.read_csv(path, header=header_row, encoding=encoding,
+                             low_memory=False, on_bad_lines='warn')
+        except UnicodeDecodeError:
+            encoding = 'latin-1'
+            df = pd.read_csv(path, header=header_row, encoding=encoding,
+                             low_memory=False, on_bad_lines='warn')
 
     df = df.dropna(how='all').dropna(axis=1, how='all')
     return df, header_row, sheet_names
