@@ -398,6 +398,8 @@ export default function AppSettingsPage() {
   const [analyzeModel,           setAnalyzeModel]           = useState('')
   const [planModel,              setPlanModel]              = useState('')
   const [executeModel,           setExecuteModel]           = useState('')
+  const [uploadModel,            setUploadModel]            = useState('')
+  const [reportModel,            setReportModel]            = useState('')
   const [chunkThreshold,         setChunkThreshold]         = useState('')
   const [detailLevel,            setDetailLevel]            = useState('')
   const [reportDetail,           setReportDetail]           = useState('')
@@ -408,6 +410,8 @@ export default function AppSettingsPage() {
     setAnalyzeModel(appSettings.analyze_model ?? '')
     setPlanModel(appSettings.plan_model ?? '')
     setExecuteModel(appSettings.execute_model ?? '')
+    setUploadModel(appSettings.upload_model ?? '')
+    setReportModel(appSettings.report_model ?? '')
     setChunkThreshold(appSettings.chunk_threshold ?? '')
     setDetailLevel(appSettings.detail_level ?? '')
     setReportDetail(appSettings.report_detail ?? '')
@@ -420,6 +424,8 @@ export default function AppSettingsPage() {
         pocketbaseService.updateAppSetting('analyze_model',           analyzeModel          || null),
         pocketbaseService.updateAppSetting('plan_model',              planModel             || null),
         pocketbaseService.updateAppSetting('execute_model',           executeModel          || null),
+        pocketbaseService.updateAppSetting('upload_model',            uploadModel           || null),
+        pocketbaseService.updateAppSetting('report_model',            reportModel           || null),
         pocketbaseService.updateAppSetting('chunk_threshold',         chunkThreshold        || null),
         pocketbaseService.updateAppSetting('detail_level',            detailLevel           || null),
         pocketbaseService.updateAppSetting('report_detail',           reportDetail          || null),
@@ -455,9 +461,11 @@ export default function AppSettingsPage() {
               </h2>
               <div className="space-y-4">
                 {[
-                  { label: 'Analyze Page AI Model',  value: analyzeModel,  setter: setAnalyzeModel },
-                  { label: 'Plan Report AI Model',    value: planModel,     setter: setPlanModel },
-                  { label: 'Execute Report AI Model', value: executeModel,  setter: setExecuteModel },
+                  { label: 'Analyze Page AI Model',          value: analyzeModel,  setter: setAnalyzeModel },
+                  { label: 'Plan Report AI Model',           value: planModel,     setter: setPlanModel },
+                  { label: 'Execute Report AI Model',        value: executeModel,  setter: setExecuteModel },
+                  { label: 'Upload & Validate AI Model',     value: uploadModel,   setter: setUploadModel },
+                  { label: 'Send Report & Formatter AI Model', value: reportModel, setter: setReportModel },
                 ].map(({ label, value, setter }) => (
                   <div key={label} className="flex items-center gap-4">
                     <label className="w-52 text-sm text-gray-700 dark:text-gray-300 shrink-0">{label}</label>

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
+import { useAppSettings } from '../context/AppSettingsContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
@@ -18,6 +19,7 @@ interface GroupedConversations {
 
 export default function HistoryPage() {
   const { session } = useSession()
+  const { appSettings } = useAppSettings()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [viewMode, setViewMode] = useState<ViewMode>('by-date')
@@ -274,6 +276,7 @@ export default function HistoryPage() {
         review: editBeforeSending,
         ...(reportSubject.trim() && { subject: reportSubject.trim() }),
         templateId: userProfile?.template_id,
+        ...(appSettings?.report_model && { model: appSettings.report_model }),
       })
 
       if (editBeforeSending) {
@@ -337,6 +340,7 @@ export default function HistoryPage() {
         reviewed: true,
         subject: reviewSubject,
         templateId: userProfile?.template_id,
+        ...(appSettings?.report_model && { model: appSettings.report_model }),
       })
       toast.success('Email sent successfully!')
       setShowReviewModal(false)

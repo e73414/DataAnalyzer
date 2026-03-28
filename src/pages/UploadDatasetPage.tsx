@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
+import { useAppSettings } from '../context/AppSettingsContext'
 import { n8nService } from '../services/mcpN8nService'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { ProfilePicker, composeProfile } from '../components/ProfilePicker'
@@ -23,6 +24,7 @@ interface IncomingFileState {
 
 export default function UploadDatasetPage() {
   const { session } = useSession()
+  const { appSettings } = useAppSettings()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -79,6 +81,7 @@ export default function UploadDatasetPage() {
         email: session.email,
         csvData,
         ...(datasetDesc.trim() && { datasetDesc: datasetDesc.trim() }),
+        ...(appSettings?.upload_model && { model: appSettings.upload_model }),
       })
 
       const isAdmin = session.profile?.trim() === 'admadmadm'

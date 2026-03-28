@@ -650,7 +650,7 @@ const handleValidateReport = async () => {
         reportId,
         reportHtml: report,
         email: session!.email,
-        model: appSettings?.execute_model || undefined,
+        model: appSettings?.upload_model || undefined,
       })
       setValidationResult(result.validationResult ?? 'No result returned')
     } catch (err) {
@@ -905,7 +905,7 @@ const handleSaveReport = async () => {
       await n8nService.runFormatter({
         reportId: sharedReportId,
         email: session.email,
-        model: effectiveExecuteModel,
+        model: appSettings?.report_model || effectiveExecuteModel,
         templateId: userProfile?.template_id,
         detailLevel,
         reportDetail,
@@ -982,7 +982,7 @@ const handleSaveReport = async () => {
       await n8nService.runFormatter({
         reportId,
         email: session.email,
-        model: effectiveExecuteModel,
+        model: appSettings?.report_model || effectiveExecuteModel,
         templateId: userProfile?.template_id,
         detailLevel,
         reportDetail,
@@ -1058,7 +1058,7 @@ const handleSaveReport = async () => {
       await n8nService.runFormatter({
         reportId,
         email: session.email,
-        model: effectiveExecuteModel,
+        model: appSettings?.report_model || effectiveExecuteModel,
         templateId: userProfile?.template_id,
         detailLevel,
         reportDetail,

@@ -152,6 +152,7 @@ export interface UploadDatasetRequest {
   email: string
   csvData: string // Base64 encoded CSV content
   datasetDesc?: string
+  model?: string
 }
 
 export interface UploadDatasetResult {
@@ -339,6 +340,8 @@ export interface AppSettings {
   analyze_model: string | null
   plan_model: string | null
   execute_model: string | null
+  upload_model: string | null
+  report_model: string | null
   chunk_threshold: string | null  // stored as TEXT, parse to number where needed
   detail_level: string | null
   report_detail: string | null

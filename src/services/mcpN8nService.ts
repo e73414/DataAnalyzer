@@ -40,6 +40,7 @@ interface SendReportRequest {
   reviewed?: boolean
   subject?: string
   templateId?: string
+  model?: string
 }
 
 interface SendReportResult {
@@ -189,6 +190,7 @@ export const n8nService = {
         email: request.email,
         csvData: request.csvData,
         ...(request.datasetDesc && { dataset_desc: request.datasetDesc }),
+        ...(request.model && { model: request.model }),
       },
     })
 
@@ -243,6 +245,7 @@ export const n8nService = {
         reviewed: request.reviewed ?? false,
         subject: request.subject,
         ...(request.templateId && { templateId: request.templateId }),
+        ...(request.model && { model: request.model }),
       },
     })
 
