@@ -619,11 +619,11 @@ export const n8nService = {
     }
   },
 
-  async selectDataset(userPrompt: string, datasetIds: string[]): Promise<{ dataset_id: string; dataset_name?: string; dataset_desc?: string; confidence_level?: string }> {
+  async selectDataset(userPrompt: string, datasetIds: string[], model?: string): Promise<{ dataset_id: string; dataset_name?: string; dataset_desc?: string; confidence_level?: string }> {
     const response = await mcpN8nApi.post('/mcp/execute', {
       skill: 'n8n-webhook',
       params: { webhookPath: SELECT_DATASET_WEBHOOK_PATH },
-      input: { user_prompt: userPrompt, user_datasets: datasetIds },
+      input: { user_prompt: userPrompt, user_datasets: datasetIds, ...(model && { model }) },
     })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fullData = response.data as any
