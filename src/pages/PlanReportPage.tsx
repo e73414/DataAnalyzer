@@ -437,17 +437,11 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   }, [isEditingReport, report, initEditor])
 
   // --- Plan mutation helpers ---
-  const downloadListCsv = (stepResult: string, purpose: string) => {
-    const match = stepResult.match(/<!--LIST_CSV:([\s\S]+?)-->/)
-    if (!match) return
-    const csv = atob(match[1])
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
+  const downloadListCsv = (stepNumber: number) => {
+    if (!reportId) return
     const a = document.createElement('a')
-    a.href = url
-    a.download = purpose.slice(0, 50).replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.csv'
+    a.href = `/mcp-n8n/reports/${reportId}/steps/${stepNumber}/csv`
     a.click()
-    URL.revokeObjectURL(url)
   }
 
   const markDirty = (stepIndex: number) =>
@@ -1819,9 +1813,9 @@ const handleSaveReport = async () => {
                             </details>
                           )}
                           {step.step_result && step.status !== 'started' && (() => {
-                            const hasCsv = step.step_result!.includes('<!--LIST_CSV:')
+                            const hasCsv = step.step_result!.includes('<!--LIST_TABLE-->')
                             const displayResult = hasCsv
-                              ? step.step_result!.replace(/<!--LIST_CSV:[\s\S]*?-->/, '').trim()
+                              ? step.step_result!.replace('<!--LIST_TABLE-->', '').trim()
                               : step.step_result!
                             return (
                               <>
@@ -1900,12 +1894,12 @@ const handleSaveReport = async () => {
                 </div>
                 <div className="flex items-center gap-3">
                   {executionProgress?.steps
-                    .filter(s => s.status === 'completed' && s.step_result?.includes('<!--LIST_CSV:'))
+                    .filter(s => s.status === 'completed' && s.step_result?.includes('<!--LIST_TABLE-->'))
                     .map(s => (
                       <button
                         key={s.step_number}
                         type="button"
-                        onClick={() => downloadListCsv(s.step_result!, s.purpose || `step_${s.step_number}`)}
+                        onClick={() => downloadListCsv(s.step_number)}
                         className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors"
                       >
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
