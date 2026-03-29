@@ -469,7 +469,7 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   const downloadListCsv = async (stepNumber: number) => {
     if (!reportId) return
     try {
-      const response = await mcpN8nApi.get(`/reports/${reportId}/steps/${stepNumber}/csv`, { responseType: 'blob' })
+      const response = await mcpN8nApi.get(`/step-export/${reportId}/${stepNumber}/csv`, { responseType: 'blob' })
       const url = URL.createObjectURL(response.data as Blob)
       const a = document.createElement('a')
       const disposition = response.headers['content-disposition'] ?? ''
