@@ -489,6 +489,26 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   }, [isEditingReport, report, initEditor])
 
   // --- Plan mutation helpers ---
+  const downloadDatasetCsv = async (datasetId: string, datasetName: string) => {
+    if (!session?.email) return
+    try {
+      const response = await mcpN8nApi.get(`/datasets/${encodeURIComponent(datasetId)}/download-csv`, {
+        params: { email: session.email },
+        responseType: 'blob',
+      })
+      const url = URL.createObjectURL(response.data as Blob)
+      const a = document.createElement('a')
+      const disposition = response.headers['content-disposition'] ?? ''
+      const nameMatch = disposition.match(/filename="?([^"]+)"?/)
+      a.href = url
+      a.download = nameMatch ? nameMatch[1] : `${datasetName}.csv`
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 100)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to download CSV')
+    }
+  }
+
   const downloadListCsv = async (stepNumber: number) => {
     if (!reportId) return
     try {
@@ -1361,6 +1381,13 @@ const handleSaveReport = async () => {
                         }}
                       >
                         Preview
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 flex-shrink-0"
+                        onClick={() => downloadDatasetCsv(dataset.id, dataset.name)}
+                      >
+                        Download CSV
                       </button>
                     </div>
                   ))}

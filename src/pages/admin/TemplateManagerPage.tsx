@@ -214,9 +214,19 @@ function DatasetRow({ dataset, assignment, onSave, onDelete, isSaving, isDeletin
   )
 }
 
+type SortColumn = 'name' | 'owner' | 'profile'
+type SortDir = 'asc' | 'desc'
+
 export default function TemplateManagerPage() {
   const { session } = useSession()
   const qc = useQueryClient()
+  const [sortCol, setSortCol] = useState<SortColumn>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  const handleSort = (col: SortColumn) => {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortCol(col); setSortDir('asc') }
+  }
 
   const { data: datasets = [], isLoading: loadingDatasets } = useQuery({
     queryKey: ['datasets-all'],
@@ -275,6 +285,14 @@ export default function TemplateManagerPage() {
 
   const assignmentMap = Object.fromEntries(assignments.map((a) => [a.template_id, a]))
 
+  const sortedDatasets = [...datasets].sort((a, b) => {
+    let av = '', bv = ''
+    if (sortCol === 'name') { av = a.name.toLowerCase(); bv = b.name.toLowerCase() }
+    else if (sortCol === 'owner') { av = (a.owner_email ?? '').toLowerCase(); bv = (b.owner_email ?? '').toLowerCase() }
+    else if (sortCol === 'profile') { av = (assignmentMap[a.id]?.profile_code ?? '').toLowerCase(); bv = (assignmentMap[b.id]?.profile_code ?? '').toLowerCase() }
+    return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
+  })
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Navigation />
@@ -298,15 +316,22 @@ export default function TemplateManagerPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
-                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium">Dataset</th>
-                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium w-44">Owner</th>
-                  <th className="text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium w-32">Profile</th>
+                  {(['name', 'owner', 'profile'] as SortColumn[]).map((col, i) => (
+                    <th
+                      key={col}
+                      className={`text-left px-4 py-3 text-gray-500 dark:text-gray-400 font-medium cursor-pointer select-none hover:text-gray-700 dark:hover:text-gray-200 ${i === 1 ? 'w-44' : i === 2 ? 'w-32' : ''}`}
+                      onClick={() => handleSort(col)}
+                    >
+                      {col === 'name' ? 'Dataset' : col === 'owner' ? 'Owner' : 'Profile'}
+                      {sortCol === col && <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                    </th>
+                  ))}
                   <th className="px-4 py-3 text-gray-500 dark:text-gray-400 font-medium text-left">Assignment</th>
                   <th className="px-4 py-3 text-gray-500 dark:text-gray-400 font-medium w-28"></th>
                 </tr>
               </thead>
               <tbody>
-                {datasets.map((d) => (
+                {sortedDatasets.map((d) => (
                   <DatasetRow
                     key={d.id}
                     dataset={d}
