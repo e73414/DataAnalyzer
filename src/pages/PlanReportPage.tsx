@@ -1235,7 +1235,7 @@ const handleSaveReport = async () => {
       const raw = (response.data as any)?.data
       const data = Array.isArray(raw) ? raw[0] : raw
       const result = typeof data === 'string' ? data
-        : (data?.enhanced_prompt ?? data?.prompt ?? data?.result ?? '')
+        : (data?.enhanced_prompt ?? data?.output ?? data?.prompt ?? data?.result ?? '')
       if (!result) throw new Error('No enhanced prompt returned')
       setEnhancedPrompt(result)
       setEnhanceOpen(true)
