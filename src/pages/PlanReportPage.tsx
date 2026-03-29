@@ -6,6 +6,7 @@ import { useSession } from '../context/SessionContext'
 import { useAppSettings } from '../context/AppSettingsContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
+import { mcpN8nApi } from '../services/api'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
 import ReportHtml from '../components/ReportHtml'
@@ -464,11 +465,21 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   }, [isEditingReport, report, initEditor])
 
   // --- Plan mutation helpers ---
-  const downloadListCsv = (stepNumber: number) => {
+  const downloadListCsv = async (stepNumber: number) => {
     if (!reportId) return
-    const a = document.createElement('a')
-    a.href = `/mcp-n8n/reports/${reportId}/steps/${stepNumber}/csv`
-    a.click()
+    try {
+      const response = await mcpN8nApi.get(`/reports/${reportId}/steps/${stepNumber}/csv`, { responseType: 'blob' })
+      const url = URL.createObjectURL(response.data as Blob)
+      const a = document.createElement('a')
+      const disposition = response.headers['content-disposition'] ?? ''
+      const nameMatch = disposition.match(/filename="?([^"]+)"?/)
+      a.href = url
+      a.download = nameMatch ? nameMatch[1] : `step_${stepNumber}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Failed to download CSV')
+    }
   }
 
   const markDirty = (stepIndex: number) =>
