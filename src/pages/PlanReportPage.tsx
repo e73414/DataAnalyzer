@@ -469,7 +469,9 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   const downloadListCsv = async (stepNumber: number) => {
     if (!reportId) return
     try {
-      const response = await mcpN8nApi.get(`/step-export/${reportId}/${stepNumber}/csv`, { responseType: 'blob' })
+      const response = await mcpN8nApi.get(`/step-export/${reportId}/${stepNumber}/csv`, {
+        responseType: 'blob',
+      })
       const url = URL.createObjectURL(response.data as Blob)
       const a = document.createElement('a')
       const disposition = response.headers['content-disposition'] ?? ''
@@ -477,9 +479,9 @@ const [isEditingReport, setIsEditingReport] = useState(false)
       a.href = url
       a.download = nameMatch ? nameMatch[1] : `step_${stepNumber}.csv`
       a.click()
-      URL.revokeObjectURL(url)
-    } catch {
-      toast.error('Failed to download CSV')
+      setTimeout(() => URL.revokeObjectURL(url), 100)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to download CSV')
     }
   }
 
