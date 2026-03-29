@@ -1750,7 +1750,7 @@ const handleSaveReport = async () => {
           )}
 
           {/* Execution Progress */}
-          {(isExecuting || wasStopped || executionProgress?.status === 'error') && executionProgress && (
+          {executionProgress && (isExecuting || wasStopped || executionProgress.status === 'error' || !report) && (
             <div ref={progressRef} className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6">
               <div className="flex items-center gap-3 mb-4">
                 <h3 className="label mb-0">Execution Progress</h3>
@@ -1931,22 +1931,6 @@ const handleSaveReport = async () => {
                   )}
                 </div>
                 <div className="flex items-center gap-3">
-                  {executionProgress?.steps
-                    .filter(s => s.status === 'completed' && s.step_result?.includes('<!--LIST_TABLE-->'))
-                    .map(s => (
-                      <button
-                        key={s.step_number}
-                        type="button"
-                        onClick={() => downloadListCsv(s.step_number)}
-                        className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors"
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                        Download Full Data
-                      </button>
-                    ))
-                  }
                   <button
                     type="button"
                     onClick={() => { setShowRawReport(!showRawReport); if (isEditingReport) handleToggleEdit() }}
@@ -2036,6 +2020,68 @@ const handleSaveReport = async () => {
                   className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-6 overflow-auto max-h-[80vh] report-html"
                   onHtmlChange={(newHtml) => { setReport(newHtml); setReportSaved(false) }}
                 />
+              )}
+
+              {/* Step Results — collapsed section shown after report is generated */}
+              {executionProgress && executionProgress.steps.length > 0 && (
+                <div className="mt-6 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  <details>
+                    <summary className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors list-none">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Step Results ({executionProgress.steps.filter(s => s.status === 'completed').length}/{executionProgress.steps.length} completed)
+                      </span>
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </summary>
+                    <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                      {executionProgress.steps.map(step => {
+                        const hasCsv = step.step_result?.includes('<!--LIST_TABLE-->')
+                        const displayResult = hasCsv
+                          ? step.step_result!.replace('<!--LIST_TABLE-->', '').trim()
+                          : step.step_result ?? ''
+                        return (
+                          <div key={step.step_number} className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs font-bold flex items-center justify-center">
+                                {step.step_number}
+                              </span>
+                              <span className="text-sm text-gray-700 dark:text-gray-300 flex-1 font-medium">
+                                {step.purpose || `Step ${step.step_number}`}
+                              </span>
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded flex-shrink-0 ${
+                                step.status === 'completed'
+                                  ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
+                                  : step.status === 'error'
+                                  ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                              }`}>
+                                {step.status}
+                              </span>
+                              {hasCsv && reportId && (
+                                <button
+                                  type="button"
+                                  onClick={() => downloadListCsv(step.step_number)}
+                                  className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded transition-colors flex-shrink-0"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                  CSV
+                                </button>
+                              )}
+                            </div>
+                            {displayResult && (
+                              <p className="mt-1.5 ml-7 text-xs text-gray-500 dark:text-gray-400 leading-snug line-clamp-2">
+                                {displayResult.length > 200 ? displayResult.slice(0, 200) + '…' : displayResult}
+                              </p>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </details>
+                </div>
               )}
 
               {/* Validation Result */}
