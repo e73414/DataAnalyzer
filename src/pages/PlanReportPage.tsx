@@ -1232,7 +1232,8 @@ const handleSaveReport = async () => {
         input: { prompt: prompt.trim(), model: effectivePlanModel },
       })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const data = (response.data as any)?.data
+      const raw = (response.data as any)?.data
+      const data = Array.isArray(raw) ? raw[0] : raw
       const result = typeof data === 'string' ? data
         : (data?.enhanced_prompt ?? data?.prompt ?? data?.result ?? '')
       if (!result) throw new Error('No enhanced prompt returned')
