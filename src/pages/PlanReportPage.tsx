@@ -1229,7 +1229,7 @@ const handleSaveReport = async () => {
       const response = await mcpN8nApi.post('/mcp/execute', {
         skill: 'n8n-webhook',
         params: { webhookPath: 'webhook/enhance-prompt' },
-        input: { prompt: prompt.trim() },
+        input: { prompt: prompt.trim(), model: effectivePlanModel },
       })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = (response.data as any)?.data
