@@ -1935,7 +1935,7 @@ const handleSaveReport = async () => {
                 </div>
                 <div className="flex items-center gap-3">
                   {executionProgress?.steps
-                    .filter(s => s.status === 'completed' && s.step_result?.includes('<!--LIST_TABLE-->') && !/(\\(chunk \d+ of \d+\\))/i.test(s.purpose ?? ''))
+                    .filter(s => s.status === 'completed' && s.step_number !== 0 && !/(\\(chunk \d+ of \d+\\))/i.test(s.purpose ?? ''))
                     .map(s => (
                       <button
                         key={s.step_number}
@@ -1946,7 +1946,7 @@ const handleSaveReport = async () => {
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
-                        Download Full CSV
+                        Step {s.step_number} CSV
                       </button>
                     ))
                   }
@@ -2056,7 +2056,7 @@ const handleSaveReport = async () => {
                     <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
                       {executionProgress.steps.map(step => {
                         const isChunkStep = /(\\(chunk \d+ of \d+\\))/i.test(step.purpose ?? '')
-                        const hasCsv = !isChunkStep && step.step_result?.includes('<!--LIST_TABLE-->')
+                        const hasCsv = !isChunkStep && step.status === 'completed' && step.step_number !== 0
                         const displayResult = step.step_result?.includes('<!--LIST_TABLE-->')
                           ? step.step_result!.replace('<!--LIST_TABLE-->', '').trim()
                           : step.step_result ?? ''
