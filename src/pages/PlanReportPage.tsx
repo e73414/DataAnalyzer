@@ -1228,12 +1228,13 @@ const handleSaveReport = async () => {
     try {
       const response = await mcpN8nApi.post('/mcp/execute', {
         skill: 'n8n-webhook',
-        params: { workflowId: '92JBK9NzTTAktSGDJrH01' },
+        params: { webhookPath: 'webhook/enhance-prompt' },
         input: { prompt: prompt.trim() },
       })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data = (response.data as any)?.data
-      const result = typeof data === 'string' ? data : (data?.enhanced_prompt ?? data?.prompt ?? '')
+      const result = typeof data === 'string' ? data
+        : (data?.enhanced_prompt ?? data?.prompt ?? data?.result ?? '')
       if (!result) throw new Error('No enhanced prompt returned')
       setEnhancedPrompt(result)
       setEnhanceOpen(true)
