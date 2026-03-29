@@ -394,6 +394,29 @@ const [isEditingReport, setIsEditingReport] = useState(false)
     // Mark as already saved (since it came from history)
     setReportSaved(true)
 
+    // Restore step results so CSV download buttons appear for saved reports
+    if (loadedState.reportId) {
+      mcpN8nApi.get(`/reports/${encodeURIComponent(loadedState.reportId)}/steps`)
+        .then(r => {
+          const rows = Array.isArray(r.data) ? r.data : []
+          if (rows.length > 0) {
+            setExecutionProgress({
+              report_id: loadedState.reportId!,
+              steps: rows.map((row: { step_number: number; purpose: string; status: string; step_result?: string }) => ({
+                step_number: row.step_number,
+                purpose: row.purpose ?? '',
+                dataset_id: '',
+                status: (row.status ?? 'completed') as 'started' | 'completed' | 'error',
+                step_result: row.step_result ?? undefined,
+              })),
+              final_report: null,
+              status: 'completed',
+            })
+          }
+        })
+        .catch(() => { /* non-fatal — buttons just won't appear */ })
+    }
+
     // Clear the location state so refreshing doesn't re-load
     window.history.replaceState({}, '')
 
@@ -716,6 +739,10 @@ const handleSaveReport = async () => {
         await pocketbaseService.updateConversation(savedRecordId, { response: content })
         toast.success('Report updated')
       } else {
+        // Persist tmp tables to saved_ prefix before saving the record
+        if (reportId) {
+          await mcpN8nApi.post(`/reports/${encodeURIComponent(reportId)}/persist`, {})
+        }
         // Create new record
         const planJson = plan ? JSON.stringify(plan) : ''
         const selectedNames = (datasets ?? []).filter(d => selectedDatasetIds.has(d.id)).map(d => d.name).join(', ')
