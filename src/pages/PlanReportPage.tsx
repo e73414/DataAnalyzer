@@ -267,6 +267,9 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   const [openHintDropdown, setOpenHintDropdown] = useState<string | null>(null)
   const [datasetSearch, setDatasetSearch] = useState('')
   const [dialogLoading, setDialogLoading] = useState(false)
+  const [enhanceLoading, setEnhanceLoading] = useState(false)
+  const [enhanceOpen, setEnhanceOpen] = useState(false)
+  const [enhancedPrompt, setEnhancedPrompt] = useState('')
   const [detailLevel, setDetailLevel] = useState('None')
   const [reportDetail, setReportDetail] = useState('Simple Report')
   const [chunkThreshold, setChunkThreshold] = useState(10_000)
@@ -1216,6 +1219,31 @@ const handleSaveReport = async () => {
     }
   }
 
+  const handleEnhancePrompt = async () => {
+    if (!prompt.trim()) {
+      toast.error('Please enter report requirements first')
+      return
+    }
+    setEnhanceLoading(true)
+    try {
+      const response = await mcpN8nApi.post('/mcp/execute', {
+        skill: 'n8n-webhook',
+        params: { workflowId: '92JBK9NzTTAktSGDJrH01' },
+        input: { prompt: prompt.trim() },
+      })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = (response.data as any)?.data
+      const result = typeof data === 'string' ? data : (data?.enhanced_prompt ?? data?.prompt ?? '')
+      if (!result) throw new Error('No enhanced prompt returned')
+      setEnhancedPrompt(result)
+      setEnhanceOpen(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to enhance prompt')
+    } finally {
+      setEnhanceLoading(false)
+    }
+  }
+
   const handleDialogSubmit = () => {
     const answered = dialogQuestions
       .filter(q => dialogAnswers[q.id]?.trim())
@@ -1413,7 +1441,7 @@ const handleSaveReport = async () => {
                 <button
                   type="button"
                   onClick={handleGuidedSetup}
-                  disabled={isWorking || dialogLoading || !prompt.trim()}
+                  disabled={isWorking || dialogLoading || enhanceLoading || !prompt.trim()}
                   className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {dialogLoading ? (
@@ -1423,6 +1451,22 @@ const handleSaveReport = async () => {
                     </span>
                   ) : (
                     'Guided Setup'
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleEnhancePrompt}
+                  disabled={isWorking || dialogLoading || enhanceLoading || !prompt.trim()}
+                  className="px-4 py-2 text-sm font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-600 rounded-md hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {enhanceLoading ? (
+                    <span className="flex items-center gap-2">
+                      <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-purple-500 border-t-transparent dark:border-purple-400"></span>
+                      Enhancing...
+                    </span>
+                  ) : (
+                    'Enhance Prompt'
                   )}
                 </button>
 
@@ -2185,6 +2229,55 @@ const handleSaveReport = async () => {
           )}
         </div>
       </main>
+
+      {/* Enhance Prompt Dialog */}
+      {enhanceOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg flex flex-col">
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Enhanced Prompt</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  Review the AI-enhanced version of your prompt. Accept to replace or discard to keep the original.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEnhanceOpen(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none p-1"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="px-6 py-4">
+              <textarea
+                rows={8}
+                value={enhancedPrompt}
+                onChange={(e) => setEnhancedPrompt(e.target.value)}
+                className="input-field resize-y w-full text-sm"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => setEnhanceOpen(false)}
+                className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                onClick={() => { setPrompt(enhancedPrompt); setEnhanceOpen(false) }}
+                className="btn-primary"
+              >
+                Use Enhanced Prompt
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Guided Setup Dialog */}
       {dialogOpen && (
