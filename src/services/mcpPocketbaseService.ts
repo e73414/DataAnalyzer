@@ -57,6 +57,20 @@ interface PgAiModel {
   display_order: number
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// n8n webhooks sometimes wrap arrays in { items, rows, data, or records }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toArray<T>(data: any): T[] {
+  if (Array.isArray(data)) return data as T[]
+  if (data && typeof data === 'object') {
+    for (const key of ['items', 'rows', 'data', 'records', 'results']) {
+      if (Array.isArray(data[key])) return data[key] as T[]
+    }
+  }
+  return []
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 export const pocketbaseService = {
@@ -85,7 +99,7 @@ export const pocketbaseService = {
 
   async getNavLinks(): Promise<NavLink[]> {
     const response = await mcpN8nApi.get<PgNavLink[]>('/nav-links')
-    return (response.data || []).map((r) => ({
+    return toArray<PgNavLink>(response.data).map((r) => ({
       id: r.id,
       name: r.name,
       path: r.path,
@@ -97,7 +111,7 @@ export const pocketbaseService = {
 
   async getAIModels(): Promise<AIModel[]> {
     const response = await mcpN8nApi.get<PgAiModel[]>('/ai-models')
-    return (response.data || []).map((r) => ({
+    return toArray<PgAiModel>(response.data).map((r) => ({
       id: r.model_id,
       db_id: r.id,
       name: r.name,
@@ -152,7 +166,7 @@ export const pocketbaseService = {
     const response = await mcpN8nApi.get<Record<string, unknown>[]>('/datasets', {
       params: { email }
     })
-    return (response.data || []).map((row) => ({
+    return toArray<Record<string, unknown>>(response.data).map((row) => ({
       id: String(row.id ?? row.dataset_id ?? ''),
       name: String(row.dataset_name ?? row.name ?? ''),
       description: row.description != null ? String(row.description) : undefined,
@@ -169,7 +183,7 @@ export const pocketbaseService = {
   // Used by admin Dataset Access Manager. Column names mapped flexibly.
   async getAllDatasets(): Promise<Dataset[]> {
     const response = await mcpN8nApi.get<Record<string, unknown>[]>('/datasets/all')
-    return (response.data || []).map((row) => ({
+    return toArray<Record<string, unknown>>(response.data).map((row) => ({
       id: String(row.id ?? row.dataset_id ?? ''),
       name: String(row.name ?? row.dataset_name ?? ''),
       description: row.description != null ? String(row.description) : undefined,

@@ -21,3 +21,6 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# n8n workflows — managed via n8n API, not git
+n8n-workflows/*.json
