@@ -38,6 +38,25 @@ function calcChunkSize(columnCount: number | undefined, maxChunkRows: number): n
   return Math.min(maxChunkRows, Math.max(MIN_CHUNK_ROWS, Math.floor(target / cols)))
 }
 
+// Wraps a direct dataset SQL query in a CTE that pages through source rows using LIMIT/OFFSET.
+// Finds the first top-level FROM clause (skipping subqueries) and replaces it with chunk_src.
+function wrapSqlWithOffset(sql: string, chunkSize: number, offset: number): string {
+  const flat = sql.replace(/\s+/g, ' ').trim()
+  const fromRe = /\bFROM\s+("?[a-zA-Z0-9_\-.()]+"?)/gi
+  let m: RegExpExecArray | null
+  let tableName: string | null = null
+  while ((m = fromRe.exec(flat)) !== null) {
+    const before = flat.slice(0, m.index)
+    const opens = (before.match(/\(/g) ?? []).length
+    const closes = (before.match(/\)/g) ?? []).length
+    if (opens === closes) { tableName = m[1]; break }
+  }
+  if (!tableName) return sql
+  const escaped = tableName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const modified = flat.replace(new RegExp(`\\bFROM\\s+${escaped}`, 'i'), 'FROM chunk_src')
+  return `WITH chunk_src AS (\n  SELECT * FROM ${tableName} ORDER BY 1 LIMIT ${chunkSize} OFFSET ${offset}\n)\n${modified}`
+}
+
 // Infers implicit dependencies from SQL when the plan's dependencies array is empty.
 // Looks for step1, step2, ... stepN references in sql or logic fields.
 function inferDepsFromSql(step: ReportPlanStep): number[] {
@@ -77,10 +96,15 @@ function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[], thres
       const numChunks = Math.ceil(rowCount / chunkSize)
       const chunkNums: number[] = []
 
+      const originalSql = step.query_strategy?.sql ?? ''
       for (let i = 0; i < numChunks; i++) {
         const chunkNum = next++
         chunkNums.push(chunkNum)
         const offset = i * chunkSize
+        // Generate CTE-wrapped SQL with OFFSET so each chunk queries a distinct row window.
+        // wrapSqlWithOffset may return the original sql unchanged if it can't parse the FROM clause;
+        // in that case the logic field provides instructions for the AI fallback path.
+        const chunkSql = originalSql ? wrapSqlWithOffset(originalSql, chunkSize, offset) : ''
         newSteps.push({
           ...step,
           step_number: chunkNum,
@@ -88,6 +112,7 @@ function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[], thres
           purpose: `${step.purpose} (chunk ${i + 1} of ${numChunks})`,
           query_strategy: {
             ...step.query_strategy,
+            sql: chunkSql || undefined,
             logic: `PAGINATED CHUNK ${i + 1} OF ${numChunks} (source rows ${offset + 1}–${offset + chunkSize}):
 CRITICAL — LIMIT/OFFSET must scope the SOURCE ROWS before any filtering or aggregation, not the output rows. Use this CTE pattern — do not deviate:
 
@@ -98,7 +123,7 @@ CRITICAL — LIMIT/OFFSET must scope the SOURCE ROWS before any filtering or agg
 
 Replace <dataset_view> with the actual view name. Do NOT add LIMIT or OFFSET anywhere outside the CTE. This ensures this chunk only processes rows ${offset + 1}–${offset + chunkSize} of the source data.
 Return raw counts and sums (not percentages or averages) so the merge step can aggregate correctly across all chunks.
-${step.query_strategy.logic}`,
+${step.query_strategy?.logic ?? ''}`,
           },
         })
       }
@@ -108,10 +133,12 @@ ${step.query_strategy.logic}`,
       newSteps.push({
         ...step,
         step_number: mergeNum,
+        dataset_id: null,  // force dep path so AI aggregates from chunk tables instead of re-querying source
         dependencies: chunkNums,
         purpose: `Merge: ${step.purpose}`,
         query_strategy: {
           ...step.query_strategy,
+          sql: undefined,  // no raw SQL — AI generates merge SQL from chunk schemas + logic below
           logic: `MERGE ONLY — DO NOT run any new database query against the source data.
 The dataset was split into ${numChunks} non-overlapping chunks (steps ${chunkNums.join(', ')}), each covering a distinct OFFSET window with no row appearing in more than one chunk.
 Your job is to consolidate the already-returned chunk results into one final answer for: ${step.purpose}
