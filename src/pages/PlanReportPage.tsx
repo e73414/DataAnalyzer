@@ -42,7 +42,8 @@ function calcChunkSize(columnCount: number | undefined, maxChunkRows: number): n
 // Wraps a direct dataset SQL query in a CTE that pages through source rows using LIMIT/OFFSET.
 // Finds the first top-level FROM clause (skipping subqueries) and replaces it with chunk_src.
 function wrapSqlWithOffset(sql: string, chunkSize: number, offset: number): string {
-  const flat = sql.replace(/\s+/g, ' ').trim()
+  // Unescape JSON-escaped quotes that AI models sometimes emit (\" → ") so Postgres gets valid SQL
+  const flat = sql.replace(/\\"/g, '"').replace(/\s+/g, ' ').trim()
   const fromRe = /\bFROM\s+("?[a-zA-Z0-9_\-.()]+"?)/gi
   let m: RegExpExecArray | null
   let tableName: string | null = null
@@ -52,7 +53,7 @@ function wrapSqlWithOffset(sql: string, chunkSize: number, offset: number): stri
     const closes = (before.match(/\)/g) ?? []).length
     if (opens === closes) { tableName = m[1]; break }
   }
-  if (!tableName) return sql
+  if (!tableName) return sql.replace(/\\"/g, '"')
   const escaped = tableName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const modified = flat.replace(new RegExp(`\\bFROM\\s+${escaped}`, 'i'), 'FROM chunk_src')
   return `WITH chunk_src AS (\n  SELECT * FROM ${tableName} ORDER BY 1 LIMIT ${chunkSize} OFFSET ${offset}\n)\n${modified}`
