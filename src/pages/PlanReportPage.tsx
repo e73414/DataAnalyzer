@@ -9,7 +9,6 @@ import { n8nService } from '../services/mcpN8nService'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
 import ReportHtml from '../components/ReportHtml'
-import { recalculateTotals } from '../utils/recalculateTotals'
 import type { ReportPlan, ReportPlanStep, CheckReportProgressResult, PromptDialogQuestion, DatasetPreview, DatasetDetail, Dataset } from '../types'
 
 interface LoadedPlanState {
@@ -606,7 +605,7 @@ const [isEditingReport, setIsEditingReport] = useState(false)
     if (trimmed.startsWith('{')) {
       try {
         const parsed = JSON.parse(trimmed)
-        if (parsed.content) return recalculateTotals(parsed.content)
+        if (parsed.content) return parsed.content
         // If parsed but no content field and it's just {}, return empty
         if (Object.keys(parsed).length === 0) return ''
         // Has other fields but no content — stringify for display
@@ -615,7 +614,7 @@ const [isEditingReport, setIsEditingReport] = useState(false)
         // Not valid JSON — treat as raw HTML
       }
     }
-    return recalculateTotals(raw)
+    return raw
   }
 
   const handleExecutionComplete = useCallback((progress: CheckReportProgressResult) => {
