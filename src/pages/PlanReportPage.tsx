@@ -288,6 +288,8 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   const executionCancelledRef = useRef(false)
   const expandedPlanRef = useRef<ReportPlan | null>(null)
   const completionHandledRef = useRef(false)
+  const [presentFormattedReport, setPresentFormattedReport] = useState(true)
+  const presentFormattedReportRef = useRef(true)
 
   const {
     datasets: datasets = [],
@@ -984,22 +986,28 @@ const handleSaveReport = async () => {
 
       if (executionCancelledRef.current) return
 
-      // All batches done — trigger the formatter
-      setFormatterTriggered(true)
-      formatterTriggeredRef.current = true
-      await n8nService.runFormatter({
-        reportId: sharedReportId,
-        email: session.email,
-        model: appSettings?.report_model || effectiveExecuteModel,
-        templateId: userProfile?.template_id,
-        detailLevel,
-        reportDetail,
-        prompt,
-      })
+      if (presentFormattedReportRef.current) {
+        // All batches done — trigger the formatter
+        setFormatterTriggered(true)
+        formatterTriggeredRef.current = true
+        await n8nService.runFormatter({
+          reportId: sharedReportId,
+          email: session.email,
+          model: appSettings?.report_model || effectiveExecuteModel,
+          templateId: userProfile?.template_id,
+          detailLevel,
+          reportDetail,
+          prompt,
+        })
 
-      // Poll for final report using existing mechanism
-      pollingRef.current = setInterval(() => pollProgressRef.current?.(sharedReportId), 5000)
-      setTimeout(() => pollProgressRef.current?.(sharedReportId), 2000)
+        // Poll for final report using existing mechanism
+        pollingRef.current = setInterval(() => pollProgressRef.current?.(sharedReportId), 5000)
+        setTimeout(() => pollProgressRef.current?.(sharedReportId), 2000)
+      } else {
+        // Skip formatter — just surface completed steps with CSV download
+        setExecutionProgress(prev => prev ? { ...prev, status: 'completed' } : null)
+        setIsExecuting(false)
+      }
 
     } catch (err) {
       if (executionCancelledRef.current) return
@@ -1062,20 +1070,25 @@ const handleSaveReport = async () => {
 
       if (executionCancelledRef.current) return
 
-      setFormatterTriggered(true)
-      formatterTriggeredRef.current = true
-      await n8nService.runFormatter({
-        reportId,
-        email: session.email,
-        model: appSettings?.report_model || effectiveExecuteModel,
-        templateId: userProfile?.template_id,
-        detailLevel,
-        reportDetail,
-        prompt,
-      })
+      if (presentFormattedReportRef.current) {
+        setFormatterTriggered(true)
+        formatterTriggeredRef.current = true
+        await n8nService.runFormatter({
+          reportId,
+          email: session.email,
+          model: appSettings?.report_model || effectiveExecuteModel,
+          templateId: userProfile?.template_id,
+          detailLevel,
+          reportDetail,
+          prompt,
+        })
 
-      pollingRef.current = setInterval(() => pollProgressRef.current?.(reportId), 5000)
-      setTimeout(() => pollProgressRef.current?.(reportId), 2000)
+        pollingRef.current = setInterval(() => pollProgressRef.current?.(reportId), 5000)
+        setTimeout(() => pollProgressRef.current?.(reportId), 2000)
+      } else {
+        setExecutionProgress(prev => prev ? { ...prev, status: 'completed' } : null)
+        setIsExecuting(false)
+      }
 
     } catch (err) {
       if (executionCancelledRef.current) return
@@ -1138,20 +1151,25 @@ const handleSaveReport = async () => {
 
       if (executionCancelledRef.current) return
 
-      setFormatterTriggered(true)
-      formatterTriggeredRef.current = true
-      await n8nService.runFormatter({
-        reportId,
-        email: session.email,
-        model: appSettings?.report_model || effectiveExecuteModel,
-        templateId: userProfile?.template_id,
-        detailLevel,
-        reportDetail,
-        prompt,
-      })
+      if (presentFormattedReportRef.current) {
+        setFormatterTriggered(true)
+        formatterTriggeredRef.current = true
+        await n8nService.runFormatter({
+          reportId,
+          email: session.email,
+          model: appSettings?.report_model || effectiveExecuteModel,
+          templateId: userProfile?.template_id,
+          detailLevel,
+          reportDetail,
+          prompt,
+        })
 
-      pollingRef.current = setInterval(() => pollProgressRef.current?.(reportId), 5000)
-      setTimeout(() => pollProgressRef.current?.(reportId), 2000)
+        pollingRef.current = setInterval(() => pollProgressRef.current?.(reportId), 5000)
+        setTimeout(() => pollProgressRef.current?.(reportId), 2000)
+      } else {
+        setExecutionProgress(prev => prev ? { ...prev, status: 'completed' } : null)
+        setIsExecuting(false)
+      }
 
     } catch (err) {
       if (executionCancelledRef.current) return
@@ -1828,7 +1846,7 @@ const handleSaveReport = async () => {
                 </div>
 
                 {/* Action buttons row */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <button
                     type="button"
                     onClick={handleExecute}
@@ -1837,6 +1855,19 @@ const handleSaveReport = async () => {
                   >
                     Execute Plan
                   </button>
+
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={presentFormattedReport}
+                      onChange={e => {
+                        setPresentFormattedReport(e.target.checked)
+                        presentFormattedReportRef.current = e.target.checked
+                      }}
+                      className="w-4 h-4 accent-green-600 cursor-pointer"
+                    />
+                    Present Formatted Report
+                  </label>
 
                   {isExecuting && (
                     <button
@@ -2018,6 +2049,69 @@ const handleSaveReport = async () => {
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
                   Polling every 5 seconds. Elapsed: {Math.round((Date.now() - executeStartTime.current) / 1000)}s
                 </p>
+              )}
+
+              {/* Step Results when formatter was skipped */}
+              {!isExecuting && !report && executionProgress.steps.some(s => s.status === 'completed') && (
+                <div className="mt-6 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  <details open>
+                    <summary className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors list-none">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Step Results ({executionProgress.steps.filter(s => s.status === 'completed').length}/{executionProgress.steps.length} completed)
+                      </span>
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </summary>
+                    <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
+                      {executionProgress.steps.map(step => {
+                        const isChunkStep = /(\\(chunk \d+ of \d+\\))/i.test(step.purpose ?? '')
+                        const hasCsv = !isChunkStep && step.status === 'completed' && step.step_number !== 0
+                        const displayResult = step.step_result?.includes('<!--LIST_TABLE-->')
+                          ? step.step_result!.replace('<!--LIST_TABLE-->', '').trim()
+                          : step.step_result ?? ''
+                        return (
+                          <div key={step.step_number} className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs font-bold flex items-center justify-center">
+                                {step.step_number}
+                              </span>
+                              <span className="text-sm text-gray-700 dark:text-gray-300 flex-1 font-medium">
+                                {step.purpose || `Step ${step.step_number}`}
+                              </span>
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded flex-shrink-0 ${
+                                step.status === 'completed'
+                                  ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
+                                  : step.status === 'error'
+                                  ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                              }`}>
+                                {step.status}
+                              </span>
+                              {hasCsv && reportId && (
+                                <button
+                                  type="button"
+                                  onClick={() => downloadListCsv(step.step_number)}
+                                  className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded transition-colors flex-shrink-0"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                  CSV
+                                </button>
+                              )}
+                            </div>
+                            {displayResult && (
+                              <p className="mt-1 ml-7 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                                {displayResult.slice(0, 200)}
+                              </p>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </details>
+                </div>
               )}
             </div>
           )}
