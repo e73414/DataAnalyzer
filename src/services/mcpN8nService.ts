@@ -691,6 +691,7 @@ export const n8nService = {
         ...(request.detailLevel && { detail_level: request.detailLevel }),
         ...(request.reportDetail && { report_detail: request.reportDetail }),
         ...(request.prompt && { user_prompt: request.prompt }),
+        ...(request.produceReport && { produce_report: request.produceReport }),
       },
     })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

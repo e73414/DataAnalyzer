@@ -261,6 +261,7 @@ export interface RunFormatterRequest {
   detailLevel?: string
   reportDetail?: string
   prompt?: string
+  produceReport?: 'Yes' | 'No'
 }
 
 export interface ExecutePlanResult {
