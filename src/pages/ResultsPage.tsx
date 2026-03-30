@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -8,6 +8,7 @@ import { useSession } from '../context/SessionContext'
 import { useAppSettings } from '../context/AppSettingsContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
+import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
 import ReportHtml from '../components/ReportHtml'
 import VisualizableTable from '../components/VisualizableTable'
@@ -133,6 +134,9 @@ export default function ResultsPage() {
   const [datasetId, setDatasetId] = useState('')
   const [datasetName, setDatasetName] = useState('')
   const [showPreview, setShowPreview] = useState(false)
+  const [datasetSearch, setDatasetSearch] = useState('')
+  const [showDatasetDropdown, setShowDatasetDropdown] = useState(false)
+  const datasetDropdownRef = useRef<HTMLDivElement>(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [shuffledPhrases, setShuffledPhrases] = useState<string[]>([])
   const conversationEndRef = useRef<HTMLDivElement>(null)
@@ -146,6 +150,15 @@ export default function ResultsPage() {
     queryKey: ['ai-models'],
     queryFn: () => pocketbaseService.getAIModels(),
   })
+
+  const { datasets: allDatasets = [] } = useAccessibleDatasets()
+
+  const filteredDatasets = useMemo(() => {
+    const term = datasetSearch.toLowerCase()
+    return [...allDatasets]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .filter(d => !term || d.name.toLowerCase().includes(term) || (d.description || '').toLowerCase().includes(term))
+  }, [allDatasets, datasetSearch])
 
   const { data: userProfile } = useQuery({
     queryKey: ['user-profile', session?.email],
@@ -193,6 +206,7 @@ export default function ResultsPage() {
       ])
       setDatasetId(state.datasetId)
       setDatasetName(state.datasetName)
+      setDatasetSearch(state.datasetName)
 
       // Save initial conversation to history (ref guard prevents double-save in Strict Mode)
       if (session?.email && !initialSavedRef.current) {
@@ -217,6 +231,15 @@ export default function ResultsPage() {
   useEffect(() => {
     conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [conversation])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (datasetDropdownRef.current && !datasetDropdownRef.current.contains(e.target as Node))
+        setShowDatasetDropdown(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   // Timer for elapsed time during analysis
   useEffect(() => {
@@ -582,6 +605,55 @@ export default function ResultsPage() {
                 )}
               </button>
             </form>
+
+            {/* Dataset Selector */}
+            <div className="mt-3 relative" ref={datasetDropdownRef}>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={datasetSearch}
+                  onChange={(e) => { setDatasetSearch(e.target.value); setShowDatasetDropdown(true) }}
+                  onFocus={() => setShowDatasetDropdown(true)}
+                  placeholder="Switch dataset..."
+                  className="input-field w-full pr-8 text-sm"
+                  disabled={isAnalyzing}
+                  autoComplete="off"
+                />
+                {datasetSearch && !isAnalyzing && (
+                  <button
+                    type="button"
+                    onMouseDown={(e) => { e.preventDefault(); setDatasetSearch(''); setShowDatasetDropdown(true) }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700"
+                    tabIndex={-1}
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                )}
+                {showDatasetDropdown && !isAnalyzing && (
+                  <div className="absolute z-50 bottom-full left-0 right-0 mb-1 max-h-64 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+                    {filteredDatasets.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No datasets found</div>
+                    ) : (
+                      filteredDatasets.map(d => (
+                        <div
+                          key={d.id}
+                          onMouseDown={() => {
+                            setDatasetId(d.id)
+                            setDatasetName(d.name)
+                            setDatasetSearch(d.name)
+                            setShowDatasetDropdown(false)
+                          }}
+                          className={`px-3 py-2 cursor-pointer text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 ${datasetId === d.id ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}`}
+                        >
+                          <div className="text-gray-900 dark:text-gray-100">{d.name}{d.row_count != null ? ` (rows: ${d.row_count.toLocaleString()})` : ''}</div>
+                          {d.description && <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{d.description}</div>}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* AI Model Dropdown, Elapsed Time, and Email Checkbox */}
             <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
