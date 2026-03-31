@@ -12,7 +12,7 @@ import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
 import ReportHtml from '../components/ReportHtml'
 import VisualizableTable from '../components/VisualizableTable'
-import type { AnalysisResult } from '../types'
+import type { AnalysisResult, PromptDialogQuestion } from '../types'
 
 function isHtmlContent(text: string): boolean {
   const t = text.trim()
@@ -137,6 +137,11 @@ export default function ResultsPage() {
   const [datasetSearch, setDatasetSearch] = useState('')
   const [showDatasetDropdown, setShowDatasetDropdown] = useState(false)
   const datasetDropdownRef = useRef<HTMLDivElement>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogLoading, setDialogLoading] = useState(false)
+  const [dialogQuestions, setDialogQuestions] = useState<PromptDialogQuestion[]>([])
+  const [dialogAnswers, setDialogAnswers] = useState<Record<string, string>>({})
+  const [openHintDropdown, setOpenHintDropdown] = useState<string | null>(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [shuffledPhrases, setShuffledPhrases] = useState<string[]>([])
   const conversationEndRef = useRef<HTMLDivElement>(null)
@@ -335,6 +340,84 @@ export default function ResultsPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Analysis failed'
       toast.error(message)
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const handleLetAiAsk = async () => {
+    if (!followUpPrompt.trim()) {
+      toast.error('Please enter a prompt first')
+      return
+    }
+    setDialogLoading(true)
+    try {
+      const result = await n8nService.promptDialog({
+        prompt: followUpPrompt,
+        email: session!.email,
+        datasetIds: datasetId ? [datasetId] : [],
+        model: effectiveAnalyzeModel || session!.aiModel,
+      })
+      setDialogQuestions(result.questions)
+      setDialogAnswers({})
+      setDialogOpen(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to generate questions')
+    } finally {
+      setDialogLoading(false)
+    }
+  }
+
+  const handleDialogSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    const answered = dialogQuestions
+      .filter(q => dialogAnswers[q.id]?.trim())
+      .map(q => `- ${q.question.replace(/\?$/, '')}: ${dialogAnswers[q.id].trim()}`)
+      .join('\n')
+    const enhanced = answered
+      ? `${followUpPrompt.trim()}\n\nAdditional context:\n${answered}`
+      : followUpPrompt.trim()
+    setFollowUpPrompt(enhanced)
+    setDialogOpen(false)
+
+    if (!session) return
+    setIsAnalyzing(true)
+    const startTime = Date.now()
+    try {
+      const result = await n8nService.runAnalysis({
+        email: session.email,
+        model: effectiveAnalyzeModel || session.aiModel,
+        datasetId,
+        prompt: enhanced,
+        emailResponse,
+        ...(emailSubject.trim() && { emailSubject: emailSubject.trim() }),
+        returnSteps: captureProcess,
+        templateId: userProfile?.template_id,
+      })
+      const duration = Math.round((Date.now() - startTime) / 1000)
+      const newIndex = conversation.length
+      setConversation(prev => [...prev, {
+        prompt: enhanced,
+        response: result.result,
+        processUsed: result.processUsed,
+        durationSeconds: duration,
+        timestamp: new Date(),
+      }])
+      setFollowUpPrompt('')
+      setHasSaved(false)
+      pocketbaseService.saveConversation({
+        email: session.email,
+        prompt: `[Conversation] ${enhanced}`,
+        response: result.result,
+        aiModel: effectiveAnalyzeModel || session.aiModel,
+        datasetId,
+        datasetName,
+        durationSeconds: duration,
+      }).then(saved => {
+        savedConversationIds.current.set(newIndex, saved.id)
+      }).catch(err => console.error('Failed to save conversation to history:', err))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Analysis failed')
     } finally {
       setIsAnalyzing(false)
     }
@@ -604,6 +687,21 @@ export default function ResultsPage() {
                   'Send'
                 )}
               </button>
+              <button
+                type="button"
+                onClick={handleLetAiAsk}
+                disabled={isAnalyzing || isSaving || dialogLoading || !followUpPrompt.trim()}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {dialogLoading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent dark:border-gray-400"></span>
+                    Analyzing...
+                  </span>
+                ) : (
+                  'Let AI Ask'
+                )}
+              </button>
             </form>
 
             {/* Dataset Selector */}
@@ -746,6 +844,77 @@ export default function ResultsPage() {
           {conversation.length} message{conversation.length !== 1 ? 's' : ''}
         </div>
       </main>
+
+      {/* Let AI Ask Dialog */}
+      {dialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Refine Your Requirements</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  Answer to generate a more targeted analysis. All fields are optional.
+                </p>
+              </div>
+              <button type="button" onClick={() => setDialogOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none p-1">&times;</button>
+            </div>
+            <div className="overflow-y-auto flex-1 px-6 py-4 space-y-5">
+              {dialogQuestions.map((q) => (
+                <div key={q.id}>
+                  <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">{q.question}</label>
+                  {q.hints && q.hints.length > 0 && (
+                    <div className="relative mb-2">
+                      {openHintDropdown === q.id && (
+                        <div className="fixed inset-0 z-10" onClick={() => setOpenHintDropdown(null)} />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setOpenHintDropdown(openHintDropdown === q.id ? null : q.id)}
+                        className="w-full text-left px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex justify-between items-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors"
+                      >
+                        <span>— select a hint —</span>
+                        <svg className={`w-4 h-4 flex-shrink-0 transition-transform ${openHintDropdown === q.id ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {openHintDropdown === q.id && (
+                        <div className="absolute z-20 left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                          {q.hints.map((h, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => { setDialogAnswers(prev => ({ ...prev, [q.id]: h.text })); setOpenHintDropdown(null) }}
+                              className="block w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 whitespace-normal leading-snug border-b border-gray-100 dark:border-gray-700 last:border-0"
+                            >
+                              {h.label ? <><span className="font-medium">{h.label}</span><span className="text-gray-400 dark:text-gray-500 ml-1">— {h.text}</span></> : h.text}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <textarea
+                    rows={2}
+                    value={dialogAnswers[q.id] || ''}
+                    onChange={(e) => setDialogAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                    placeholder="Your answer…"
+                    className="input-field resize-none"
+                  />
+                  {q.hint && <p className="mt-1 text-xs text-gray-400 dark:text-gray-500 leading-snug">{q.hint}</p>}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+              <button type="button" onClick={() => setDialogOpen(false)} className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+                Skip — Use Original Prompt
+              </button>
+              <button type="button" onClick={() => handleDialogSubmit()} className="btn-primary">
+                Send
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
