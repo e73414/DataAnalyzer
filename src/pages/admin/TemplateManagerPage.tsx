@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { pocketbaseService } from '../../services/mcpPocketbaseService'
 import { n8nService } from '../../services/mcpN8nService'
+import { mcpN8nApi } from '../../services/api'
 import type { Dataset, TemplateProfileAssignment } from '../../types'
 import Navigation from '../../components/Navigation'
 import { useSession } from '../../context/SessionContext'
@@ -26,11 +27,12 @@ interface DatasetRowProps {
   assignment: TemplateProfileAssignment | undefined
   onSave: (datasetId: string, profileCode: string | null, ownerEmail: string) => Promise<void>
   onDelete: (datasetId: string, ownerEmail: string) => Promise<void>
+  onDownloadCsv: (datasetId: string, datasetName: string) => void
   isSaving: boolean
   isDeleting: boolean
 }
 
-function DatasetRow({ dataset, assignment, onSave, onDelete, isSaving, isDeleting }: DatasetRowProps) {
+function DatasetRow({ dataset, assignment, onSave, onDelete, onDownloadCsv, isSaving, isDeleting }: DatasetRowProps) {
   const parsed = parseProfile(assignment?.profile_code ?? null)
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -202,12 +204,20 @@ function DatasetRow({ dataset, assignment, onSave, onDelete, isSaving, isDeletin
             </button>
           </div>
         ) : (
-          <button
-            className="px-3 py-1 text-xs font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-            onClick={() => setConfirmDelete(true)}
-          >
-            Delete
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              className="text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+              onClick={() => onDownloadCsv(dataset.id, dataset.name)}
+            >
+              CSV
+            </button>
+            <button
+              className="px-3 py-1 text-xs font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              onClick={() => setConfirmDelete(true)}
+            >
+              Delete
+            </button>
+          </div>
         )}
       </td>
     </tr>
@@ -281,6 +291,26 @@ export default function TemplateManagerPage() {
     await deleteMutation.mutateAsync({ datasetId, ownerEmail })
   }
 
+  const downloadDatasetCsv = async (datasetId: string, datasetName: string) => {
+    if (!session?.email) return
+    try {
+      const response = await mcpN8nApi.get(`/datasets/${encodeURIComponent(datasetId)}/download-csv`, {
+        params: { email: session.email },
+        responseType: 'blob',
+      })
+      const url = URL.createObjectURL(response.data as Blob)
+      const a = document.createElement('a')
+      const disposition = response.headers['content-disposition'] ?? ''
+      const nameMatch = disposition.match(/filename="?([^"]+)"?/)
+      a.href = url
+      a.download = nameMatch ? nameMatch[1] : `${datasetName}.csv`
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 100)
+    } catch {
+      toast.error('Failed to download CSV')
+    }
+  }
+
   const isLoading = loadingDatasets || loadingAssignments
 
   const assignmentMap = Object.fromEntries(assignments.map((a) => [a.template_id, a]))
@@ -337,6 +367,7 @@ export default function TemplateManagerPage() {
                     dataset={d}
                     assignment={assignmentMap[d.id]}
                     onSave={handleSave}
+                    onDownloadCsv={downloadDatasetCsv}
                     onDelete={handleDelete}
                     isSaving={saveMutation.isPending}
                     isDeleting={deleteMutation.isPending}

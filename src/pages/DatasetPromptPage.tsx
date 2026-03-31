@@ -6,6 +6,7 @@ import { useSession } from '../context/SessionContext'
 import { useAppSettings } from '../context/AppSettingsContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
+import { mcpN8nApi } from '../services/api'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
 import type { AnalysisResult, PromptDialogQuestion } from '../types'
@@ -291,6 +292,26 @@ export default function DatasetPromptPage() {
     }
   }
 
+  const downloadDatasetCsv = async (datasetId: string, datasetName: string) => {
+    if (!session?.email) return
+    try {
+      const response = await mcpN8nApi.get(`/datasets/${encodeURIComponent(datasetId)}/download-csv`, {
+        params: { email: session.email },
+        responseType: 'blob',
+      })
+      const url = URL.createObjectURL(response.data as Blob)
+      const a = document.createElement('a')
+      const disposition = response.headers['content-disposition'] ?? ''
+      const nameMatch = disposition.match(/filename="?([^"]+)"?/)
+      a.href = url
+      a.download = nameMatch ? nameMatch[1] : `${datasetName}.csv`
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 100)
+    } catch {
+      toast.error('Failed to download CSV')
+    }
+  }
+
   const handleLetAiAsk = async () => {
     if (!prompt.trim()) {
       toast.error('Please enter a prompt first')
@@ -481,8 +502,19 @@ export default function DatasetPromptPage() {
                               }}
                               className={`px-3 py-2 cursor-pointer text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 ${selectedDatasetId === d.id ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}`}
                             >
-                              <div className="text-gray-900 dark:text-gray-100">{d.name}{d.row_count != null ? ` (rows: ${d.row_count.toLocaleString()})` : ''}</div>
-                              {d.description && <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{d.description}</div>}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="text-gray-900 dark:text-gray-100">{d.name}{d.row_count != null ? ` (rows: ${d.row_count.toLocaleString()})` : ''}</div>
+                                  {d.description && <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{d.description}</div>}
+                                </div>
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => { e.stopPropagation(); downloadDatasetCsv(d.id, d.name) }}
+                                  className="flex-shrink-0 text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                                >
+                                  CSV
+                                </button>
+                              </div>
                             </div>
                           ))
                         )}

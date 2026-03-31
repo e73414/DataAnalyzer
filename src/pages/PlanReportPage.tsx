@@ -1422,7 +1422,7 @@ const handleSaveReport = async () => {
                         className="text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 flex-shrink-0"
                         onClick={() => downloadDatasetCsv(dataset.id, dataset.name)}
                       >
-                        Download CSV
+                        CSV
                       </button>
                     </div>
                   ))}
