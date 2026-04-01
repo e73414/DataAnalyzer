@@ -643,7 +643,7 @@ export default function DatasetPromptPage() {
                         Analyzing...
                       </span>
                     ) : (
-                      'Analyze'
+                      'Quick Answer'
                     )}
                   </button>
                   <button
@@ -673,7 +673,7 @@ export default function DatasetPromptPage() {
                         Selecting...
                       </span>
                     ) : (
-                      'Select Dataset & Analyze'
+                      'Let AI Select Data'
                     )}
                   </button>
                 </div>
@@ -798,7 +798,7 @@ export default function DatasetPromptPage() {
                 Skip — Use Original Prompt
               </button>
               <button type="button" onClick={handleDialogSubmit} className="btn-primary">
-                Analyze
+                Quick Answer
               </button>
             </div>
           </div>
@@ -810,7 +810,7 @@ export default function DatasetPromptPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
             <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Suggested Dataset</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">The AI selected the following dataset for your prompt. Accept to proceed with analysis, or cancel to choose manually.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">The AI selected the following dataset for your prompt. You can run analysis, select the dataset only, or cancel to choose manually.</p>
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-2 mb-5">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-medium text-gray-900 dark:text-white">{suggestedDataset.dataset_name}</p>
@@ -833,6 +833,16 @@ export default function DatasetPromptPage() {
               </button>
               <button
                 onClick={() => {
+                  setSelectedDatasetId(suggestedDataset.dataset_id)
+                  setDatasetSearch(suggestedDataset.dataset_name)
+                  setSuggestedDataset(null)
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Select Only
+              </button>
+              <button
+                onClick={() => {
                   const id = suggestedDataset.dataset_id
                   setSelectedDatasetId(id)
                   setSuggestedDataset(null)
@@ -840,7 +850,7 @@ export default function DatasetPromptPage() {
                 }}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
               >
-                Use this Dataset & Analyze
+                Quick Answer
               </button>
             </div>
           </div>
