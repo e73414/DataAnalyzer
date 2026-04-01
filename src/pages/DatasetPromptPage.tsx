@@ -353,7 +353,7 @@ export default function DatasetPromptPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedDatasetId) {
-      toast.error('Please select a dataset')
+      await handleSelectDataset()
       return
     }
     await runAnalysisWithDataset(selectedDatasetId)
@@ -634,13 +634,18 @@ export default function DatasetPromptPage() {
                 <div className="flex items-center gap-3">
                   <button
                     type="submit"
-                    disabled={isAnalyzing || isSelectingDataset || !selectedDatasetId || !effectiveAnalyzeModel || !prompt.trim()}
+                    disabled={isAnalyzing || isSelectingDataset || !effectiveAnalyzeModel || !prompt.trim()}
                     className="btn-primary"
                   >
                     {isAnalyzing ? (
                       <span className="flex items-center gap-2">
                         <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
                         Analyzing...
+                      </span>
+                    ) : isSelectingDataset ? (
+                      <span className="flex items-center gap-2">
+                        <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
+                        Selecting...
                       </span>
                     ) : (
                       'Quick Answer'
