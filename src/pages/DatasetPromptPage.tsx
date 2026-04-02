@@ -666,21 +666,23 @@ export default function DatasetPromptPage() {
                       'Let AI Ask'
                     )}
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleSelectDataset}
-                    disabled={isAnalyzing || isSelectingDataset || dialogLoading || !prompt.trim()}
-                    className="px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-700 rounded-lg disabled:opacity-50 transition-colors"
-                  >
-                    {isSelectingDataset ? (
-                      <span className="flex items-center gap-2">
-                        <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></span>
-                        Selecting...
-                      </span>
-                    ) : (
-                      'Let AI Select Data'
-                    )}
-                  </button>
+                  {!selectedDatasetId && (
+                    <button
+                      type="button"
+                      onClick={handleSelectDataset}
+                      disabled={isAnalyzing || isSelectingDataset || dialogLoading || !prompt.trim()}
+                      className="px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-700 rounded-lg disabled:opacity-50 transition-colors"
+                    >
+                      {isSelectingDataset ? (
+                        <span className="flex items-center gap-2">
+                          <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></span>
+                          Selecting...
+                        </span>
+                      ) : (
+                        'Let AI Select Data'
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 {/* Checkboxes - Right Justified */}
