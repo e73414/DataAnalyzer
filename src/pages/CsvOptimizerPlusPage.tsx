@@ -150,8 +150,47 @@ export default function CsvOptimizerPlusPage() {
     header_row: '',
   })
 
+  const [gsheetsInputOpen, setGsheetsInputOpen] = useState(false)
+  const [gsheetsUrl, setGsheetsUrl] = useState('')
+  const [isFetchingSheet, setIsFetchingSheet] = useState(false)
+
   const isExcel = selectedFile ? /\.(xlsx?|xlsm)$/i.test(selectedFile.name) : false
   const hasResults = sheetConversions.length > 0
+
+  function parseGoogleSheetId(input: string): string | null {
+    const trimmed = input.trim()
+    // Full URL: extract /d/{id}/
+    const urlMatch = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
+    if (urlMatch) return urlMatch[1]
+    // Bare ID (no slashes, reasonable length)
+    if (/^[a-zA-Z0-9_-]{20,}$/.test(trimmed)) return trimmed
+    return null
+  }
+
+  const handleFetchGoogleSheet = async () => {
+    const sheetId = parseGoogleSheetId(gsheetsUrl)
+    if (!sheetId) {
+      toast.error('Invalid Google Sheet URL or ID')
+      return
+    }
+    setIsFetchingSheet(true)
+    try {
+      const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`
+      const response = await axios.get(exportUrl, { responseType: 'text' })
+      const csvText: string = response.data
+      const file = new File([csvText], `google_sheet_${sheetId}.csv`, { type: 'text/csv' })
+      setSelectedFile(file)
+      setSourceName(`google_sheet_${sheetId}`)
+      setSheetConversions([])
+      setGsheetsInputOpen(false)
+      setGsheetsUrl('')
+      toast.success('Google Sheet loaded successfully')
+    } catch {
+      toast.error('Failed to fetch Google Sheet. Make sure it is shared publicly (Anyone with the link).')
+    } finally {
+      setIsFetchingSheet(false)
+    }
+  }
 
   const toggleSection = (key: string) =>
     setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }))
@@ -391,6 +430,8 @@ export default function CsvOptimizerPlusPage() {
     setSelectedSheets([])
     setSheetConversions([])
     setExpandedSections({})
+    setGsheetsInputOpen(false)
+    setGsheetsUrl('')
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -417,7 +458,47 @@ export default function CsvOptimizerPlusPage() {
 
           <div className="space-y-4">
             <div>
-              <label htmlFor="convertFile" className="label">File (CSV, XLSX, XLS, XLSM)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label htmlFor="convertFile" className="label mb-0">File (CSV, XLSX, XLS, XLSM)</label>
+                <button
+                  type="button"
+                  onClick={() => { setGsheetsInputOpen(v => !v); setGsheetsUrl('') }}
+                  className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 14H8v-2h4v2zm4-4H8v-2h8v2zm0-4H8V7h8v2z"/>
+                  </svg>
+                  Import from Google Sheet
+                </button>
+              </div>
+              {gsheetsInputOpen && (
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={gsheetsUrl}
+                    onChange={e => setGsheetsUrl(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleFetchGoogleSheet()}
+                    placeholder="Paste Google Sheet URL or Sheet ID…"
+                    className="input-field flex-1 text-sm py-1.5"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={handleFetchGoogleSheet}
+                    disabled={isFetchingSheet || !gsheetsUrl.trim()}
+                    className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md disabled:opacity-50 transition-colors whitespace-nowrap"
+                  >
+                    {isFetchingSheet ? 'Fetching…' : 'Load Sheet'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setGsheetsInputOpen(false); setGsheetsUrl('') }}
+                    className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
               <input
                 ref={fileInputRef}
                 type="file"
