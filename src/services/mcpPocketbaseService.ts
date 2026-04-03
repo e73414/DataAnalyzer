@@ -546,6 +546,14 @@ export const pocketbaseService = {
     await mcpN8nApi.delete('/google/disconnect', { params: { email } })
   },
 
+  async fetchGoogleSheetCsv(email: string, sheetId: string, gid?: string): Promise<string> {
+    const response = await mcpN8nApi.get<string>('/google/sheets/csv', {
+      params: { email, sheet_id: sheetId, ...(gid && { gid }) },
+      responseType: 'text',
+    })
+    return response.data
+  },
+
   async listDriveFiles(email: string, folderId: string): Promise<DriveFile[]> {
     const response = await mcpN8nApi.get<DriveFile[]>('/google/drive/files', {
       params: { email, folder_id: folderId },

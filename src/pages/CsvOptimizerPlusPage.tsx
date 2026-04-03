@@ -1,10 +1,13 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import * as XLSX from 'xlsx'
 import JSZip from 'jszip'
 import toast from 'react-hot-toast'
 import Navigation from '../components/Navigation'
+import { useSession } from '../context/SessionContext'
+import { pocketbaseService } from '../services/mcpPocketbaseService'
 
 // --- Types ---
 
@@ -126,7 +129,25 @@ function ChevronIcon({ open }: { open: boolean }) {
 
 export default function CsvOptimizerPlusPage() {
   const navigate = useNavigate()
+  const { session } = useSession()
+  const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const { data: googleTokenStatus, refetch: refetchGoogleStatus } = useQuery({
+    queryKey: ['google-token-status', session?.email],
+    queryFn: () => pocketbaseService.getGoogleTokenStatus(session!.email),
+    enabled: !!session?.email,
+    refetchOnMount: 'always',
+  })
+  const googleConnected = googleTokenStatus?.connected ?? false
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('google_connected') === '1') {
+      refetchGoogleStatus()
+      toast.success('Google account connected')
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [sourceName, setSourceName] = useState('')
@@ -167,6 +188,27 @@ export default function CsvOptimizerPlusPage() {
     return null
   }
 
+  const handleConnectGoogle = async () => {
+    if (!session?.email) return
+    try {
+      const url = await pocketbaseService.getGoogleAuthUrl(session.email)
+      window.location.href = url
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to get auth URL')
+    }
+  }
+
+  const handleDisconnectGoogle = async () => {
+    if (!session?.email) return
+    try {
+      await pocketbaseService.disconnectGoogle(session.email)
+      queryClient.invalidateQueries({ queryKey: ['google-token-status'] })
+      toast.success('Google account disconnected')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Disconnect failed')
+    }
+  }
+
   const handleFetchGoogleSheet = async () => {
     const sheetId = parseGoogleSheetId(gsheetsUrl)
     if (!sheetId) {
@@ -175,9 +217,14 @@ export default function CsvOptimizerPlusPage() {
     }
     setIsFetchingSheet(true)
     try {
-      const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`
-      const response = await axios.get(exportUrl, { responseType: 'text' })
-      const csvText: string = response.data
+      let csvText: string
+      if (googleConnected && session?.email) {
+        csvText = await pocketbaseService.fetchGoogleSheetCsv(session.email, sheetId)
+      } else {
+        const exportUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`
+        const response = await axios.get(exportUrl, { responseType: 'text' })
+        csvText = response.data
+      }
       const file = new File([csvText], `google_sheet_${sheetId}.csv`, { type: 'text/csv' })
       setSelectedFile(file)
       setSourceName(`google_sheet_${sheetId}`)
@@ -186,7 +233,9 @@ export default function CsvOptimizerPlusPage() {
       setGsheetsUrl('')
       toast.success('Google Sheet loaded successfully')
     } catch {
-      toast.error('Failed to fetch Google Sheet. Make sure it is shared publicly (Anyone with the link).')
+      toast.error(googleConnected
+        ? 'Failed to fetch Google Sheet. Make sure you have access to it.'
+        : 'Failed to fetch Google Sheet. Make sure it is shared publicly or connect your Google account.')
     } finally {
       setIsFetchingSheet(false)
     }
@@ -472,31 +521,56 @@ export default function CsvOptimizerPlusPage() {
                 </button>
               </div>
               {gsheetsInputOpen && (
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={gsheetsUrl}
-                    onChange={e => setGsheetsUrl(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleFetchGoogleSheet()}
-                    placeholder="Paste Google Sheet URL or Sheet ID…"
-                    className="input-field flex-1 text-sm py-1.5"
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={handleFetchGoogleSheet}
-                    disabled={isFetchingSheet || !gsheetsUrl.trim()}
-                    className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md disabled:opacity-50 transition-colors whitespace-nowrap"
-                  >
-                    {isFetchingSheet ? 'Fetching…' : 'Load Sheet'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setGsheetsInputOpen(false); setGsheetsUrl('') }}
-                    className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                  >
-                    Cancel
-                  </button>
+                <div className="mb-2 space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={gsheetsUrl}
+                      onChange={e => setGsheetsUrl(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleFetchGoogleSheet()}
+                      placeholder="Paste Google Sheet URL or Sheet ID…"
+                      className="input-field flex-1 text-sm py-1.5"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={handleFetchGoogleSheet}
+                      disabled={isFetchingSheet || !gsheetsUrl.trim()}
+                      className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md disabled:opacity-50 transition-colors whitespace-nowrap"
+                    >
+                      {isFetchingSheet ? 'Fetching…' : 'Load Sheet'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setGsheetsInputOpen(false); setGsheetsUrl('') }}
+                      className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    {googleConnected ? (
+                      <>
+                        <span className="flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                          Google connected — private sheets supported
+                        </span>
+                        <button type="button" onClick={handleDisconnectGoogle} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 underline">
+                          Disconnect
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-gray-500 dark:text-gray-400">Public sheets only —</span>
+                        <button type="button" onClick={handleConnectGoogle} className="text-green-600 dark:text-green-400 hover:underline font-medium">
+                          Connect Google Account
+                        </button>
+                        <span className="text-gray-400 dark:text-gray-500">to access private sheets</span>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
               <input
