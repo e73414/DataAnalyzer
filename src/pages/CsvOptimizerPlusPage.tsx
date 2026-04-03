@@ -507,19 +507,35 @@ export default function CsvOptimizerPlusPage() {
 
           <div className="space-y-4">
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label htmlFor="convertFile" className="label mb-0">File (CSV, XLSX, XLS, XLSM)</label>
-                <button
-                  type="button"
-                  onClick={() => { setGsheetsInputOpen(v => !v); setGsheetsUrl('') }}
-                  className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 14H8v-2h4v2zm4-4H8v-2h8v2zm0-4H8V7h8v2z"/>
-                  </svg>
-                  Import from Google Sheet
-                </button>
-              </div>
+              <label htmlFor="convertFile" className="label">File (CSV, XLSX, XLS, XLSM)</label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                id="convertFile"
+                accept=".csv,.xlsx,.xls,.xlsm"
+                onChange={handleFileChange}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm
+                           bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
+                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                           file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm
+                           file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700
+                           dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50
+                           transition-colors duration-200"
+              />
+            </div>
+
+            {/* Google Sheet Import */}
+            <div>
+              <button
+                type="button"
+                onClick={() => { setGsheetsInputOpen(v => !v); setGsheetsUrl('') }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700 rounded-md hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 14H8v-2h4v2zm4-4H8v-2h8v2zm0-4H8V7h8v2z"/>
+                </svg>
+                Import from Google Sheet
+              </button>
               {gsheetsInputOpen && (
                 <div className="mb-2 space-y-2">
                   <div className="flex gap-2">
@@ -573,20 +589,6 @@ export default function CsvOptimizerPlusPage() {
                   </div>
                 </div>
               )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                id="convertFile"
-                accept=".csv,.xlsx,.xls,.xlsm"
-                onChange={handleFileChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm
-                           bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
-                           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
-                           file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm
-                           file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700
-                           dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50
-                           transition-colors duration-200"
-              />
             </div>
 
             {/* Sheet Selector — Excel files only */}
