@@ -141,10 +141,24 @@ export default function CsvOptimizerPlusPage() {
   })
   const googleConnected = googleTokenStatus?.connected ?? false
 
+  const { data: microsoftTokenStatus, refetch: refetchMicrosoftStatus } = useQuery({
+    queryKey: ['microsoft-token-status', session?.email],
+    queryFn: () => pocketbaseService.getMicrosoftTokenStatus(session!.email),
+    enabled: !!session?.email,
+    refetchOnMount: 'always',
+  })
+  const microsoftConnected = microsoftTokenStatus?.connected ?? false
+
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('google_connected') === '1') {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('google_connected') === '1') {
       refetchGoogleStatus()
       toast.success('Google account connected')
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+    if (params.get('ms_connected') === '1') {
+      refetchMicrosoftStatus()
+      toast.success('OneDrive connected')
       window.history.replaceState({}, '', window.location.pathname)
     }
   }, [])
@@ -174,6 +188,10 @@ export default function CsvOptimizerPlusPage() {
   const [gsheetsInputOpen, setGsheetsInputOpen] = useState(false)
   const [gsheetsUrl, setGsheetsUrl] = useState('')
   const [isFetchingSheet, setIsFetchingSheet] = useState(false)
+
+  const [onedriveInputOpen, setOnedriveInputOpen] = useState(false)
+  const [onedriveUrl, setOnedriveUrl] = useState('')
+  const [isFetchingOnedrive, setIsFetchingOnedrive] = useState(false)
 
   const isExcel = selectedFile ? /\.(xlsx?|xlsm)$/i.test(selectedFile.name) : false
   const hasResults = sheetConversions.length > 0
@@ -238,6 +256,53 @@ export default function CsvOptimizerPlusPage() {
         : 'Failed to fetch Google Sheet. Make sure it is shared publicly or connect your Google account.')
     } finally {
       setIsFetchingSheet(false)
+    }
+  }
+
+  const handleConnectMicrosoft = async () => {
+    if (!session?.email) return
+    try {
+      const url = await pocketbaseService.getMicrosoftAuthUrl(session.email)
+      window.location.href = url
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to get auth URL')
+    }
+  }
+
+  const handleDisconnectMicrosoft = async () => {
+    if (!session?.email) return
+    try {
+      await pocketbaseService.disconnectMicrosoft(session.email)
+      queryClient.invalidateQueries({ queryKey: ['microsoft-token-status'] })
+      toast.success('OneDrive disconnected')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Disconnect failed')
+    }
+  }
+
+  const handleFetchOneDriveFile = async () => {
+    if (!onedriveUrl.trim()) {
+      toast.error('Please enter a OneDrive share URL')
+      return
+    }
+    if (!microsoftConnected || !session?.email) {
+      toast.error('Please connect your Microsoft account first')
+      return
+    }
+    setIsFetchingOnedrive(true)
+    try {
+      const { data, fileName } = await pocketbaseService.fetchOneDriveFileCsv(session.email, onedriveUrl.trim())
+      const file = new File([data], fileName, { type: 'application/octet-stream' })
+      setSelectedFile(file)
+      setSourceName(fileName.replace(/\.(csv|xlsx?|xlsm)$/i, ''))
+      setSheetConversions([])
+      setOnedriveInputOpen(false)
+      setOnedriveUrl('')
+      toast.success('OneDrive file loaded successfully')
+    } catch {
+      toast.error('Failed to fetch OneDrive file. Make sure the link is a valid share URL and you have access.')
+    } finally {
+      setIsFetchingOnedrive(false)
     }
   }
 
@@ -481,6 +546,8 @@ export default function CsvOptimizerPlusPage() {
     setExpandedSections({})
     setGsheetsInputOpen(false)
     setGsheetsUrl('')
+    setOnedriveInputOpen(false)
+    setOnedriveUrl('')
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -584,6 +651,73 @@ export default function CsvOptimizerPlusPage() {
                           Connect Google Account
                         </button>
                         <span className="text-gray-400 dark:text-gray-500">to access private sheets</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* OneDrive Import */}
+            <div>
+              <button
+                type="button"
+                onClick={() => { setOnedriveInputOpen(v => !v); setOnedriveUrl('') }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-700 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
+                </svg>
+                Import from OneDrive
+              </button>
+              {onedriveInputOpen && (
+                <div className="mt-2 space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={onedriveUrl}
+                      onChange={e => setOnedriveUrl(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleFetchOneDriveFile()}
+                      placeholder="Paste OneDrive share link…"
+                      className="input-field flex-1 text-sm py-1.5"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={handleFetchOneDriveFile}
+                      disabled={isFetchingOnedrive || !onedriveUrl.trim() || !microsoftConnected}
+                      className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 transition-colors whitespace-nowrap"
+                    >
+                      {isFetchingOnedrive ? 'Fetching…' : 'Load File'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setOnedriveInputOpen(false); setOnedriveUrl('') }}
+                      className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    {microsoftConnected ? (
+                      <>
+                        <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-medium">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                          Microsoft connected — shared files supported
+                        </span>
+                        <button type="button" onClick={handleDisconnectMicrosoft} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 underline">
+                          Disconnect
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-gray-500 dark:text-gray-400">Not connected —</span>
+                        <button type="button" onClick={handleConnectMicrosoft} className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+                          Connect Microsoft Account
+                        </button>
+                        <span className="text-gray-400 dark:text-gray-500">to import OneDrive files</span>
                       </>
                     )}
                   </div>

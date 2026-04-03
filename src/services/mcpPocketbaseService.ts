@@ -563,6 +563,15 @@ export const pocketbaseService = {
 
   // ── Microsoft OneDrive OAuth ──────────────────────────────────────────────
 
+  async fetchOneDriveFileCsv(email: string, shareUrl: string): Promise<{ data: ArrayBuffer; fileName: string }> {
+    const response = await mcpN8nApi.get<ArrayBuffer>('/microsoft/onedrive/csv', {
+      params: { email, share_url: shareUrl },
+      responseType: 'arraybuffer',
+    })
+    const fileName = decodeURIComponent(response.headers['x-file-name'] || 'onedrive_file')
+    return { data: response.data, fileName }
+  },
+
   async getMicrosoftAuthUrl(email: string): Promise<string> {
     const response = await mcpN8nApi.get<{ url: string }>('/microsoft/auth-url', { params: { email } })
     return response.data.url
