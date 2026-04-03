@@ -73,7 +73,10 @@ PERIOD_PATTERNS = [
 ]
 
 
-def is_period_column(name: str) -> bool:
+def is_period_column(name) -> bool:
+    # pandas reads Excel date-formatted column headers as Timestamp objects
+    if hasattr(name, 'strftime'):
+        return True
     n = str(name).strip().lower()
     for pattern, _ in PERIOD_PATTERNS:
         if re.match(pattern, n):
@@ -81,8 +84,11 @@ def is_period_column(name: str) -> bool:
     return False
 
 
-def period_to_date(name: str) -> str:
+def period_to_date(name) -> str:
     """Convert a period label to YYYY-MM-DD (first day of the period)."""
+    # pandas reads Excel date-formatted column headers as Timestamp objects
+    if hasattr(name, 'strftime'):
+        return name.strftime('%Y-%m-01')
     n = str(name).strip().lower()
 
     m = re.match(r'^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[- _]?(\d{2,4})$', n)

@@ -41,7 +41,6 @@ Create and update n8n workflows using the available n8n-mcp tool and n8n skills.
 ### Communication
 
 - Always report what was changed after modifications
-- If a workflow lacks the `AI-DEV` tag, inform the user and do not proceed
 - Ask for clarification when requirements are ambiguous
 - Provide workflow IDs and names in responses for user verification
 
