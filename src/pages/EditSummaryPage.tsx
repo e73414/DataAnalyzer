@@ -54,6 +54,12 @@ export default function EditSummaryPage() {
     enabled: !!selectedDatasetId && !!session?.email,
   })
 
+  const { data: ingestionSchedule } = useQuery({
+    queryKey: ['ingestion-schedule', selectedDatasetId],
+    queryFn: () => pocketbaseService.getIngestionSchedule(selectedDatasetId),
+    enabled: !!selectedDatasetId,
+  })
+
   const sampleQuestionsMutation = useMutation({
     mutationFn: (questions: { id: string; question: string }[]) =>
       pocketbaseService.updateSampleQuestions(selectedDatasetId, questions),
@@ -336,6 +342,17 @@ export default function EditSummaryPage() {
                         />
                       </div>
 
+                      {(() => {
+                        const ds = datasets.find(d => d.id === selectedDatasetId)
+                        const fmt = (s?: string) => s ? new Date(s).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+                        return ds ? (
+                          <div className="flex gap-4 text-xs text-gray-400 dark:text-gray-500 -mt-2">
+                            <span>Added: <span className="text-gray-600 dark:text-gray-400">{fmt(ds.created)}</span></span>
+                            <span>Last updated: <span className="text-gray-600 dark:text-gray-400">{fmt(ds.updated)}</span></span>
+                          </div>
+                        ) : null
+                      })()}
+
                       <div>
                         <button
                           type="button"
@@ -563,7 +580,7 @@ export default function EditSummaryPage() {
                           )}
                         </button>
 
-                        {appSettings?.show_ingestion_schedule === 'true' &&
+                        {(appSettings?.show_ingestion_schedule === 'true' || !!ingestionSchedule) &&
                           (session?.profile?.trim() === 'admadmadm' || datasets.find(d => d.id === selectedDatasetId)?.owner_email === session?.email) && (
                           <Link
                             to={`/ingestion/${selectedDatasetId}`}

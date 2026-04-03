@@ -20,6 +20,11 @@ interface IncomingFileState {
       keep_dupes?: boolean
     }
   }
+  sourceInfo?: {
+    location_type: string
+    folder_id: string
+    schedule: string | null
+  }
 }
 
 export default function UploadDatasetPage() {
@@ -106,6 +111,28 @@ export default function UploadDatasetPage() {
           await pocketbaseService.saveIngestionConfig({ dataset_id: result.datasetId, ...state.ingestionConfig })
         } catch {
           // Non-fatal — config can be saved later from the ingestion schedule page
+        }
+      }
+      if (state?.sourceInfo && result.datasetId && session?.email) {
+        try {
+          await pocketbaseService.saveIngestionSchedule({
+            dataset_id: result.datasetId,
+            owner_email: session.email,
+            folder_id: state.sourceInfo.folder_id,
+            location_type: state.sourceInfo.location_type,
+            schedule: state.sourceInfo.schedule,
+            enabled: true,
+          })
+          await pocketbaseService.logIngestionFile({
+            dataset_id: result.datasetId,
+            file_name: result.datasetName,
+            file_location: state.sourceInfo.folder_id,
+            location_type: state.sourceInfo.location_type,
+            ingestion_result: 'success',
+            rows_inserted: result.rowsInserted,
+          })
+        } catch {
+          // Non-fatal — schedule can be set from the ingestion schedule page
         }
       }
       toast.success(`Dataset "${result.datasetName}" uploaded successfully! ${result.rowsInserted} rows inserted.`)

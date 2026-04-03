@@ -504,10 +504,22 @@ export const pocketbaseService = {
   },
 
   async saveIngestionSchedule(
-    payload: { dataset_id: string; owner_email: string; folder_id: string; schedule?: string | null; enabled?: boolean }
+    payload: { dataset_id: string; owner_email: string; folder_id: string; location_type?: string; schedule?: string | null; enabled?: boolean }
   ): Promise<IngestionSchedule> {
     const response = await mcpN8nApi.post<IngestionSchedule>('/ingestion/schedule', payload)
     return response.data
+  },
+
+  async logIngestionFile(payload: {
+    dataset_id: string
+    file_name?: string
+    file_id?: string
+    file_location?: string
+    location_type: string
+    ingestion_result?: string
+    rows_inserted?: number
+  }): Promise<void> {
+    await mcpN8nApi.post('/ingestion/log', payload)
   },
 
   async updateIngestionSchedule(

@@ -7,7 +7,7 @@ import { pocketbaseService } from '../services/mcpPocketbaseService'
 import Navigation from '../components/Navigation'
 import type { DriveFile, IngestionFile } from '../types'
 
-type SourceType = 'google_drive' | 'onedrive'
+type SourceType = 'google_drive' | 'onedrive' | 'google_sheets' | 'onedrive_file'
 
 const SCHEDULE_PRESETS = [
   { label: 'Manual only', value: '' },
@@ -23,7 +23,17 @@ function parseFolderId(input: string, sourceType: SourceType): string {
     const m = input.match(/\/folders\/([a-zA-Z0-9_-]+)/)
     return m ? m[1] : input.trim()
   }
-  // OneDrive: extract ?id= param from URL
+  if (sourceType === 'google_sheets') {
+    const m = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
+    if (m) return m[1]
+    if (/^[a-zA-Z0-9_-]{20,}$/.test(input.trim())) return input.trim()
+    return input.trim()
+  }
+  if (sourceType === 'onedrive_file') {
+    // Store the full share URL as-is
+    return input.trim()
+  }
+  // OneDrive folder: extract ?id= param from URL
   const m = input.match(/[?&]id=([^&]+)/)
   return m ? decodeURIComponent(m[1]) : input.trim()
 }
@@ -287,10 +297,12 @@ export default function IngestionSchedulePage() {
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-3">
             File Source
           </h2>
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-6">
             {([
-              { value: 'google_drive', label: 'Google Drive' },
-              { value: 'onedrive',     label: 'OneDrive' },
+              { value: 'google_drive',  label: 'Google Drive (folder)' },
+              { value: 'onedrive',      label: 'OneDrive (folder)' },
+              { value: 'google_sheets', label: 'Google Sheet' },
+              { value: 'onedrive_file', label: 'OneDrive File' },
             ] as { value: SourceType; label: string }[]).map(opt => (
               <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -310,10 +322,10 @@ export default function IngestionSchedulePage() {
         {/* Connection section */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-3">
-            {sourceType === 'onedrive' ? 'OneDrive Connection' : 'Google Drive Connection'}
+            {(sourceType === 'onedrive' || sourceType === 'onedrive_file') ? 'Microsoft Connection' : 'Google Connection'}
           </h2>
 
-          {sourceType === 'google_drive' ? (
+          {(sourceType === 'google_drive' || sourceType === 'google_sheets') ? (
             tokenStatus?.connected ? (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
@@ -341,7 +353,7 @@ export default function IngestionSchedulePage() {
               </div>
             )
           ) : (
-            msTokenStatus?.connected ? (
+            (sourceType === 'onedrive' || sourceType === 'onedrive_file') && msTokenStatus?.connected ? (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -379,27 +391,47 @@ export default function IngestionSchedulePage() {
           {/* Folder input */}
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-              {sourceType === 'onedrive' ? 'OneDrive Folder Item ID or URL' : 'Google Drive Folder ID or URL'}
+              {sourceType === 'onedrive' ? 'OneDrive Folder Item ID or URL'
+                : sourceType === 'google_sheets' ? 'Google Sheet URL or ID'
+                : sourceType === 'onedrive_file' ? 'OneDrive Share Link'
+                : 'Google Drive Folder ID or URL'}
             </label>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={folderInput}
                 onChange={e => { setFolderInput(e.target.value); setFormDirty(true) }}
-                placeholder={sourceType === 'onedrive' ? 'Paste OneDrive folder URL or item ID' : 'Paste folder URL or ID'}
+                placeholder={
+                  sourceType === 'onedrive' ? 'Paste OneDrive folder URL or item ID'
+                  : sourceType === 'google_sheets' ? 'Paste Google Sheet URL or Sheet ID'
+                  : sourceType === 'onedrive_file' ? 'Paste OneDrive share link'
+                  : 'Paste folder URL or ID'
+                }
                 className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-              <button
-                onClick={handlePreview}
-                disabled={isPreviewing || !folderInput.trim() || !activeConnection}
-                className="px-3 py-2 text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition-colors whitespace-nowrap"
-              >
-                {isPreviewing ? 'Loading…' : 'Preview files'}
-              </button>
+              {(sourceType === 'google_drive' || sourceType === 'onedrive') && (
+                <button
+                  onClick={handlePreview}
+                  disabled={isPreviewing || !folderInput.trim() || !activeConnection}
+                  className="px-3 py-2 text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition-colors whitespace-nowrap"
+                >
+                  {isPreviewing ? 'Loading…' : 'Preview files'}
+                </button>
+              )}
             </div>
             {sourceType === 'onedrive' && (
               <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
                 Tip: From OneDrive, open the folder and copy the URL — the item ID is in the <code className="font-mono">?id=</code> parameter.
+              </p>
+            )}
+            {sourceType === 'google_sheets' && (
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                Ingestion checks if the sheet has been modified since the last run. Make sure your Google account is connected above.
+              </p>
+            )}
+            {sourceType === 'onedrive_file' && (
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                Paste the share link for a specific file. Ingestion checks if the file has been modified since the last run.
               </p>
             )}
             {previewFiles.length > 0 && (
