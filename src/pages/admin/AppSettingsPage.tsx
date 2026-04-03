@@ -530,7 +530,7 @@ export default function AppSettingsPage() {
                   className="w-4 h-4 rounded accent-blue-600"
                 />
                 <label htmlFor="showIngestionSchedule" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                  Show "Ingestion Schedule" link on Edit Dataset Summary page
+                  Show "Manage Ingestion" link on Edit Dataset Summary page
                 </label>
               </div>
             </div>

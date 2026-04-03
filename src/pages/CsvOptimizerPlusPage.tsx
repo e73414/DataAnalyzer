@@ -7,6 +7,7 @@ import JSZip from 'jszip'
 import toast from 'react-hot-toast'
 import Navigation from '../components/Navigation'
 import { useSession } from '../context/SessionContext'
+import { useAppSettings } from '../context/AppSettingsContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 
 // --- Types ---
@@ -138,6 +139,7 @@ const SCHEDULE_PRESETS = [
 export default function CsvOptimizerPlusPage() {
   const navigate = useNavigate()
   const { session } = useSession()
+  const { appSettings } = useAppSettings()
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -618,7 +620,8 @@ export default function CsvOptimizerPlusPage() {
               />
             </div>
 
-            {/* Google Sheet Import */}
+            {/* Google Sheet + OneDrive Import (shown only when Manage Ingestion is enabled) */}
+            {appSettings?.show_ingestion_schedule === 'true' && <>
             <div>
               <button
                 type="button"
@@ -775,6 +778,7 @@ export default function CsvOptimizerPlusPage() {
                 </div>
               )}
             </div>
+            </>}
 
             {/* Sheet Selector — Excel files only */}
             {sheetNames.length > 0 && (

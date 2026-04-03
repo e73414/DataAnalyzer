@@ -586,7 +586,7 @@ export default function EditSummaryPage() {
                             to={`/ingestion/${selectedDatasetId}`}
                             className="px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-700 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors duration-200"
                           >
-                            Ingestion Schedule
+                            Manage Ingestion
                           </Link>
                         )}
 
