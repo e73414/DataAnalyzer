@@ -259,6 +259,8 @@ export default function TemplateManagerPage() {
     onError: (err: Error) => toast.error(err.message),
   })
 
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
   const deleteMutation = useMutation({
     mutationFn: ({ datasetId, ownerEmail }: { datasetId: string; ownerEmail: string }) =>
       n8nService.deleteDataset({ datasetId, email: ownerEmail }),
@@ -267,6 +269,7 @@ export default function TemplateManagerPage() {
       toast.success(`"${result.datasetName}" deleted`)
     },
     onError: (err: Error) => toast.error(err.message),
+    onSettled: () => setDeletingId(null),
   })
 
   const updateOwnerMutation = useMutation({
@@ -288,6 +291,7 @@ export default function TemplateManagerPage() {
   }
 
   const handleDelete = async (datasetId: string, ownerEmail: string) => {
+    setDeletingId(datasetId)
     await deleteMutation.mutateAsync({ datasetId, ownerEmail })
   }
 
@@ -370,7 +374,7 @@ export default function TemplateManagerPage() {
                     onDownloadCsv={downloadDatasetCsv}
                     onDelete={handleDelete}
                     isSaving={saveMutation.isPending}
-                    isDeleting={deleteMutation.isPending}
+                    isDeleting={deletingId === d.id}
                   />
                 ))}
               </tbody>

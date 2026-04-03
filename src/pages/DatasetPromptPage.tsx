@@ -460,7 +460,7 @@ export default function DatasetPromptPage() {
               <div>
                 <label className="label">Select Dataset</label>
                 <div className="flex gap-2 mb-2">
-                  <div className="relative flex-1" ref={datasetDropdownRef}>
+                  <div className="relative" style={{flex: '0 0 65%'}} ref={datasetDropdownRef}>
                     <input
                       type="text"
                       value={datasetSearch}
@@ -524,7 +524,7 @@ export default function DatasetPromptPage() {
                   <select
                     value={datasetScope}
                     onChange={(e) => setDatasetScope(e.target.value as typeof datasetScope)}
-                    className="input-field flex-1"
+                    className="input-field flex-1 min-w-0"
                     disabled={isAnalyzing}
                   >
                     <option value="all">All</option>
