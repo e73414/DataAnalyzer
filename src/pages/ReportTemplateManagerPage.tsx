@@ -82,22 +82,24 @@ export default function ReportTemplateManagerPage() {
   const isLoading = isLoadingProfile || isLoadingTemplates
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-950 transition-colors duration-200">
       <Navigation />
 
       <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Report Template Manager
-            </h2>
-            <button
-              onClick={() => navigate('/upload-report-template')}
-              className="btn-primary text-sm"
-            >
-              Upload Template
-            </button>
+        <div className="mb-6 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Report Templates</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage Word document templates used for formatted reports.</p>
           </div>
+          <button
+            onClick={() => navigate('/upload-report-template')}
+            className="btn-primary text-sm"
+          >
+            Upload Template
+          </button>
+        </div>
+
+        <div className="card p-6">
 
           {isLoading ? (
             <div className="text-center py-12">

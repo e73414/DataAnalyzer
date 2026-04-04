@@ -174,9 +174,14 @@ export default function ExcelUploadPage() {
   })()
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-950 transition-colors duration-200">
       <Navigation />
       <main className="max-w-4xl mx-auto px-4 py-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Upload Excel File</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Convert an Excel workbook to datasets for analysis.</p>
+        </div>
+
         {/* Info Box */}
         <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">How it works</h3>
@@ -190,8 +195,6 @@ export default function ExcelUploadPage() {
 
         {/* Upload Card */}
         <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Upload Excel File</h2>
-
           <div className="space-y-6">
             {/* File Input */}
             <div>

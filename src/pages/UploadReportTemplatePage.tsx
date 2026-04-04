@@ -57,22 +57,24 @@ export default function UploadReportTemplatePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-950 transition-colors duration-200">
       <Navigation />
 
       <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Upload Report Template
-            </h2>
-            <button
-              onClick={() => navigate('/report-templates')}
-              className="btn-secondary text-sm"
-            >
-              Back to Templates
-            </button>
+        <div className="mb-6 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Upload Report Template</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Add a new Word document template for report generation.</p>
           </div>
+          <button
+            onClick={() => navigate('/report-templates')}
+            className="btn-secondary text-sm"
+          >
+            Back to Templates
+          </button>
+        </div>
+
+        <div className="card p-6">
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>

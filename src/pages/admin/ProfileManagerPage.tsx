@@ -593,7 +593,7 @@ export default function ProfileManagerPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-950">
       <Navigation />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Profile Manager</h1>

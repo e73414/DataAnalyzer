@@ -1307,17 +1307,16 @@ const handleSaveReport = async () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-950 transition-colors duration-200">
       <Navigation />
 
       <main className="max-w-4xl mx-auto px-4 py-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Plan &amp; Execute Report</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Generate structured multi-section reports from your datasets.</p>
+        </div>
+
         <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Plan Report
-          </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-            Describe your report requirements and select the datasets to include. AI will generate a report plan for you to review.
-          </p>
 
           {isLoadingDatasets ? (
             <div className="text-center py-12">

@@ -140,16 +140,14 @@ export default function BrowseQuestionsPage() {
   const totalCount = questions.length
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-950">
       <Navigation />
       <div className="max-w-4xl mx-auto px-4 py-8">
 
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Browse Questions</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {totalCount} question{totalCount !== 1 ? 's' : ''} available to you
-          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Explore saved questions and analysis prompts.</p>
         </div>
 
         {/* Search */}

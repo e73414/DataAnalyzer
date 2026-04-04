@@ -473,7 +473,7 @@ export default function ResultsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col transition-colors duration-200">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-950 flex flex-col transition-colors duration-200">
       <Navigation />
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-4 flex flex-col min-h-0">

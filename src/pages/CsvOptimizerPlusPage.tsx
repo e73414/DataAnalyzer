@@ -190,7 +190,7 @@ export default function CsvOptimizerPlusPage() {
 
   const [options, setOptions] = useState<ConvertOptions>({
     sheet: '0',
-    no_unpivot: false,
+    no_unpivot: true,
     keep_dupes: false,
     header_row: '',
   })
@@ -581,9 +581,13 @@ export default function CsvOptimizerPlusPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-950 transition-colors duration-200">
       <Navigation />
       <main className="max-w-4xl mx-auto px-4 py-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CSV Optimizer Plus</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Convert, clean, and upload Excel and CSV files to your dataset library.</p>
+        </div>
 
         {/* Info Box */}
         <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">

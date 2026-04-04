@@ -79,16 +79,14 @@ export default function ManageQuestionsPage() {
     : questions
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-950">
       <Navigation />
       <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Saved Questions</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              {isAdmin ? "All users' questions" : "Questions you've saved for sharing"}
-            </p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Manage Questions</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Create, edit, and organize questions for your datasets.</p>
           </div>
           {isAdmin && ownerEmails.length > 0 && (
             <select

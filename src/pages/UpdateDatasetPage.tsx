@@ -198,18 +198,15 @@ export default function UpdateDatasetPage() {
     (compatibility === 'partial' && !confirmProceed)
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-950 transition-colors duration-200">
       <Navigation />
 
       <main className="max-w-4xl mx-auto px-4 py-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Update Dataset</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Replace the data in an existing dataset while preserving its settings.</p>
+        </div>
         <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Update Dataset
-          </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-            This will replace all existing data in the selected dataset with the uploaded CSV file.
-          </p>
-
           {isLoadingDatasets ? (
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div>

@@ -167,18 +167,11 @@ export default function LoginPage() {
       <div className="max-w-md w-full">
         {/* Logo and Title */}
         <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg mb-4">
-            <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke="white" strokeWidth="1.5" strokeOpacity="0.6"/>
-              <g transform="rotate(35, 12, 12)">
-                <path d="M12 5L9.5 12L14.5 12Z" fill="white"/>
-                <path d="M12 19L9.5 12L14.5 12Z" fill="white" fillOpacity="0.35"/>
-              </g>
-              <circle cx="12" cy="12" r="1.5" fill="white"/>
-            </svg>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <img src={theme === 'dark' ? '/logo-dark.png' : '/logo-light.png'} alt="DataPilot" className="h-24 w-auto" />
+            <span className="text-6xl font-bold text-gray-900 dark:text-white" style={{fontFamily: "'Syne', sans-serif"}}>DataPilot</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">DataPilot</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">Sign in to analyze your datasets with AI</p>
+          <p className="text-gray-600 dark:text-gray-400">Sign in to analyze your datasets with AI</p>
         </div>
 
         {/* Login Card */}

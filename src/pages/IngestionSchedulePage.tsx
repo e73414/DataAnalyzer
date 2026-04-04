@@ -269,7 +269,7 @@ export default function IngestionSchedulePage() {
   const effectiveCron = schedulePreset === '__custom__' ? customCron.trim() : schedulePreset
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-950">
       <Navigation />
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
 
@@ -277,7 +277,7 @@ export default function IngestionSchedulePage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Ingestion Schedule</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Automate dataset updates by polling a cloud storage folder for new files.
+            Configure automated data refresh from cloud storage.
           </p>
           {ingestionConfig
             ? <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">

@@ -29,6 +29,7 @@ export default function EditSummaryPage() {
   const [sampleQuestions, setSampleQuestions] = useState<{ id: string; question: string }[]>([])
   const [newQuestion, setNewQuestion] = useState('')
   const [columnMappingExpanded, setColumnMappingExpanded] = useState(false)
+  const [summaryExpanded, setSummaryExpanded] = useState(false)
   const [summaryTab, setSummaryTab] = useState<'edit' | 'preview'>('preview')
   const summaryTextareaRef = useRef<HTMLTextAreaElement>(null)
   const [datasetProfileCompanyCode, setDatasetProfileCompanyCode] = useState('')
@@ -278,15 +279,15 @@ export default function EditSummaryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-950 transition-colors duration-200">
       <Navigation />
 
       <main className="max-w-4xl mx-auto px-4 py-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Edit Dataset Summary</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Edit metadata, summary, and access settings for a dataset.</p>
+        </div>
         <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-            Edit Dataset Summary
-          </h2>
-
           {isLoadingDatasets ? (
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div>
@@ -460,14 +461,30 @@ export default function EditSummaryPage() {
                         )
                       })()}
 
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="label mb-0">
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setSummaryExpanded(v => !v)}
+                          className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left"
+                        >
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
                             Summary
                             {hasChanges && (
-                              <span className="ml-2 text-orange-500 dark:text-orange-400 text-xs">(unsaved changes)</span>
+                              <span className="text-orange-500 dark:text-orange-400 text-xs font-normal">(unsaved changes)</span>
                             )}
-                          </label>
+                          </span>
+                          <div className="flex items-center gap-3">
+                            {!summaryExpanded && editedSummary && (
+                              <span className="text-xs text-gray-400 dark:text-gray-500 truncate max-w-xs">{editedSummary.slice(0, 60)}{editedSummary.length > 60 ? '…' : ''}</span>
+                            )}
+                            <svg className={`w-4 h-4 text-gray-400 transition-transform ${summaryExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </button>
+                        {summaryExpanded && (
+                        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex justify-end mb-2">
                           <div className="flex rounded border border-gray-200 dark:border-gray-600 overflow-hidden text-xs">
                             <button type="button" onClick={() => setSummaryTab('edit')}
                               className={`px-3 py-1 ${summaryTab === 'edit' ? 'bg-blue-500 text-white' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}`}>
@@ -526,6 +543,8 @@ export default function EditSummaryPage() {
                               : <p className="text-gray-400 dark:text-gray-500 italic">Nothing to preview</p>
                             }
                           </div>
+                        )}
+                        </div>
                         )}
                       </div>
 

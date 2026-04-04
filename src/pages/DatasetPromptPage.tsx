@@ -389,160 +389,163 @@ export default function DatasetPromptPage() {
   const isLoading = isLoadingDatasets || isLoadingModels
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-950 transition-colors duration-200">
       <Navigation />
 
       <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-            Select Dataset & Enter Prompt
-          </h2>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Quick Answer</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Select a dataset and ask a question to get an AI-powered analysis.</p>
+        </div>
 
+        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
           {isLoading ? (
-            <div className="text-center py-12">
-              <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent"></div>
-              <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="animate-spin rounded-full h-10 w-10 border-2 border-blue-500 border-t-transparent mb-4"></div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>
             </div>
           ) : datasetsError || modelsError ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                <svg className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex flex-col items-center justify-center py-16 px-6">
+              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <p className="text-red-600 dark:text-red-400">
+              <p className="text-sm text-red-600 dark:text-red-400 text-center">
                 {datasetsError && `Failed to load datasets: ${datasetsError instanceof Error ? datasetsError.message : 'Unknown error'}`}
                 {modelsError && `Failed to load AI models: ${modelsError instanceof Error ? modelsError.message : 'Unknown error'}`}
               </p>
             </div>
           ) : datasets?.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex flex-col items-center justify-center py-16 px-6">
+              <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                 </svg>
               </div>
-              <p className="text-gray-600 dark:text-gray-400">No datasets found for your email address.</p>
-              <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
-                Please ensure you have datasets associated with {session?.email}
-              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">No datasets found for your account.</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{session?.email}</p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* AI Model Selection — hidden when admin has locked the model */}
-              {!appSettings?.analyze_model && (
-                <div>
-                  <label htmlFor="aiModel" className="label">
-                    AI Model
-                  </label>
-                  <select
-                    id="aiModel"
-                    value={selectedModelId}
-                    onChange={(e) => handleModelChange(e.target.value)}
-                    className="input-field"
-                    disabled={isAnalyzing}
-                  >
-                    {aiModels?.length === 0 ? (
-                      <option value="">No models available</option>
-                    ) : (
-                      aiModels?.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.name}
-                          {model.provider && ` (${model.provider})`}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
-              )}
-
-              {/* Dataset Selection */}
-              <div>
-                <label className="label">Select Dataset</label>
-                <div className="flex gap-2 mb-2">
-                  <div className="relative" style={{flex: '0 0 65%'}} ref={datasetDropdownRef}>
-                    <input
-                      type="text"
-                      value={datasetSearch}
-                      onChange={(e) => {
-                        setDatasetSearch(e.target.value)
-                        setSelectedDatasetId('')
-                        setShowDatasetDropdown(true)
-                      }}
-                      onFocus={() => setShowDatasetDropdown(true)}
-                      placeholder="Search datasets..."
-                      className="input-field w-full pr-8"
+            <form onSubmit={handleSubmit}>
+              {/* Top section: Model + Dataset */}
+              <div className="px-6 py-5 space-y-4 border-b border-gray-100 dark:border-gray-800">
+                {/* AI Model — hidden when admin has locked the model */}
+                {!appSettings?.analyze_model && (
+                  <div className="flex items-center gap-3">
+                    <label htmlFor="aiModel" className="text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap w-20 shrink-0">
+                      AI Model
+                    </label>
+                    <select
+                      id="aiModel"
+                      value={selectedModelId}
+                      onChange={(e) => handleModelChange(e.target.value)}
+                      className="input-field flex-1"
                       disabled={isAnalyzing}
-                      autoComplete="off"
-                    />
-                    {datasetSearch && !isAnalyzing && (
-                      <button
-                        type="button"
-                        onMouseDown={(e) => { e.preventDefault(); setDatasetSearch(''); setSelectedDatasetId(''); setShowDatasetDropdown(true) }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700"
-                        tabIndex={-1}
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    )}
-                    {showDatasetDropdown && !isAnalyzing && (
-                      <div className="absolute z-50 top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
-                        {isLoadingDatasets ? (
-                          <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Loading...</div>
-                        ) : filteredDatasets.length === 0 ? (
-                          <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No datasets found</div>
-                        ) : (
-                          filteredDatasets.map(d => (
-                            <div
-                              key={d.id}
-                              onMouseDown={() => {
-                                setSelectedDatasetId(d.id)
-                                setDatasetSearch(d.name)
-                                setShowDatasetDropdown(false)
-                              }}
-                              className={`px-3 py-2 cursor-pointer text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 ${selectedDatasetId === d.id ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div className="text-gray-900 dark:text-gray-100">{d.name}{d.row_count != null ? ` (rows: ${d.row_count.toLocaleString()})` : ''}</div>
-                                  {d.description && <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{d.description}</div>}
-                                </div>
-                                <button
-                                  type="button"
-                                  onMouseDown={(e) => { e.stopPropagation(); downloadDatasetCsv(d.id, d.name) }}
-                                  className="flex-shrink-0 text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
-                                >
-                                  CSV
-                                </button>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
+                    >
+                      {aiModels?.length === 0 ? (
+                        <option value="">No models available</option>
+                      ) : (
+                        aiModels?.map((model) => (
+                          <option key={model.id} value={model.id}>
+                            {model.name}{model.provider && ` (${model.provider})`}
+                          </option>
+                        ))
+                      )}
+                    </select>
                   </div>
-                  <select
-                    value={datasetScope}
-                    onChange={(e) => setDatasetScope(e.target.value as typeof datasetScope)}
-                    className="input-field flex-1 min-w-0"
-                    disabled={isAnalyzing}
-                  >
-                    <option value="all">All</option>
-                    <option value="mine">My Datasets</option>
-                    <option value="company">Company Datasets</option>
-                    <option value="unit">Unit Datasets</option>
-                    <option value="team">Team Datasets</option>
-                  </select>
+                )}
+
+                {/* Dataset selector */}
+                <div className="flex items-start gap-3">
+                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap w-20 shrink-0 pt-2">
+                    Dataset
+                  </label>
+                  <div className="flex-1 flex gap-2">
+                    <div className="relative" style={{flex: '0 0 65%'}} ref={datasetDropdownRef}>
+                      <input
+                        type="text"
+                        value={datasetSearch}
+                        onChange={(e) => {
+                          setDatasetSearch(e.target.value)
+                          setSelectedDatasetId('')
+                          setShowDatasetDropdown(true)
+                        }}
+                        onFocus={() => setShowDatasetDropdown(true)}
+                        placeholder="Search datasets..."
+                        className="input-field w-full pr-8"
+                        disabled={isAnalyzing}
+                        autoComplete="off"
+                      />
+                      {datasetSearch && !isAnalyzing && (
+                        <button
+                          type="button"
+                          onMouseDown={(e) => { e.preventDefault(); setDatasetSearch(''); setSelectedDatasetId(''); setShowDatasetDropdown(true) }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700"
+                          tabIndex={-1}
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      )}
+                      {showDatasetDropdown && !isAnalyzing && (
+                        <div className="absolute z-50 top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+                          {isLoadingDatasets ? (
+                            <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+                          ) : filteredDatasets.length === 0 ? (
+                            <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No datasets found</div>
+                          ) : (
+                            filteredDatasets.map(d => (
+                              <div
+                                key={d.id}
+                                onMouseDown={() => {
+                                  setSelectedDatasetId(d.id)
+                                  setDatasetSearch(d.name)
+                                  setShowDatasetDropdown(false)
+                                }}
+                                className={`px-3 py-2 cursor-pointer text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 ${selectedDatasetId === d.id ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <div className="text-gray-900 dark:text-gray-100">{d.name}{d.row_count != null ? ` (rows: ${d.row_count.toLocaleString()})` : ''}</div>
+                                    {d.description && <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{d.description}</div>}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onMouseDown={(e) => { e.stopPropagation(); downloadDatasetCsv(d.id, d.name) }}
+                                    className="flex-shrink-0 text-xs text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                                  >
+                                    CSV
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <select
+                      value={datasetScope}
+                      onChange={(e) => setDatasetScope(e.target.value as typeof datasetScope)}
+                      className="input-field flex-1 min-w-0"
+                      disabled={isAnalyzing}
+                    >
+                      <option value="all">All</option>
+                      <option value="mine">My Datasets</option>
+                      <option value="company">Company Datasets</option>
+                      <option value="unit">Unit Datasets</option>
+                      <option value="team">Team Datasets</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
               {/* Dataset Preview */}
               {selectedDatasetId && (
-                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                <div className="border-b border-gray-100 dark:border-gray-800">
                   {isLoadingPreview ? (
-                    <div className="flex items-center justify-center py-4">
-                      <div className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
-                      <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Loading preview...</span>
+                    <div className="flex items-center justify-center gap-2 py-4 px-6">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Loading preview...</span>
                     </div>
                   ) : datasetPreview && datasetPreview.columns.length > 0 ? (() => {
                     // Build reverse mapping: db_column -> original_name
@@ -562,12 +565,12 @@ export default function DatasetPromptPage() {
                     const displayColumns = datasetPreview.columns.filter(col => dbToOriginal[col])
 
                     return (
-                    <div className="overflow-x-auto max-h-48">
+                    <div className="overflow-x-auto max-h-44">
                       <table className="w-full text-xs">
-                        <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0">
+                        <thead className="bg-gray-50 dark:bg-gray-800/80 sticky top-0">
                           <tr>
                             {displayColumns.map((col) => (
-                              <th key={col} className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
+                              <th key={col} className="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 whitespace-nowrap">
                                 {dbToOriginal[col]}
                               </th>
                             ))}
@@ -592,46 +595,72 @@ export default function DatasetPromptPage() {
                 </div>
               )}
 
-              {/* Sample Questions */}
-              {datasetDetail?.sample_questions?.questions && datasetDetail.sample_questions.questions.length > 0 && (
-                <div className="text-sm text-gray-500 dark:text-gray-400 font-normal">
-                  <span className="font-medium">Tips and Sample Questions:</span>
-                  <ul className="mt-1 space-y-0.5 list-none pl-2">
-                    {datasetDetail.sample_questions.questions.map((q) => (
-                      <li key={q.id} className="flex items-start gap-1.5">
-                        <span className="shrink-0 mt-0.5">•</span>
+              {/* Prompt section */}
+              <div className="px-6 py-5 space-y-4">
+                {/* Sample Questions as chips */}
+                {datasetDetail?.sample_questions?.questions && datasetDetail.sample_questions.questions.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Sample questions</p>
+                    <div className="flex flex-wrap gap-2">
+                      {datasetDetail.sample_questions.questions.map((q) => (
                         <button
+                          key={q.id}
                           type="button"
-                          className="text-left text-gray-500 dark:text-gray-400 hover:underline font-normal text-sm"
                           onClick={() => setPrompt(q.question)}
+                          className="text-xs px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                         >
                           {q.question}
                         </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-              {/* Prompt Input */}
-              <div>
-                <label htmlFor="prompt" className="label">
-                  Enter your question or query about the data
-                </label>
-                <textarea
-                  id="prompt"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  rows={5}
-                  className="input-field resize-y"
-                  placeholder="What would you like to know about this dataset?"
-                  disabled={isAnalyzing}
-                />
+                {/* Prompt textarea */}
+                <div>
+                  <label htmlFor="prompt" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Your question
+                  </label>
+                  <textarea
+                    id="prompt"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    rows={5}
+                    className="input-field resize-y"
+                    placeholder="What would you like to know about this dataset?"
+                    disabled={isAnalyzing}
+                  />
+                </div>
+
+                {/* Email subject */}
+                {emailResponse && (
+                  <div className="flex items-center gap-3">
+                    <label htmlFor="emailSubject" className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      Subject:
+                    </label>
+                    <input
+                      id="emailSubject"
+                      type="text"
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      disabled={isAnalyzing}
+                      placeholder="(optional)"
+                      className="input-field flex-1"
+                    />
+                  </div>
+                )}
+
+                {/* Loading phrase */}
+                {isAnalyzing && (
+                  <p className="text-sm text-center text-gray-400 dark:text-gray-500 italic">
+                    {getCurrentPhrase()} — {elapsedSeconds}s
+                  </p>
+                )}
               </div>
 
-              {/* Analyze Button Row */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+              {/* Action footer */}
+              <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="submit"
                     disabled={isAnalyzing || isSelectingDataset || !effectiveAnalyzeModel || !prompt.trim()}
@@ -647,24 +676,20 @@ export default function DatasetPromptPage() {
                         <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
                         Selecting...
                       </span>
-                    ) : (
-                      'Quick Answer'
-                    )}
+                    ) : 'Quick Answer'}
                   </button>
                   <button
                     type="button"
                     onClick={handleLetAiAsk}
                     disabled={isAnalyzing || isSelectingDataset || dialogLoading || !prompt.trim()}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="btn-secondary"
                   >
                     {dialogLoading ? (
                       <span className="flex items-center gap-2">
                         <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent dark:border-gray-400"></span>
                         Analyzing...
                       </span>
-                    ) : (
-                      'Let AI Ask'
-                    )}
+                    ) : 'Let AI Ask'}
                   </button>
                   {!selectedDatasetId && (
                     <button
@@ -678,64 +703,35 @@ export default function DatasetPromptPage() {
                           <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></span>
                           Selecting...
                         </span>
-                      ) : (
-                        'Let AI Select Data'
-                      )}
+                      ) : 'Let AI Select Data'}
                     </button>
                   )}
                 </div>
-
-                {/* Checkboxes - Right Justified */}
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       id="captureProcess"
                       checked={captureProcess}
                       onChange={(e) => setCaptureProcess(e.target.checked)}
                       disabled={isAnalyzing}
-                      className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:checked:bg-blue-600"
+                      className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700"
                     />
-                    <label htmlFor="captureProcess" className="text-sm text-gray-700 dark:text-gray-300">
-                      Capture Process
-                    </label>
-                  </div>
-                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Capture Process</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
                       id="emailResponse"
                       checked={emailResponse}
                       onChange={(e) => setEmailResponse(e.target.checked)}
                       disabled={isAnalyzing}
-                      className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:checked:bg-blue-600"
+                      className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 dark:bg-gray-700"
                     />
-                    <label htmlFor="emailResponse" className="text-sm text-gray-700 dark:text-gray-300">
-                      Email the response
-                    </label>
-                  </div>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Email response</span>
+                  </label>
                 </div>
               </div>
-              {emailResponse && (
-                <div className="flex items-center gap-2">
-                  <label htmlFor="emailSubject" className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                    Subject:
-                  </label>
-                  <input
-                    id="emailSubject"
-                    type="text"
-                    value={emailSubject}
-                    onChange={(e) => setEmailSubject(e.target.value)}
-                    disabled={isAnalyzing}
-                    placeholder="(optional)"
-                    className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              )}
-              {isAnalyzing && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                  {getCurrentPhrase()} for {elapsedSeconds} sec{elapsedSeconds !== 1 ? 's' : ''}...
-                </p>
-              )}
             </form>
           )}
         </div>

@@ -46,15 +46,15 @@ export default function DeleteDatasetPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-950 transition-colors duration-200">
       <Navigation />
 
       <main className="max-w-4xl mx-auto px-4 py-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Delete Dataset</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Permanently remove a dataset and all associated data.</p>
+        </div>
         <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-            Delete Dataset
-          </h2>
-
           <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
             <h3 className="text-sm font-medium text-red-800 dark:text-red-200 mb-2">Warning: This action is permanent</h3>
             <ul className="text-sm text-red-700 dark:text-red-300 list-disc list-inside space-y-1">

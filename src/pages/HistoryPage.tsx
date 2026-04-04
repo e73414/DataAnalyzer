@@ -716,17 +716,19 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
+    <div className="min-h-screen bg-gray-200 dark:bg-gray-950 transition-colors duration-200">
       <Navigation />
 
       <main className="max-w-4xl mx-auto px-4 py-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Analysis History</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Browse and re-run your previous AI queries.</p>
+        </div>
+
         <div className="card p-6">
           {/* Header */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Conversation History
-              </h2>
               <span className="px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">
                 {userTimezone.replace(/_/g, ' ')}
               </span>

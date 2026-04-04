@@ -138,23 +138,14 @@ export default function Navigation() {
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm dark:shadow-gray-900/50 transition-colors duration-200">
       <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center">
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke="white" strokeWidth="1.5" strokeOpacity="0.6"/>
-              <g transform="rotate(35, 12, 12)">
-                <path d="M12 5L9.5 12L14.5 12Z" fill="white"/>
-                <path d="M12 19L9.5 12L14.5 12Z" fill="white" fillOpacity="0.35"/>
-              </g>
-              <circle cx="12" cy="12" r="1.5" fill="white"/>
-            </svg>
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">DataPilot</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{session?.email}</p>
-          </div>
+        <div className="flex items-center gap-2">
+          <img src={theme === 'dark' ? '/logo-dark.png' : '/logo-light.png'} alt="DataPilot" className="h-12 w-auto" />
+          <span className="text-2xl font-bold text-gray-900 dark:text-white" style={{fontFamily: "'Syne', sans-serif"}}>DataPilot</span>
         </div>
         <div className="flex gap-2 items-center">
+          {session?.email && (
+            <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">{session.email}</span>
+          )}
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
