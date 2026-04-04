@@ -50,7 +50,7 @@ function QuestionCard({ q }: { q: BrowsableQuestion }) {
       </div>
       <button
         onClick={() => navigate(`/question/${q.id}`)}
-        className="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+        className="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-purple-900 hover:bg-purple-800 rounded-lg transition-colors"
       >
         Open
       </button>

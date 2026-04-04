@@ -343,7 +343,7 @@ export default function IngestionSchedulePage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Not connected</p>
                 <button
                   onClick={handleConnectGoogle}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-purple-900 text-white rounded-lg hover:bg-purple-800 transition-colors"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 11.6L6 2H2l6 10.4L2 22h4l6-10.4zm8 0L14 2h-4l6 9.6L10 22h4l6-10.4z" />
@@ -370,7 +370,7 @@ export default function IngestionSchedulePage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">Not connected</p>
                 <button
                   onClick={handleConnectMicrosoft}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-purple-900 text-white rounded-lg hover:bg-purple-800 transition-colors"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M11.5 2.4L2 7.6V16l9.5 5.5 9.5-5.5V7.6L11.5 2.4zm0 1.6l7.8 4.5-7.8 4.5L3.7 8.5 11.5 4zm-8.5 5.3l8 4.6v7.8L3 17.4V9.3zm9.5 4.6l8-4.6v8.1l-8 4.5v-8z" />
@@ -493,7 +493,7 @@ export default function IngestionSchedulePage() {
               <button
                 onClick={() => saveMutation.mutate()}
                 disabled={saveMutation.isPending || !folderInput.trim()}
-                className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                className="px-4 py-2 text-sm font-medium bg-purple-900 text-white rounded-lg hover:bg-purple-800 disabled:opacity-50 transition-colors flex items-center gap-2"
               >
                 {saveMutation.isPending && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                 {schedule ? 'Update Schedule' : 'Save Schedule'}

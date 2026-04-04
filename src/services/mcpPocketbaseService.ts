@@ -440,6 +440,7 @@ export const pocketbaseService = {
       detail_level:             d.detail_level             ?? null,
       report_detail:            d.report_detail            ?? null,
       show_ingestion_schedule:  d.show_ingestion_schedule  ?? null,
+      show_enhance_prompt:      d.show_enhance_prompt      ?? null,
     }
   },
 

@@ -192,9 +192,9 @@ export default function UploadDatasetPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Add a new dataset to your library for AI-powered analysis.</p>
         </div>
         <div className="card p-6">
-          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">How it works:</h3>
-            <ul className="text-sm text-blue-700 dark:text-blue-300 list-disc list-inside space-y-1">
+          <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+            <h3 className="text-sm font-medium text-purple-800 dark:text-purple-200 mb-2">How it works:</h3>
+            <ul className="text-sm text-purple-700 dark:text-purple-300 list-disc list-inside space-y-1">
               <li>Upload a CSV file with headers in the first row</li>
               <li>The system will automatically detect column types</li>
               <li>AI will analyze your data and generate a summary</li>
@@ -261,7 +261,7 @@ export default function UploadDatasetPage() {
                 id="csvFile"
                 accept=".csv"
                 onChange={handleFileChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50 transition-colors duration-200"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-purple-50 dark:file:bg-purple-900/30 file:text-purple-700 dark:file:text-purple-300 hover:file:bg-purple-100 dark:hover:file:bg-purple-900/50 transition-colors duration-200"
                 disabled={uploadMutation.isPending}
               />
             </div>

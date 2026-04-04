@@ -329,7 +329,7 @@ function EmailCell({ userId, email, onSave, isSaving }: EmailCellProps) {
           type="button"
           onClick={handleSave}
           disabled={isSaving || !value.trim()}
-          className="px-2 py-0.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded disabled:opacity-50"
+          className="px-2 py-0.5 text-xs font-medium text-white bg-purple-900 hover:bg-purple-800 rounded disabled:opacity-50"
         >
           {isSaving ? '…' : 'Save'}
         </button>

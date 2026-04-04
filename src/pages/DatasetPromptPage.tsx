@@ -664,7 +664,7 @@ export default function DatasetPromptPage() {
                   <button
                     type="submit"
                     disabled={isAnalyzing || isSelectingDataset || !effectiveAnalyzeModel || !prompt.trim()}
-                    className="btn-primary"
+                    className="px-6 py-2 bg-purple-900 hover:bg-purple-800 text-white font-medium rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                   >
                     {isAnalyzing ? (
                       <span className="flex items-center gap-2">
@@ -682,11 +682,11 @@ export default function DatasetPromptPage() {
                     type="button"
                     onClick={handleLetAiAsk}
                     disabled={isAnalyzing || isSelectingDataset || dialogLoading || !prompt.trim()}
-                    className="btn-secondary"
+                    className="px-4 py-2 text-sm font-medium text-purple-800 dark:text-purple-200 bg-purple-100 dark:bg-purple-900/30 border border-purple-400 dark:border-purple-600 rounded-md hover:bg-purple-200 dark:hover:bg-purple-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                   >
                     {dialogLoading ? (
                       <span className="flex items-center gap-2">
-                        <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent dark:border-gray-400"></span>
+                        <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-purple-500 border-t-transparent"></span>
                         Analyzing...
                       </span>
                     ) : 'Let AI Ask'}
@@ -696,7 +696,7 @@ export default function DatasetPromptPage() {
                       type="button"
                       onClick={handleSelectDataset}
                       disabled={isAnalyzing || isSelectingDataset || dialogLoading || !prompt.trim()}
-                      className="px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-700 rounded-lg disabled:opacity-50 transition-colors"
+                      className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg disabled:opacity-50 transition-colors"
                     >
                       {isSelectingDataset ? (
                         <span className="flex items-center gap-2">
@@ -800,7 +800,7 @@ export default function DatasetPromptPage() {
               <button type="button" onClick={() => setDialogOpen(false)} className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
                 Skip — Use Original Prompt
               </button>
-              <button type="button" onClick={handleDialogSubmit} className="btn-primary">
+              <button type="button" onClick={handleDialogSubmit} className="px-6 py-2 bg-purple-900 hover:bg-purple-800 text-white font-medium rounded-md shadow-sm transition-colors duration-200">
                 Quick Answer
               </button>
             </div>
@@ -851,7 +851,7 @@ export default function DatasetPromptPage() {
                   setSuggestedDataset(null)
                   runAnalysisWithDataset(id)
                 }}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-purple-900 hover:bg-purple-800 rounded-lg transition-colors"
               >
                 Quick Answer
               </button>

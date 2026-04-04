@@ -590,9 +590,9 @@ export default function CsvOptimizerPlusPage() {
         </div>
 
         {/* Info Box */}
-        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">How it works</h3>
-          <ul className="text-sm text-blue-700 dark:text-blue-300 list-disc list-inside space-y-1">
+        <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+          <h3 className="text-sm font-medium text-purple-800 dark:text-purple-200 mb-2">How it works</h3>
+          <ul className="text-sm text-purple-700 dark:text-purple-300 list-disc list-inside space-y-1">
             <li>Upload a CSV or Excel file (.xlsx, .xls, .xlsm)</li>
             <li>The file is processed by the Excel → SQL converter API</li>
             <li>Receive a clean SQL-ready CSV, column profile, and schema DDL</li>
@@ -618,8 +618,8 @@ export default function CsvOptimizerPlusPage() {
                            bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
                            file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm
-                           file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700
-                           dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50
+                           file:font-medium file:bg-purple-50 dark:file:bg-purple-900/30 file:text-purple-700
+                           dark:file:text-purple-300 hover:file:bg-purple-100 dark:hover:file:bg-purple-900/50
                            transition-colors duration-200"
               />
             </div>
@@ -709,7 +709,7 @@ export default function CsvOptimizerPlusPage() {
               <button
                 type="button"
                 onClick={() => { setOnedriveInputOpen(v => !v); setOnedriveUrl('') }}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-700 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 border border-purple-300 dark:border-purple-600 rounded-md hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
@@ -732,7 +732,7 @@ export default function CsvOptimizerPlusPage() {
                       type="button"
                       onClick={handleFetchOneDriveFile}
                       disabled={isFetchingOnedrive || !onedriveUrl.trim() || !microsoftConnected}
-                      className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 transition-colors whitespace-nowrap"
+                      className="px-3 py-1.5 text-sm font-medium text-white bg-purple-900 hover:bg-purple-800 rounded-md disabled:opacity-50 transition-colors whitespace-nowrap"
                     >
                       {isFetchingOnedrive ? 'Fetching…' : 'Load File'}
                     </button>
@@ -810,7 +810,7 @@ export default function CsvOptimizerPlusPage() {
                         key={name}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md border cursor-pointer text-sm transition-colors ${
                           checked
-                            ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200'
+                            ? 'border-purple-400 bg-purple-50 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200'
                             : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
                         }`}
                       >
@@ -1036,13 +1036,13 @@ export default function CsvOptimizerPlusPage() {
               )}
 
               {/* Column Profile */}
-              <div className="mb-4 border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden">
+              <div className="mb-4 border border-purple-200 dark:border-purple-800 rounded-lg overflow-hidden">
                 <button
                   onClick={() => toggleSection(sk('profile'))}
-                  className="w-full flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 hover:opacity-90 transition-opacity"
+                  className="w-full flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 hover:opacity-90 transition-opacity"
                 >
                   <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                     <span className="font-medium text-blue-800 dark:text-blue-200">Column Profile</span>
@@ -1166,7 +1166,7 @@ export default function CsvOptimizerPlusPage() {
                             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border cursor-pointer text-xs transition-colors ${
                               excluded
                                 ? 'border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 line-through'
-                                : 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200'
+                                : 'border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 text-purple-800 dark:text-purple-200'
                             }`}
                           >
                             <input

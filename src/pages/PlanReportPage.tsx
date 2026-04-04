@@ -1432,7 +1432,7 @@ const handleSaveReport = async () => {
                 <button
                   type="submit"
                   disabled={isWorking || !prompt.trim()}
-                  className="btn-primary"
+                  className="px-6 py-2 bg-purple-900 hover:bg-purple-800 text-white font-medium rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                 >
                   {planMutation.isPending ? (
                     <span className="flex items-center gap-2">
@@ -1448,11 +1448,11 @@ const handleSaveReport = async () => {
                   type="button"
                   onClick={handleGuidedSetup}
                   disabled={isWorking || dialogLoading || enhanceLoading || !prompt.trim()}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm font-medium text-purple-800 dark:text-purple-200 bg-purple-100 dark:bg-purple-900/30 border border-purple-400 dark:border-purple-600 rounded-md hover:bg-purple-200 dark:hover:bg-purple-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                 >
                   {dialogLoading ? (
                     <span className="flex items-center gap-2">
-                      <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent dark:border-gray-400"></span>
+                      <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-purple-500 border-t-transparent"></span>
                       Analyzing...
                     </span>
                   ) : (
@@ -1460,21 +1460,23 @@ const handleSaveReport = async () => {
                   )}
                 </button>
 
+                {appSettings?.show_enhance_prompt === 'true' && (
                 <button
                   type="button"
                   onClick={handleEnhancePrompt}
                   disabled={isWorking || dialogLoading || enhanceLoading || !prompt.trim()}
-                  className="px-4 py-2 text-sm font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-600 rounded-md hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                 >
                   {enhanceLoading ? (
                     <span className="flex items-center gap-2">
-                      <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-purple-500 border-t-transparent dark:border-purple-400"></span>
+                      <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent"></span>
                       Enhancing...
                     </span>
                   ) : (
                     'Enhance Prompt'
                   )}
                 </button>
+                )}
 
                 {!appSettings?.plan_model && (
                   <select
@@ -1574,7 +1576,7 @@ const handleSaveReport = async () => {
                           <button
                             onClick={() => handleUpdateStep(idx)}
                             disabled={savingSteps.has(idx)}
-                            className="flex-shrink-0 text-xs px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-50"
+                            className="flex-shrink-0 text-xs px-2.5 py-1 rounded bg-purple-900 hover:bg-purple-800 text-white font-medium disabled:opacity-50"
                           >
                             {savingSteps.has(idx) ? 'Saving…' : 'Update'}
                           </button>
@@ -1904,7 +1906,7 @@ const handleSaveReport = async () => {
                     <button
                       type="button"
                       onClick={handleResumeExecution}
-                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
+                      className="px-4 py-2 text-sm font-medium text-white bg-purple-900 hover:bg-purple-800 rounded-lg shadow-sm transition-colors"
                     >
                       Resume Execution ({remaining} remaining)
                     </button>
@@ -2094,7 +2096,7 @@ const handleSaveReport = async () => {
                     className={`px-2 py-1 text-xs font-medium rounded-lg shadow-sm transition-colors ${
                       reportSaved
                         ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 cursor-default'
-                        : 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white disabled:cursor-not-allowed'
+                        : 'bg-purple-900 hover:bg-purple-800 disabled:bg-purple-700 text-white disabled:cursor-not-allowed'
                     }`}
                   >
                     {isSavingReport ? (

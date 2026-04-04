@@ -141,7 +141,7 @@ export default function UploadReportTemplatePage() {
                 accept=".pdf,.jpg,.jpeg,.png"
                 onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                 disabled={uploadMutation.isPending}
-                className="input-field file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900/30 dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50"
+                className="input-field file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 dark:file:bg-purple-900/30 dark:file:text-purple-300 hover:file:bg-purple-100 dark:hover:file:bg-purple-900/50"
                 required
               />
               {selectedFile && (

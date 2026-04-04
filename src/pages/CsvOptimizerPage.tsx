@@ -704,9 +704,9 @@ export default function CsvOptimizerPage() {
         </div>
 
         {/* Info Box */}
-        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">How it works</h3>
-          <ul className="text-sm text-blue-700 dark:text-blue-300 list-disc list-inside space-y-1">
+        <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+          <h3 className="text-sm font-medium text-purple-800 dark:text-purple-200 mb-2">How it works</h3>
+          <ul className="text-sm text-purple-700 dark:text-purple-300 list-disc list-inside space-y-1">
             <li>Upload a CSV file to check for issues that could affect data analysis</li>
             <li>Review errors, warnings, and suggestions for your data</li>
             <li>Choose to use the optimized version or keep the original</li>
@@ -732,8 +732,8 @@ export default function CsvOptimizerPage() {
                              bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
                              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
                              file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm
-                             file:font-medium file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700
-                             dark:file:text-blue-300 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50
+                             file:font-medium file:bg-purple-50 dark:file:bg-purple-900/30 file:text-purple-700
+                             dark:file:text-purple-300 hover:file:bg-purple-100 dark:hover:file:bg-purple-900/50
                              transition-colors duration-200"
                 />
               </div>

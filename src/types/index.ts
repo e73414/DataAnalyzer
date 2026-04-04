@@ -347,6 +347,7 @@ export interface AppSettings {
   detail_level: string | null
   report_detail: string | null
   show_ingestion_schedule: string | null  // 'true' | null
+  show_enhance_prompt: string | null      // 'true' | null
 }
 
 // ── Ingestion Pipeline ────────────────────────────────────────────────────────

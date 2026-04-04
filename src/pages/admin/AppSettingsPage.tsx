@@ -135,7 +135,7 @@ function NavLinkManager() {
           <button onClick={addLink} className="px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
             + Add Link
           </button>
-          <button onClick={save} disabled={isSaving} className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors">
+          <button onClick={save} disabled={isSaving} className="px-3 py-1.5 text-xs font-medium text-white bg-purple-900 hover:bg-purple-800 disabled:opacity-50 rounded-lg transition-colors">
             {isSaving ? 'Saving…' : 'Save Changes'}
           </button>
         </div>
@@ -297,7 +297,7 @@ function AIModelManager() {
           <button onClick={addModel} className="px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
             + Add Model
           </button>
-          <button onClick={save} disabled={isSaving} className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg transition-colors">
+          <button onClick={save} disabled={isSaving} className="px-3 py-1.5 text-xs font-medium text-white bg-purple-900 hover:bg-purple-800 disabled:opacity-50 rounded-lg transition-colors">
             {isSaving ? 'Saving…' : 'Save Changes'}
           </button>
         </div>
@@ -404,6 +404,7 @@ export default function AppSettingsPage() {
   const [detailLevel,            setDetailLevel]            = useState('')
   const [reportDetail,           setReportDetail]           = useState('')
   const [showIngestionSchedule,  setShowIngestionSchedule]  = useState(false)
+  const [showEnhancePrompt,      setShowEnhancePrompt]      = useState(false)
 
   useEffect(() => {
     if (!appSettings) return
@@ -416,6 +417,7 @@ export default function AppSettingsPage() {
     setDetailLevel(appSettings.detail_level ?? '')
     setReportDetail(appSettings.report_detail ?? '')
     setShowIngestionSchedule(appSettings.show_ingestion_schedule === 'true')
+    setShowEnhancePrompt(appSettings.show_enhance_prompt === 'true')
   }, [appSettings])
 
   const saveMutation = useMutation({
@@ -430,6 +432,7 @@ export default function AppSettingsPage() {
         pocketbaseService.updateAppSetting('detail_level',            detailLevel           || null),
         pocketbaseService.updateAppSetting('report_detail',           reportDetail          || null),
         pocketbaseService.updateAppSetting('show_ingestion_schedule', showIngestionSchedule ? 'true' : null),
+        pocketbaseService.updateAppSetting('show_enhance_prompt',      showEnhancePrompt     ? 'true' : null),
       ])
     },
     onSuccess: () => {
@@ -520,18 +523,33 @@ export default function AppSettingsPage() {
               <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-4">
                 Feature Flags
               </h2>
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="showIngestionSchedule"
-                  checked={showIngestionSchedule}
-                  onChange={(e) => setShowIngestionSchedule(e.target.checked)}
-                  disabled={saveMutation.isPending}
-                  className="w-4 h-4 rounded accent-blue-600"
-                />
-                <label htmlFor="showIngestionSchedule" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                  Show "Manage Ingestion" link on Edit Dataset Summary page
-                </label>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="showIngestionSchedule"
+                    checked={showIngestionSchedule}
+                    onChange={(e) => setShowIngestionSchedule(e.target.checked)}
+                    disabled={saveMutation.isPending}
+                    className="w-4 h-4 rounded accent-blue-600"
+                  />
+                  <label htmlFor="showIngestionSchedule" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                    Show "Manage Ingestion" link on Edit Dataset Summary page
+                  </label>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="showEnhancePrompt"
+                    checked={showEnhancePrompt}
+                    onChange={(e) => setShowEnhancePrompt(e.target.checked)}
+                    disabled={saveMutation.isPending}
+                    className="w-4 h-4 rounded accent-blue-600"
+                  />
+                  <label htmlFor="showEnhancePrompt" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                    Show "Enhance Prompt" button on Plan &amp; Execute Report page
+                  </label>
+                </div>
               </div>
             </div>
 
