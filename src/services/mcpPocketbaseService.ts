@@ -504,6 +504,11 @@ export const pocketbaseService = {
     return response.data
   },
 
+  async getIngestionSchedules(email: string): Promise<(IngestionSchedule & { dataset_name: string })[]> {
+    const response = await mcpN8nApi.get<(IngestionSchedule & { dataset_name: string })[]>(`/ingestion/schedules?email=${encodeURIComponent(email)}`)
+    return response.data || []
+  },
+
   async saveIngestionSchedule(
     payload: { dataset_id: string; owner_email: string; folder_id: string; location_type?: string; schedule?: string | null; enabled?: boolean }
   ): Promise<IngestionSchedule> {
@@ -543,6 +548,15 @@ export const pocketbaseService = {
   async getIngestionFiles(datasetId: string): Promise<IngestionFile[]> {
     const response = await mcpN8nApi.get<IngestionFile[]>(`/ingestion/files/${encodeURIComponent(datasetId)}`)
     return response.data || []
+  },
+
+  async getEmailIngestionRequests(email: string): Promise<{
+    id: string; file_name: string | null; subject: string | null; status: string;
+    chosen_dataset_id: string | null; result_rows_inserted: number | null;
+    error_message: string | null; created_at: string;
+  }[]> {
+    const response = await mcpN8nApi.get<{ status: string; requests: any[] }>(`/email-ingestion/requests?email=${encodeURIComponent(email)}`)
+    return response.data.requests || []
   },
 
   async getGoogleAuthUrl(email: string): Promise<string> {

@@ -22,6 +22,7 @@ import QuestionPage from './pages/QuestionPage'
 import ManageQuestionsPage from './pages/ManageQuestionsPage'
 import BrowseQuestionsPage from './pages/BrowseQuestionsPage'
 import IngestionSchedulePage from './pages/IngestionSchedulePage'
+import IngestionPipelinePage from './pages/IngestionPipelinePage'
 
 function UnauthorizedPage() {
   const navigate = useNavigate()
@@ -233,6 +234,14 @@ function App() {
         element={
           <ProtectedRoute>
             <IngestionSchedulePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ingestion-pipelines"
+        element={
+          <ProtectedRoute>
+            <IngestionPipelinePage />
           </ProtectedRoute>
         }
       />
