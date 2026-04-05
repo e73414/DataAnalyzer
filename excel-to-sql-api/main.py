@@ -5,9 +5,11 @@ import tempfile
 import subprocess
 import shutil
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 app = FastAPI(
     title="Excel → SQL CSV Converter",
@@ -112,3 +114,46 @@ async def convert(
 
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
+
+
+# ── Chart endpoint ────────────────────────────────────────────────────────────
+
+class ChartRequest(BaseModel):
+    chart_type: str = Field(..., description="bar|bar_grouped|bar_stacked|line|pie|scatter|heatmap|boxplot|waterfall")
+    csv_data: str   = Field(..., description="Raw CSV string with header row")
+    label_column: Optional[str]        = Field(default=None)
+    value_columns: Optional[list[str]] = Field(default=None)
+    title: Optional[str]               = Field(default=None)
+    params: Optional[dict]             = Field(default=None)
+    theme: Optional[str]               = Field(default='dark', description="'light' or 'dark'")
+
+
+class ChartResponse(BaseModel):
+    svg: str
+
+
+_CHART_MODULE = None
+
+
+def _get_chart():
+    global _CHART_MODULE
+    if _CHART_MODULE is None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "chart", Path(__file__).parent / "scripts" / "chart.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _CHART_MODULE = mod
+    return _CHART_MODULE
+
+
+@app.post("/chart", summary="Generate an SVG chart from CSV data", response_model=ChartResponse)
+async def chart(request: ChartRequest):
+    try:
+        mod = _get_chart()
+        svg = mod.render_chart(request.model_dump())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chart error: {e}")
+    return ChartResponse(svg=svg)
