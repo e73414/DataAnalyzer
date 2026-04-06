@@ -459,12 +459,12 @@ export default function DatasetPromptPage() {
                 )}
 
                 {/* Dataset selector */}
-                <div className="flex items-start gap-3">
-                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap w-20 shrink-0 pt-2">
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap w-20 shrink-0">
                     Dataset
                   </label>
-                  <div className="flex-1 flex gap-2">
-                    <div className="relative" style={{flex: '0 0 65%'}} ref={datasetDropdownRef}>
+                  <div className="flex-1 flex gap-2 items-center">
+                    <div className="relative flex-1" ref={datasetDropdownRef}>
                       <input
                         type="text"
                         value={datasetSearch}
@@ -525,23 +525,23 @@ export default function DatasetPromptPage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-medium text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                    <div className="flex items-center gap-1.5 whitespace-nowrap">
+                      <label className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-1">
                         Scope
                         <HelpTip text="Filter datasets by access level: All datasets, only yours, or by organizational unit." />
                       </label>
                       <select
                         value={datasetScope}
                         onChange={(e) => setDatasetScope(e.target.value as typeof datasetScope)}
-                        className="input-field flex-1 min-w-0"
+                        className="input-field text-sm py-1.5 px-2 min-w-fit"
                         disabled={isAnalyzing}
                       >
-                      <option value="all">All</option>
-                      <option value="mine">My Datasets</option>
-                      <option value="company">Company Datasets</option>
-                      <option value="unit">Unit Datasets</option>
-                      <option value="team">Team Datasets</option>
-                    </select>
+                        <option value="all">All</option>
+                        <option value="mine">My Datasets</option>
+                        <option value="company">Company Datasets</option>
+                        <option value="unit">Unit Datasets</option>
+                        <option value="team">Team Datasets</option>
+                      </select>
                     </div>
                   </div>
                 </div>
