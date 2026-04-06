@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx'
 import JSZip from 'jszip'
 import toast from 'react-hot-toast'
 import Navigation from '../components/Navigation'
+import HelpTip from '../components/HelpTip'
 import { useSession } from '../context/SessionContext'
 import { useAppSettings } from '../context/AppSettingsContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
@@ -856,7 +857,10 @@ export default function CsvOptimizerPlusPage() {
                     </div>
                   )}
                   <div>
-                    <label className="label text-xs">Header Row (0-based index, optional)</label>
+                    <label className="label text-xs flex items-center gap-1.5">
+                      Header Row (0-based index, optional)
+                      <HelpTip text="Specify which row contains column headers. Leave blank to auto-detect." />
+                    </label>
                     <input
                       type="number"
                       value={options.header_row}
@@ -874,8 +878,9 @@ export default function CsvOptimizerPlusPage() {
                       onChange={e => setOptions(o => ({ ...o, no_unpivot: e.target.checked }))}
                       className="rounded border-gray-300 dark:border-gray-600 text-blue-600"
                     />
-                    <label htmlFor="noUnpivot" className="text-sm text-gray-700 dark:text-gray-300">
+                    <label htmlFor="noUnpivot" className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
                       Disable wide-to-long unpivot
+                      <HelpTip text="When checked, keeps wide data as-is. When unchecked, transforms wide data to tall format." />
                     </label>
                   </div>
                   <div className="flex items-center gap-2">
@@ -886,8 +891,9 @@ export default function CsvOptimizerPlusPage() {
                       onChange={e => setOptions(o => ({ ...o, keep_dupes: e.target.checked }))}
                       className="rounded border-gray-300 dark:border-gray-600 text-blue-600"
                     />
-                    <label htmlFor="keepDupes" className="text-sm text-gray-700 dark:text-gray-300">
+                    <label htmlFor="keepDupes" className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
                       Keep duplicate rows
+                      <HelpTip text="When checked, preserves all duplicate rows. When unchecked, removes duplicates." />
                     </label>
                   </div>
                 </div>

@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { useTheme } from '../context/ThemeContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
+import { findTopicByPath } from '../constants/helpTopics'
 
 async function sha256Hex(text: string): Promise<string> {
   const encoder = new TextEncoder()
@@ -154,6 +155,21 @@ export default function Navigation() {
           >
             {theme === 'light' ? <MoonIcon /> : <SunIcon />}
           </button>
+
+          {/* Help Button */}
+          {(() => {
+            const helpTopic = findTopicByPath(location.pathname)
+            const helpPath = helpTopic ? `/help/${helpTopic.slug}` : '/help'
+            return (
+              <Link
+                to={helpPath}
+                className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-600 border border-yellow-400 dark:border-yellow-700 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 hover:border-yellow-500 dark:hover:border-yellow-600 transition-colors"
+                title="Help & Documentation"
+              >
+                ?
+              </Link>
+            )
+          })()}
 
           {/* Navigation Menu */}
           <div className="relative" ref={menuRef}>

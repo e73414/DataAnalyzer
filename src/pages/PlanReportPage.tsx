@@ -9,6 +9,7 @@ import { n8nService } from '../services/mcpN8nService'
 import { mcpN8nApi } from '../services/api'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
+import HelpTip from '../components/HelpTip'
 import ReportHtml from '../components/ReportHtml'
 import type { ReportPlan, ReportPlanStep, CheckReportProgressResult, PromptDialogQuestion, DatasetPreview, DatasetDetail, Dataset } from '../types'
 
@@ -1786,7 +1787,10 @@ const handleSaveReport = async () => {
 
                   {!appSettings?.chunk_threshold && plan.steps.some(s => (datasets.find(d => d.id === s.dataset_id)?.row_count ?? 0) > CHUNK_THRESHOLD) && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Rows Per Chunk</label>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1.5">
+                        Rows Per Chunk
+                        <HelpTip text="For large datasets, this controls how many rows are processed per AI call. Lower values = simpler analysis, higher values = more context." />
+                      </label>
                       <select
                         value={chunkThreshold}
                         onChange={(e) => setChunkThreshold(Number(e.target.value))}
@@ -1802,7 +1806,10 @@ const handleSaveReport = async () => {
 
                   {!appSettings?.report_detail && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Detail Level:</label>
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1.5">
+                        Detail Level:
+                        <HelpTip text="How much detail in the final report: Simple for quick overview, Detailed for analysis, or Comprehensive for full information." />
+                      </label>
                       <select
                         value={reportDetail}
                         onChange={(e) => setReportDetail(e.target.value)}

@@ -23,6 +23,20 @@ import ManageQuestionsPage from './pages/ManageQuestionsPage'
 import BrowseQuestionsPage from './pages/BrowseQuestionsPage'
 import IngestionSchedulePage from './pages/IngestionSchedulePage'
 import IngestionPipelinePage from './pages/IngestionPipelinePage'
+import HelpIndexPage from './pages/help/HelpIndexPage'
+import AnalyzeHelp from './pages/help/topics/AnalyzeHelp'
+import UploadDatasetHelp from './pages/help/topics/UploadDatasetHelp'
+import UpdateDatasetHelp from './pages/help/topics/UpdateDatasetHelp'
+import CsvOptimizerHelp from './pages/help/topics/CsvOptimizerHelp'
+import CsvOptimizerPlusHelp from './pages/help/topics/CsvOptimizerPlusHelp'
+import ExcelUploadHelp from './pages/help/topics/ExcelUploadHelp'
+import HistoryHelp from './pages/help/topics/HistoryHelp'
+import IngestionPipelinesHelp from './pages/help/topics/IngestionPipelinesHelp'
+import IngestionScheduleHelp from './pages/help/topics/IngestionScheduleHelp'
+import PlanReportHelp from './pages/help/topics/PlanReportHelp'
+import ReportTemplatesHelp from './pages/help/topics/ReportTemplatesHelp'
+import BrowseQuestionsHelp from './pages/help/topics/BrowseQuestionsHelp'
+import ManageQuestionsHelp from './pages/help/topics/ManageQuestionsHelp'
 
 function UnauthorizedPage() {
   const navigate = useNavigate()
@@ -245,6 +259,20 @@ function App() {
           </ProtectedRoute>
         }
       />
+      <Route path="/help" element={<HelpIndexPage />} />
+      <Route path="/help/analyze" element={<AnalyzeHelp />} />
+      <Route path="/help/upload-dataset" element={<UploadDatasetHelp />} />
+      <Route path="/help/update-dataset" element={<UpdateDatasetHelp />} />
+      <Route path="/help/csv-optimizer" element={<CsvOptimizerHelp />} />
+      <Route path="/help/csv-optimizer-plus" element={<CsvOptimizerPlusHelp />} />
+      <Route path="/help/excel-upload" element={<ExcelUploadHelp />} />
+      <Route path="/help/history" element={<HistoryHelp />} />
+      <Route path="/help/ingestion-pipelines" element={<IngestionPipelinesHelp />} />
+      <Route path="/help/ingestion-schedule" element={<IngestionScheduleHelp />} />
+      <Route path="/help/plan-report" element={<PlanReportHelp />} />
+      <Route path="/help/report-templates" element={<ReportTemplatesHelp />} />
+      <Route path="/help/browse-questions" element={<BrowseQuestionsHelp />} />
+      <Route path="/help/manage-questions" element={<ManageQuestionsHelp />} />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/unauthorized" replace />} />

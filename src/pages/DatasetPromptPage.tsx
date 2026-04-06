@@ -9,6 +9,7 @@ import { n8nService } from '../services/mcpN8nService'
 import { mcpN8nApi } from '../services/api'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
+import HelpTip from '../components/HelpTip'
 import type { AnalysisResult, PromptDialogQuestion } from '../types'
 
 const WITTY_PHRASES = [
@@ -433,8 +434,9 @@ export default function DatasetPromptPage() {
                 {/* AI Model — hidden when admin has locked the model */}
                 {!appSettings?.analyze_model && (
                   <div className="flex items-center gap-3">
-                    <label htmlFor="aiModel" className="text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap w-20 shrink-0">
+                    <label htmlFor="aiModel" className="text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap w-20 shrink-0 flex items-center gap-1.5">
                       AI Model
+                      <HelpTip text="Choose which AI model to use for analysis." />
                     </label>
                     <select
                       id="aiModel"
@@ -523,18 +525,24 @@ export default function DatasetPromptPage() {
                         </div>
                       )}
                     </div>
-                    <select
-                      value={datasetScope}
-                      onChange={(e) => setDatasetScope(e.target.value as typeof datasetScope)}
-                      className="input-field flex-1 min-w-0"
-                      disabled={isAnalyzing}
-                    >
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                        Scope
+                        <HelpTip text="Filter datasets by access level: All datasets, only yours, or by organizational unit." />
+                      </label>
+                      <select
+                        value={datasetScope}
+                        onChange={(e) => setDatasetScope(e.target.value as typeof datasetScope)}
+                        className="input-field flex-1 min-w-0"
+                        disabled={isAnalyzing}
+                      >
                       <option value="all">All</option>
                       <option value="mine">My Datasets</option>
                       <option value="company">Company Datasets</option>
                       <option value="unit">Unit Datasets</option>
                       <option value="team">Team Datasets</option>
                     </select>
+                    </div>
                   </div>
                 </div>
               </div>

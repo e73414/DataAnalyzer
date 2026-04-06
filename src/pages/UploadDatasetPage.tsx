@@ -8,6 +8,7 @@ import { n8nService } from '../services/mcpN8nService'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { ProfilePicker, composeProfile } from '../components/ProfilePicker'
 import Navigation from '../components/Navigation'
+import HelpTip from '../components/HelpTip'
 
 interface IncomingFileState {
   csvFile?: File
@@ -219,8 +220,9 @@ export default function UploadDatasetPage() {
             </div>
 
             <div>
-              <label htmlFor="datasetDesc" className="label">
+              <label htmlFor="datasetDesc" className="label flex items-center gap-1.5">
                 Explain the Data for AI
+                <HelpTip text="Provide business context so AI generates more accurate queries." />
               </label>
               <textarea
                 id="datasetDesc"
@@ -234,8 +236,9 @@ export default function UploadDatasetPage() {
             </div>
 
             <div>
-              <label htmlFor="description" className="label">
+              <label htmlFor="description" className="label flex items-center gap-1.5">
                 Instruct AI How to Build Query
+                <HelpTip text="Provide instructions or guidelines to help AI understand your analysis needs." />
               </label>
               <textarea
                 id="description"
@@ -308,7 +311,10 @@ export default function UploadDatasetPage() {
               if (!isAdmin && userProfiles.length > 0) {
                 return (
                   <div>
-                    <label className="label">Dataset Access</label>
+                    <label className="label flex items-center gap-1.5">
+                      Dataset Access
+                      <HelpTip text="Control who can access this dataset. Private keeps it for your use only." />
+                    </label>
                     <select
                       className="input-field"
                       value={selectedProfileCode}

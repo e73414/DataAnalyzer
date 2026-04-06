@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import Navigation from '../components/Navigation'
+import HelpTip from '../components/HelpTip'
 import type { IngestionSchedule } from '../types'
 
 type ScheduleWithName = IngestionSchedule & { dataset_name: string }
@@ -164,9 +165,15 @@ export default function IngestionPipelinePage() {
                   <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60">
                     <th className="text-left px-5 py-3 font-medium text-gray-600 dark:text-gray-300">Dataset</th>
                     <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300 hidden sm:table-cell">Source</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300 hidden md:table-cell">Schedule</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300 hidden md:table-cell flex items-center gap-1.5">
+                      Schedule
+                      <HelpTip text="How often this pipeline runs (e.g., daily at midnight). Leave empty for manual ingestion only." side="left" />
+                    </th>
                     <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300 hidden lg:table-cell">Last Run</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300">Status</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
+                      Status
+                      <HelpTip text="Shows the result of the last ingestion: success, failure, or no new file detected." />
+                    </th>
                     <th className="text-right px-4 py-3 font-medium text-gray-600 dark:text-gray-300">Actions</th>
                   </tr>
                 </thead>
