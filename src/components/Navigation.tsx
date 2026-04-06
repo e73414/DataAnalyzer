@@ -50,6 +50,7 @@ export default function Navigation() {
   const { theme, toggleTheme } = useTheme()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const menuRef = useRef<HTMLDivElement>(null)
   const settingsRef = useRef<HTMLDivElement>(null)
 
@@ -80,6 +81,36 @@ export default function Navigation() {
   const handleNavClick = (path: string) => {
     navigate(path)
     setIsMenuOpen(false)
+  }
+
+  const toggleGroup = (groupName: string) => {
+    const newExpanded = new Set(expandedGroups)
+    if (newExpanded.has(groupName)) {
+      newExpanded.delete(groupName)
+    } else {
+      newExpanded.add(groupName)
+    }
+    setExpandedGroups(newExpanded)
+  }
+
+  const parseMenuItems = (links: typeof navLinks) => {
+    const grouped: Record<string, NonNullable<typeof navLinks>> = {}
+    const ungrouped: typeof navLinks = []
+
+    links?.forEach((link) => {
+      const match = link.name.match(/^([^:]+):\s*(.+)$/)
+      if (match) {
+        const [, prefix, name] = match
+        if (!grouped[prefix]) {
+          grouped[prefix] = []
+        }
+        grouped[prefix]!.push({ ...link, name })
+      } else {
+        ungrouped.push(link)
+      }
+    })
+
+    return { grouped, ungrouped }
   }
 
   // Change Password modal state
@@ -188,35 +219,90 @@ export default function Navigation() {
               </svg>
             </button>
             {isMenuOpen && (
-              <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-gray-800 rounded-lg shadow-lg ring-1 ring-black/5 dark:ring-white/10 z-10 overflow-hidden">
+              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg ring-1 ring-black/5 dark:ring-white/10 z-10 overflow-hidden">
                 <div className="py-1">
                   {isLoadingNavLinks ? (
                     <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">Loading...</div>
-                  ) : (
-                    navLinks?.filter((link) => {
+                  ) : (() => {
+                    const filteredLinks = navLinks?.filter((link) => {
                       const isAdmin = session?.profile?.trim() === 'admadmadm'
                       if (link.name.startsWith('Admin:')) return isAdmin
                       return true
-                    }).map((link) => (
-                      <div key={link.id}>
-                        {link.separator_before && (
-                          <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
-                        )}
-                        <button
-                          onClick={() => handleNavClick(link.path)}
-                          className={`block w-full text-left px-4 py-2.5 text-sm transition-colors duration-150 ${
-                            link.color === 'red'
-                              ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
-                              : location.pathname === link.path
-                                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
-                                : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                          }`}
-                        >
-                          {link.name.startsWith('Admin:') ? link.name.slice(6).trimStart() : link.name}
-                        </button>
-                      </div>
-                    ))
-                  )}
+                    }) || []
+                    const { grouped, ungrouped } = parseMenuItems(filteredLinks)
+
+                    return (
+                      <>
+                        {/* Ungrouped items */}
+                        {ungrouped.map((link) => (
+                          <div key={link.id}>
+                            {link.separator_before && (
+                              <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                            )}
+                            <button
+                              onClick={() => handleNavClick(link.path)}
+                              className={`block w-full text-left px-4 py-2.5 text-sm transition-colors duration-150 ${
+                                link.color === 'red'
+                                  ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+                                  : location.pathname === link.path
+                                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+                                    : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                              }`}
+                            >
+                              {link.name}
+                            </button>
+                          </div>
+                        ))}
+
+                        {/* Grouped items */}
+                        {Object.entries(grouped).map(([groupName, groupLinks]) => {
+                          const isExpanded = expandedGroups.has(groupName)
+                          return (
+                            <div key={groupName}>
+                              {/* Group header */}
+                              <button
+                                onClick={() => toggleGroup(groupName)}
+                                className="block w-full text-left px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 flex items-center justify-between group"
+                              >
+                                <span>{groupName}</span>
+                                <svg
+                                  className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${
+                                    isExpanded ? 'rotate-180' : ''
+                                  }`}
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+
+                              {/* Group items */}
+                              {isExpanded && (
+                                <>
+                                  {groupLinks.map((link) => (
+                                    <button
+                                      key={link.id}
+                                      onClick={() => handleNavClick(link.path)}
+                                      className={`block w-full text-left px-8 py-2.5 text-sm transition-colors duration-150 ${
+                                        link.color === 'red'
+                                          ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+                                          : location.pathname === link.path
+                                            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
+                                            : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                      }`}
+                                    >
+                                      {link.name}
+                                    </button>
+                                  ))}
+                                </>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </>
+                    )
+                  })()}
                 </div>
               </div>
             )}
