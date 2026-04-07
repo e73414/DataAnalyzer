@@ -126,7 +126,7 @@ export default function HistoryPage() {
 
   // Extract type prefix and display prompt from conversation prompt
   const parsePromptType = (prompt: string): { type: string | null; displayPrompt: string } => {
-    const match = prompt.match(/^\[(Conversation|Execute Plan|Plan Report)\]\s*(.*)$/s)
+    const match = prompt.match(/^\[(Conversation|Execute Plan|Plan Report|Scheduled)\]\s*(.*)$/s)
     if (match) return { type: match[1], displayPrompt: match[2] }
     return { type: null, displayPrompt: prompt }
   }
@@ -150,9 +150,9 @@ export default function HistoryPage() {
       const { displayPrompt } = parsePromptType(conv.prompt)
       return (
         displayPrompt.toLowerCase().includes(q) ||
-        conv.response.toLowerCase().includes(q) ||
-        conv.dataset_name.toLowerCase().includes(q) ||
-        conv.ai_model.toLowerCase().includes(q) ||
+        (conv.response ?? '').toLowerCase().includes(q) ||
+        (conv.dataset_name ?? '').toLowerCase().includes(q) ||
+        (conv.ai_model ?? '').toLowerCase().includes(q) ||
         (conv.report_id && conv.report_id.toLowerCase().includes(q))
       )
     })
