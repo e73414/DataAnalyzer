@@ -21,6 +21,7 @@ import AppSettingsPage from './pages/admin/AppSettingsPage'
 import QuestionPage from './pages/QuestionPage'
 import ManageQuestionsPage from './pages/ManageQuestionsPage'
 import BrowseQuestionsPage from './pages/BrowseQuestionsPage'
+import ManageReportsPage from './pages/ManageReportsPage'
 import IngestionSchedulePage from './pages/IngestionSchedulePage'
 import IngestionPipelinePage from './pages/IngestionPipelinePage'
 import HelpIndexPage from './pages/help/HelpIndexPage'
@@ -240,6 +241,14 @@ function App() {
         element={
           <ProtectedRoute>
             <ManageQuestionsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/manage-reports"
+        element={
+          <ProtectedRoute>
+            <ManageReportsPage />
           </ProtectedRoute>
         }
       />

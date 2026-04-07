@@ -449,6 +449,38 @@ export const pocketbaseService = {
     await mcpN8nApi.put(`/app-settings/${encodeURIComponent(key)}`, { value })
   },
 
+  // ── Report Schedules ─────────────────────────────────────────────────────────
+
+  async getReportSchedules(all: boolean = false): Promise<import('../types').ReportSchedule[]> {
+    const response = await mcpN8nApi.get<import('../types').ReportSchedule[]>('/report-schedules', {
+      params: all ? { all: 'true' } : {}
+    })
+    return response.data || []
+  },
+
+  async createReportSchedule(data: {
+    conversation_id: string
+    schedule: string
+    plan_model: string
+    execute_model: string
+    dataset_ids: string
+    dataset_name: string
+    detail_level?: string
+    report_detail?: string
+    template_id?: string
+  }): Promise<import('../types').ReportSchedule> {
+    const response = await mcpN8nApi.post<import('../types').ReportSchedule>('/report-schedules', data)
+    return response.data
+  },
+
+  async updateReportSchedule(id: string, data: Partial<import('../types').ReportSchedule>): Promise<void> {
+    await mcpN8nApi.patch(`/report-schedules/${encodeURIComponent(id)}`, data)
+  },
+
+  async deleteReportSchedule(id: string): Promise<void> {
+    await mcpN8nApi.delete(`/report-schedules/${encodeURIComponent(id)}`)
+  },
+
   // ── Saved Questions ──────────────────────────────────────────────────────────
 
   async createSavedQuestion(data: Omit<SavedQuestion, 'id' | 'created_at' | 'updated_at'>): Promise<SavedQuestion> {

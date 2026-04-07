@@ -276,6 +276,19 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   const [chunkThreshold, setChunkThreshold] = useState(10_000)
   const [previewDatasetId, setPreviewDatasetId] = useState<string | null>(null)
   const [previewAnchorRect, setPreviewAnchorRect] = useState<DOMRect | null>(null)
+  const [reportSchedules, setReportSchedules] = useState<import('../types').ReportSchedule[]>([])
+  const [isLoadingSchedules, setIsLoadingSchedules] = useState(false)
+  const [scheduleFormOpen, setScheduleFormOpen] = useState(false)
+  const [scheduleForm, setScheduleForm] = useState<{
+    scheduleType: 'daily' | 'weekly' | 'monthly' | 'custom'
+    time: string
+    dayOfWeek?: number
+    dayOfMonth?: number
+    customCron?: string
+  }>({
+    scheduleType: 'daily',
+    time: '09:00'
+  })
   const editorRef = useRef<HTMLIFrameElement>(null)
   const editorContentRef = useRef('')
   const planRef = useRef<HTMLDivElement>(null)
@@ -436,6 +449,25 @@ const [isEditingReport, setIsEditingReport] = useState(false)
     if (appSettings.detail_level) setDetailLevel(appSettings.detail_level)
     if (appSettings.report_detail) setReportDetail(appSettings.report_detail)
   }, [appSettings])
+
+  // Load report schedules when savedRecordId is set
+  useEffect(() => {
+    if (!savedRecordId) {
+      setReportSchedules([])
+      return
+    }
+    setIsLoadingSchedules(true)
+    pocketbaseService.getReportSchedules()
+      .then(schedules => {
+        // Filter to schedules for this conversation
+        setReportSchedules(schedules.filter(s => s.conversation_id === savedRecordId))
+      })
+      .catch(err => {
+        console.error('Failed to load schedules:', err)
+        toast.error('Failed to load schedules')
+      })
+      .finally(() => setIsLoadingSchedules(false))
+  }, [savedRecordId])
 
   const effectivePlanModel = appSettings?.plan_model || selectedPlanModelId
   const effectiveExecuteModel = appSettings?.execute_model || selectedExecuteModelId
@@ -794,6 +826,88 @@ const handleSaveReport = async () => {
       toast.error(`Failed to save report: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setIsSavingReport(false)
+    }
+  }
+
+  // Schedule management handlers
+  const handleSaveSchedule = async () => {
+    if (!savedRecordId) {
+      toast.error('Please save the report first')
+      return
+    }
+
+    let cronExpression = scheduleForm.customCron || ''
+    if (scheduleForm.scheduleType === 'daily') {
+      const [hour, minute] = scheduleForm.time.split(':').map(Number)
+      cronExpression = `${minute} ${hour} * * *`
+    } else if (scheduleForm.scheduleType === 'weekly') {
+      const [hour, minute] = scheduleForm.time.split(':').map(Number)
+      const dayOfWeek = scheduleForm.dayOfWeek ?? 1
+      cronExpression = `${minute} ${hour} * * ${dayOfWeek}`
+    } else if (scheduleForm.scheduleType === 'monthly') {
+      const [hour, minute] = scheduleForm.time.split(':').map(Number)
+      const dayOfMonth = scheduleForm.dayOfMonth ?? 1
+      cronExpression = `${minute} ${hour} ${dayOfMonth} * *`
+    }
+
+    if (!cronExpression.trim()) {
+      toast.error('Invalid schedule')
+      return
+    }
+
+    try {
+      const datasetIds = Array.from(selectedDatasetIds).join(',') || 'all'
+      const datasetNames = (datasets ?? []).filter(d => selectedDatasetIds.has(d.id)).map(d => d.name).join(', ') || 'All Datasets'
+
+      await pocketbaseService.createReportSchedule({
+        conversation_id: savedRecordId,
+        schedule: cronExpression,
+        plan_model: effectivePlanModel,
+        execute_model: effectiveExecuteModel,
+        dataset_ids: datasetIds,
+        dataset_name: datasetNames,
+        detail_level: detailLevel,
+        report_detail: reportDetail,
+        template_id: userProfile?.template_id,
+      })
+
+      toast.success('Schedule created')
+      setScheduleFormOpen(false)
+      setScheduleForm({ scheduleType: 'daily', time: '09:00' })
+
+      // Refresh schedules
+      const updated = await pocketbaseService.getReportSchedules()
+      setReportSchedules(updated.filter(s => s.conversation_id === savedRecordId))
+    } catch (err) {
+      toast.error(`Failed to create schedule: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
+  }
+
+  const handleDeleteSchedule = async (scheduleId: string) => {
+    if (!window.confirm('Delete this schedule?')) return
+
+    try {
+      await pocketbaseService.deleteReportSchedule(scheduleId)
+      toast.success('Schedule deleted')
+
+      // Refresh schedules
+      const updated = await pocketbaseService.getReportSchedules()
+      setReportSchedules(updated.filter(s => s.conversation_id === savedRecordId))
+    } catch (err) {
+      toast.error(`Failed to delete schedule: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
+  }
+
+  const handleToggleSchedule = async (schedule: import('../types').ReportSchedule) => {
+    try {
+      await pocketbaseService.updateReportSchedule(schedule.id, { enabled: !schedule.enabled })
+      toast.success('Schedule updated')
+
+      // Refresh schedules
+      const updated = await pocketbaseService.getReportSchedules()
+      setReportSchedules(updated.filter(s => s.conversation_id === savedRecordId))
+    } catch (err) {
+      toast.error(`Failed to update schedule: ${err instanceof Error ? err.message : 'Unknown error'}`)
     }
   }
 
@@ -2257,6 +2371,169 @@ const handleSaveReport = async () => {
           )}
         </div>
       </main>
+
+      {/* Schedule Report Run Section */}
+      {savedRecordId && (
+        <div className="mt-8 max-w-4xl mx-auto px-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Schedule Report Run</h2>
+
+            {isLoadingSchedules ? (
+              <p className="text-sm text-gray-500">Loading schedules...</p>
+            ) : (
+              <>
+                {/* Schedule Form */}
+                {scheduleFormOpen ? (
+                  <div className="space-y-4 mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                    <label className="block">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Frequency</span>
+                      <select
+                        value={scheduleForm.scheduleType}
+                        onChange={e => setScheduleForm({...scheduleForm, scheduleType: e.target.value as any})}
+                        className="input-field w-full mt-1"
+                      >
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="custom">Custom Cron</option>
+                      </select>
+                    </label>
+
+                    {scheduleForm.scheduleType === 'daily' && (
+                      <label className="block">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Time</span>
+                        <input
+                          type="time"
+                          value={scheduleForm.time}
+                          onChange={e => setScheduleForm({...scheduleForm, time: e.target.value})}
+                          className="input-field w-full mt-1"
+                        />
+                      </label>
+                    )}
+
+                    {scheduleForm.scheduleType === 'weekly' && (
+                      <>
+                        <label className="block">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Day of Week</span>
+                          <select
+                            value={scheduleForm.dayOfWeek ?? 1}
+                            onChange={e => setScheduleForm({...scheduleForm, dayOfWeek: parseInt(e.target.value)})}
+                            className="input-field w-full mt-1"
+                          >
+                            <option value={0}>Sunday</option>
+                            <option value={1}>Monday</option>
+                            <option value={2}>Tuesday</option>
+                            <option value={3}>Wednesday</option>
+                            <option value={4}>Thursday</option>
+                            <option value={5}>Friday</option>
+                            <option value={6}>Saturday</option>
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Time</span>
+                          <input
+                            type="time"
+                            value={scheduleForm.time}
+                            onChange={e => setScheduleForm({...scheduleForm, time: e.target.value})}
+                            className="input-field w-full mt-1"
+                          />
+                        </label>
+                      </>
+                    )}
+
+                    {scheduleForm.scheduleType === 'monthly' && (
+                      <>
+                        <label className="block">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Day of Month</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={31}
+                            value={scheduleForm.dayOfMonth ?? 1}
+                            onChange={e => setScheduleForm({...scheduleForm, dayOfMonth: parseInt(e.target.value)})}
+                            className="input-field w-full mt-1"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Time</span>
+                          <input
+                            type="time"
+                            value={scheduleForm.time}
+                            onChange={e => setScheduleForm({...scheduleForm, time: e.target.value})}
+                            className="input-field w-full mt-1"
+                          />
+                        </label>
+                      </>
+                    )}
+
+                    {scheduleForm.scheduleType === 'custom' && (
+                      <label className="block">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Cron Expression</span>
+                        <input
+                          type="text"
+                          placeholder="e.g., 0 9 * * 1"
+                          value={scheduleForm.customCron || ''}
+                          onChange={e => setScheduleForm({...scheduleForm, customCron: e.target.value})}
+                          className="input-field w-full mt-1 font-mono"
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Format: minute hour day month dayOfWeek</p>
+                      </label>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button onClick={handleSaveSchedule} className="btn-primary">Save Schedule</button>
+                      <button onClick={() => setScheduleFormOpen(false)} className="btn-secondary">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setScheduleFormOpen(true)} className="btn-secondary mb-4">+ Add Schedule</button>
+                )}
+
+                {/* List of Schedules */}
+                {reportSchedules.length > 0 ? (
+                  <div className="space-y-2">
+                    {reportSchedules.map(schedule => (
+                      <div key={schedule.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{schedule.schedule}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Last run: {schedule.last_run_at ? new Date(schedule.last_run_at).toLocaleString() : 'Never'} — {schedule.last_run_status || 'Pending'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={schedule.enabled}
+                            onChange={() => handleToggleSchedule(schedule)}
+                            className="w-4 h-4 rounded accent-purple-900"
+                            title={schedule.enabled ? 'Disable' : 'Enable'}
+                          />
+                          <button
+                            onClick={() => handleDeleteSchedule(schedule.id)}
+                            className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                            title="Delete"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">No schedules yet. Click "+ Add Schedule" to create one.</p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Enhance Prompt Dialog */}
       {enhanceOpen && (

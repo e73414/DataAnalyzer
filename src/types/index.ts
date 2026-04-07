@@ -351,6 +351,28 @@ export interface AppSettings {
   app_title: string | null                // custom app title, defaults to 'DataPilot'
 }
 
+// ── Report Schedules ──────────────────────────────────────────────────────────
+
+export interface ReportSchedule {
+  id: string
+  conversation_id: string
+  user_email: string
+  schedule: string                        // cron expression (e.g., '0 9 * * 1')
+  enabled: boolean
+  plan_model: string
+  execute_model: string
+  dataset_ids: string                     // comma-separated
+  dataset_name: string
+  detail_level?: string
+  report_detail?: string
+  template_id?: string
+  last_run_at?: string
+  last_run_status?: string                // 'pending' | 'running' | 'success' | 'failed' | 'failed_max_retries'
+  last_run_attempt?: number
+  created_at: string
+  updated_at: string
+}
+
 // ── Ingestion Pipeline ────────────────────────────────────────────────────────
 
 export interface IngestionSheetConfig {
