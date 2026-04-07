@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { useTheme } from '../context/ThemeContext'
+import { useAppSettings } from '../context/AppSettingsContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { findTopicByPath } from '../constants/helpTopics'
 
@@ -48,6 +49,7 @@ export default function Navigation() {
   const location = useLocation()
   const { session, logout } = useSession()
   const { theme, toggleTheme } = useTheme()
+  const { appSettings } = useAppSettings()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
@@ -171,8 +173,8 @@ export default function Navigation() {
     <header className="bg-white dark:bg-gray-800 shadow-sm dark:shadow-gray-900/50 transition-colors duration-200">
       <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <img src={theme === 'dark' ? '/logo-dark.png' : '/logo-light.png'} alt="DataPilot" className="h-12 w-auto" />
-          <span className="text-2xl font-bold text-gray-900 dark:text-white" style={{fontFamily: "'Syne', sans-serif"}}>DataPilot</span>
+          <img src={theme === 'dark' ? '/logo-dark.png' : '/logo-light.png'} alt={appSettings?.app_title || 'DataPilot'} className="h-12 w-auto" />
+          <span className="text-2xl font-bold text-gray-900 dark:text-white" style={{fontFamily: "'Syne', sans-serif"}}>{appSettings?.app_title || 'DataPilot'}</span>
         </div>
         <div className="flex gap-2 items-center">
           {session?.email && (

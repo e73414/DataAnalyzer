@@ -348,6 +348,7 @@ export interface AppSettings {
   report_detail: string | null
   show_ingestion_schedule: string | null  // 'true' | null
   show_enhance_prompt: string | null      // 'true' | null
+  app_title: string | null                // custom app title, defaults to 'DataPilot'
 }
 
 // ── Ingestion Pipeline ────────────────────────────────────────────────────────

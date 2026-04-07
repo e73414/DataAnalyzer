@@ -395,6 +395,7 @@ export default function AppSettingsPage() {
     queryFn: () => pocketbaseService.getAIModels(),
   })
 
+  const [appTitle,               setAppTitle]               = useState('')
   const [analyzeModel,           setAnalyzeModel]           = useState('')
   const [planModel,              setPlanModel]              = useState('')
   const [executeModel,           setExecuteModel]           = useState('')
@@ -408,6 +409,7 @@ export default function AppSettingsPage() {
 
   useEffect(() => {
     if (!appSettings) return
+    setAppTitle(appSettings.app_title ?? '')
     setAnalyzeModel(appSettings.analyze_model ?? '')
     setPlanModel(appSettings.plan_model ?? '')
     setExecuteModel(appSettings.execute_model ?? '')
@@ -423,6 +425,7 @@ export default function AppSettingsPage() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       await Promise.all([
+        pocketbaseService.updateAppSetting('app_title',               appTitle              || null),
         pocketbaseService.updateAppSetting('analyze_model',           analyzeModel          || null),
         pocketbaseService.updateAppSetting('plan_model',              planModel             || null),
         pocketbaseService.updateAppSetting('execute_model',           executeModel          || null),
@@ -456,6 +459,24 @@ export default function AppSettingsPage() {
 
           {/* ── Default Model Overrides + Execute Plan Controls ── */}
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800">
+
+            {/* Section: App Branding */}
+            <div className="px-6 py-5">
+              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-4">
+                App Branding
+              </h2>
+              <div className="flex items-center gap-4">
+                <label className="w-52 text-sm text-gray-700 dark:text-gray-300 shrink-0">App Title</label>
+                <input
+                  type="text"
+                  value={appTitle}
+                  onChange={(e) => setAppTitle(e.target.value)}
+                  placeholder="DataPilot"
+                  className="input-field flex-1"
+                  disabled={saveMutation.isPending}
+                />
+              </div>
+            </div>
 
             {/* Section: AI Models */}
             <div className="px-6 py-5">
