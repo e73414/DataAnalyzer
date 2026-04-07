@@ -87,14 +87,20 @@ function RunsList({ scheduleId }: { scheduleId: string; schedule: ReportSchedule
         return (
           <div key={run.id}>
             <div
-              className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30"
+              className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30"
               onClick={() => setExpandedRunId(isExpanded ? null : run.id)}
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <svg
+                  className={`w-3 h-3 flex-shrink-0 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                  fill="currentColor" viewBox="0 0 24 24"
+                >
+                  <path d="M8 5l11 7-11 7V5z" />
+                </svg>
+                <span className="text-sm font-medium text-gray-800 dark:text-gray-200 flex-shrink-0">
                   {new Date(run.created).toLocaleString()}
                 </span>
-                <span className="text-xs text-gray-700 dark:text-gray-300 truncate">
+                <span className="text-sm text-gray-500 dark:text-gray-400 truncate">
                   {run.ai_model}
                 </span>
               </div>
@@ -108,12 +114,6 @@ function RunsList({ scheduleId }: { scheduleId: string; schedule: ReportSchedule
                     Load
                   </button>
                 )}
-                <svg
-                  className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
               </div>
             </div>
             {isExpanded && (
@@ -349,16 +349,16 @@ export default function ManageReportsPage() {
                   {/* Completed runs section */}
                   <div className="border-t border-gray-200 dark:border-gray-700">
                     <button
-                      className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                      className="w-full flex items-center gap-2 px-4 py-3 text-base font-semibold text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                       onClick={() => toggleRuns(schedule.id)}
                     >
-                      <span>Completed Runs</span>
                       <svg
-                        className={`w-4 h-4 transition-transform ${runsVisible ? 'rotate-180' : ''}`}
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${runsVisible ? 'rotate-90' : ''}`}
+                        fill="currentColor" viewBox="0 0 24 24"
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        <path d="M8 5l11 7-11 7V5z" />
                       </svg>
+                      <span>Completed Runs</span>
                     </button>
                     {runsVisible && (
                       <RunsList scheduleId={schedule.id} schedule={schedule} />
