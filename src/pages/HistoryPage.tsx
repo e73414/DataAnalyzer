@@ -775,7 +775,7 @@ export default function HistoryPage() {
                 }}
                 className={`px-4 py-2 text-sm font-medium transition-colors ${
                   viewMode === 'by-date'
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-purple-900 text-white'
                     : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
                 }`}
               >
@@ -788,7 +788,7 @@ export default function HistoryPage() {
                 }}
                 className={`px-4 py-2 text-sm font-medium transition-colors ${
                   viewMode === 'by-dataset'
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-purple-900 text-white'
                     : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
                 }`}
               >
@@ -805,7 +805,7 @@ export default function HistoryPage() {
                 onClick={() => setItemType('both')}
                 className={`px-4 py-2 text-sm font-medium transition-colors ${
                   itemType === 'both'
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-purple-900 text-white'
                     : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
                 }`}
               >
@@ -815,7 +815,7 @@ export default function HistoryPage() {
                 onClick={() => setItemType('conversation')}
                 className={`px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 dark:border-gray-600 ${
                   itemType === 'conversation'
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-purple-900 text-white'
                     : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
                 }`}
               >
@@ -825,7 +825,7 @@ export default function HistoryPage() {
                 onClick={() => setItemType('report')}
                 className={`px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 dark:border-gray-600 ${
                   itemType === 'report'
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-purple-900 text-white'
                     : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
                 }`}
               >
