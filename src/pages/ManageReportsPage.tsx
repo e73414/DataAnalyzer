@@ -70,6 +70,17 @@ export default function ManageReportsPage() {
     },
   })
 
+  const runNowMutation = useMutation({
+    mutationFn: (id: string) => pocketbaseService.runReportScheduleNow(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['report-schedules'] })
+      toast.success('Report run started')
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to start run')
+    },
+  })
+
   const toggleMutation = useMutation({
     mutationFn: (schedule: ReportSchedule) =>
       pocketbaseService.updateReportSchedule(schedule.id, { enabled: !schedule.enabled }),
@@ -163,6 +174,17 @@ export default function ManageReportsPage() {
                     </div>
 
                     <div className="flex items-center gap-3 ml-4 flex-shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          runNowMutation.mutate(schedule.id)
+                        }}
+                        disabled={runNowMutation.isPending || schedule.last_run_status === 'running'}
+                        className="px-2 py-1 text-xs font-medium text-white bg-purple-900 hover:bg-purple-800 rounded disabled:opacity-50 transition-colors"
+                        title="Run now"
+                      >
+                        {schedule.last_run_status === 'running' ? 'Running…' : 'Run Now'}
+                      </button>
                       <input
                         type="checkbox"
                         checked={schedule.enabled}

@@ -481,6 +481,10 @@ export const pocketbaseService = {
     await mcpN8nApi.delete(`/report-schedules/${encodeURIComponent(id)}`)
   },
 
+  async runReportScheduleNow(id: string): Promise<void> {
+    await mcpN8nApi.post(`/report-schedules/${encodeURIComponent(id)}/run-now`, {})
+  },
+
   // ── Saved Questions ──────────────────────────────────────────────────────────
 
   async createSavedQuestion(data: Omit<SavedQuestion, 'id' | 'created_at' | 'updated_at'>): Promise<SavedQuestion> {
