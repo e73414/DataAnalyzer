@@ -46,7 +46,7 @@ function formatStatus(status?: string): { label: string; color: string } {
   }
 }
 
-function RunsList({ scheduleId, schedule }: { scheduleId: string; schedule: ReportSchedule }) {
+function RunsList({ scheduleId }: { scheduleId: string; schedule: ReportSchedule }) {
   const navigate = useNavigate()
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null)
 
