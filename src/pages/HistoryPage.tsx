@@ -12,6 +12,7 @@ import SaveQuestionModal from '../components/SaveQuestionModal'
 import type { ConversationHistory, ReportPlan } from '../types'
 
 type ViewMode = 'by-date' | 'by-dataset'
+type ItemType = 'conversation' | 'report' | 'both'
 
 interface GroupedConversations {
   [key: string]: ConversationHistory[]
@@ -23,6 +24,7 @@ export default function HistoryPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [viewMode, setViewMode] = useState<ViewMode>('by-date')
+  const [itemType, setItemType] = useState<ItemType>('both')
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [expandedConversation, setExpandedConversation] = useState<string | null>(null)
@@ -129,12 +131,22 @@ export default function HistoryPage() {
     return { type: null, displayPrompt: prompt }
   }
 
-  // Filter conversations by search query
+  // Filter conversations by search query and item type
   const filteredConversations = useMemo(() => {
     if (!conversations) return []
-    if (!searchQuery.trim()) return conversations
+
+    // Apply item type filter
+    let filtered = conversations
+    if (itemType === 'conversation') {
+      filtered = filtered.filter((conv) => !conv.report_id)
+    } else if (itemType === 'report') {
+      filtered = filtered.filter((conv) => !!conv.report_id)
+    }
+
+    // Apply search filter
+    if (!searchQuery.trim()) return filtered
     const q = searchQuery.toLowerCase()
-    return conversations.filter((conv) => {
+    return filtered.filter((conv) => {
       const { displayPrompt } = parsePromptType(conv.prompt)
       return (
         displayPrompt.toLowerCase().includes(q) ||
@@ -145,7 +157,7 @@ export default function HistoryPage() {
       )
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversations, searchQuery])
+  }, [conversations, searchQuery, itemType])
 
   // Group conversations by date
   const groupedByDate = useMemo(() => {
@@ -488,7 +500,7 @@ export default function HistoryPage() {
                 </p>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                <span>{formatTime(conv.created)}</span>
+                <span>{formatDate(getDateFromCreated(conv.created))} at {formatTime(conv.created)}</span>
                 <span>•</span>
                 <span>{conv.ai_model}</span>
                 {conv.duration_seconds != null && (
@@ -781,6 +793,43 @@ export default function HistoryPage() {
                 }`}
               >
                 By Dataset
+              </button>
+            </div>
+          </div>
+
+          {/* Filter & Search */}
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            {/* Item Type Filter */}
+            <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
+              <button
+                onClick={() => setItemType('both')}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  itemType === 'both'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
+                }`}
+              >
+                Both
+              </button>
+              <button
+                onClick={() => setItemType('conversation')}
+                className={`px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 dark:border-gray-600 ${
+                  itemType === 'conversation'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
+                }`}
+              >
+                Conversation
+              </button>
+              <button
+                onClick={() => setItemType('report')}
+                className={`px-4 py-2 text-sm font-medium transition-colors border-l border-gray-300 dark:border-gray-600 ${
+                  itemType === 'report'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
+                }`}
+              >
+                Report
               </button>
             </div>
           </div>
