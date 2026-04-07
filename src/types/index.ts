@@ -369,6 +369,7 @@ export interface ReportSchedule {
   last_run_at?: string
   last_run_status?: string                // 'pending' | 'running' | 'success' | 'failed' | 'failed_max_retries'
   last_run_attempt?: number
+  replan_on_run?: boolean
   created_at: string
   updated_at: string
 }

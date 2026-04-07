@@ -468,6 +468,7 @@ export const pocketbaseService = {
     detail_level?: string
     report_detail?: string
     template_id?: string
+    replan_on_run?: boolean
   }): Promise<import('../types').ReportSchedule> {
     const response = await mcpN8nApi.post<import('../types').ReportSchedule>('/report-schedules', data)
     return response.data

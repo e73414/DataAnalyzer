@@ -285,9 +285,11 @@ const [isEditingReport, setIsEditingReport] = useState(false)
     dayOfWeek?: number
     dayOfMonth?: number
     customCron?: string
+    replanOnRun: boolean
   }>({
     scheduleType: 'daily',
-    time: '09:00'
+    time: '09:00',
+    replanOnRun: false,
   })
   const editorRef = useRef<HTMLIFrameElement>(null)
   const editorContentRef = useRef('')
@@ -869,11 +871,12 @@ const handleSaveReport = async () => {
         detail_level: detailLevel,
         report_detail: reportDetail,
         template_id: userProfile?.template_id,
+        replan_on_run: scheduleForm.replanOnRun,
       })
 
       toast.success('Schedule created')
       setScheduleFormOpen(false)
-      setScheduleForm({ scheduleType: 'daily', time: '09:00' })
+      setScheduleForm({ scheduleType: 'daily', time: '09:00', replanOnRun: false })
 
       // Refresh schedules
       const updated = await pocketbaseService.getReportSchedules()
@@ -2479,6 +2482,19 @@ const handleSaveReport = async () => {
                         <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Format: minute hour day month dayOfWeek</p>
                       </label>
                     )}
+
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={scheduleForm.replanOnRun}
+                        onChange={e => setScheduleForm({...scheduleForm, replanOnRun: e.target.checked})}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Re-plan on each run</span>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">Recommended for time-based reports (e.g. "this month"). Re-generates the query plan at run time so date filters stay current.</p>
+                      </span>
+                    </label>
 
                     <div className="flex gap-2">
                       <button onClick={handleSaveSchedule} className="btn-primary">Save Schedule</button>
