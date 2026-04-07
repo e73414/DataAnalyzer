@@ -485,6 +485,25 @@ export const pocketbaseService = {
     await mcpN8nApi.post(`/report-schedules/${encodeURIComponent(id)}/run-now`, {})
   },
 
+  async getReportScheduleRuns(id: string): Promise<ConversationHistory[]> {
+    const response = await mcpN8nApi.get<PgConversation[]>(`/report-schedules/${encodeURIComponent(id)}/runs`)
+    return (response.data || []).map((record) => ({
+      id: record.id,
+      user_email: record.user_email,
+      prompt: record.prompt,
+      response: record.response,
+      ai_model: record.ai_model,
+      dataset_id: record.dataset_id,
+      dataset_name: record.dataset_name,
+      duration_seconds: record.duration_seconds ?? undefined,
+      report_plan: record.report_plan ?? undefined,
+      report_id: record.report_id ?? undefined,
+      detail_level: record.detail_level ?? undefined,
+      report_detail: record.report_detail ?? undefined,
+      created: record.created_at,
+    }))
+  },
+
   // ── Saved Questions ──────────────────────────────────────────────────────────
 
   async createSavedQuestion(data: Omit<SavedQuestion, 'id' | 'created_at' | 'updated_at'>): Promise<SavedQuestion> {
