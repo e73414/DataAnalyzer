@@ -125,7 +125,8 @@ export default function HistoryPage() {
   }
 
   // Extract type prefix and display prompt from conversation prompt
-  const parsePromptType = (prompt: string): { type: string | null; displayPrompt: string } => {
+  const parsePromptType = (prompt: string | null | undefined): { type: string | null; displayPrompt: string } => {
+    if (!prompt) return { type: null, displayPrompt: '' }
     const match = prompt.match(/^\[(Conversation|Execute Plan|Plan Report|Scheduled)\]\s*(.*)$/s)
     if (match) return { type: match[1], displayPrompt: match[2] }
     return { type: null, displayPrompt: prompt }
@@ -621,7 +622,7 @@ export default function HistoryPage() {
                   Response
                 </h4>
                 <ReportHtml
-                  html={conv.response}
+                  html={conv.response ?? ''}
                   className="report-html prose prose-sm dark:prose-invert max-w-none"
                 />
               </div>
