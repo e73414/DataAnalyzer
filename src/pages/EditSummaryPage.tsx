@@ -38,6 +38,9 @@ export default function EditSummaryPage() {
 
   const [profileChanged, setProfileChanged] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [describeModalOpen, setDescribeModalOpen] = useState(false)
+  const [aiDescribeResult, setAiDescribeResult] = useState('')
+  const [isDescribing, setIsDescribing] = useState(false)
 
   const {
     datasets: datasets = [],
@@ -187,6 +190,27 @@ export default function EditSummaryPage() {
   const handleDatasetDescChange = (value: string) => {
     setDatasetDesc(value)
     setHasChanges(checkHasChanges(datasetName, editedSummary, value))
+  }
+
+  const handleAiDescribe = async () => {
+    if (!appSettings?.dataset_describe_prompt || !selectedDatasetId) return
+    setIsDescribing(true)
+    setAiDescribeResult('')
+    setDescribeModalOpen(true)
+    try {
+      const result = await n8nService.runAnalysis({
+        email: session!.email,
+        model: appSettings.analyze_model || '',
+        datasetId: selectedDatasetId,
+        prompt: appSettings.dataset_describe_prompt,
+      })
+      setAiDescribeResult(result.result || '')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'AI describe failed')
+      setDescribeModalOpen(false)
+    } finally {
+      setIsDescribing(false)
+    }
   }
 
   const handleAddQuestion = () => {
@@ -371,9 +395,21 @@ export default function EditSummaryPage() {
                       </div>
 
                       <div>
-                        <label htmlFor="datasetDesc" className="label">
-                          Explain the Data for AI
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label htmlFor="datasetDesc" className="label mb-0">
+                            Explain the Data for AI
+                          </label>
+                          {appSettings?.dataset_describe_prompt && selectedDatasetId && (
+                            <button
+                              type="button"
+                              onClick={handleAiDescribe}
+                              disabled={isDescribing}
+                              className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                            >
+                              Have AI Describe Data
+                            </button>
+                          )}
+                        </div>
                         <textarea
                           id="datasetDesc"
                           value={datasetDesc}
@@ -650,6 +686,44 @@ export default function EditSummaryPage() {
           )}
         </div>
       </main>
+
+      {describeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl mx-4 flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">AI Dataset Description</h3>
+              <button
+                onClick={() => setDescribeModalOpen(false)}
+                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {isDescribing ? (
+                <div className="flex items-center gap-3 text-gray-500 dark:text-gray-400">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent" />
+                  <span className="text-sm">AI is describing your dataset...</span>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{aiDescribeResult}</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 p-4 border-t border-gray-200 dark:border-gray-700">
+              <button onClick={() => setDescribeModalOpen(false)} className="btn-secondary">Cancel</button>
+              <button
+                onClick={() => { handleDatasetDescChange(aiDescribeResult); setDescribeModalOpen(false) }}
+                disabled={!aiDescribeResult || isDescribing}
+                className="btn-primary disabled:opacity-50"
+              >
+                Use This Description
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

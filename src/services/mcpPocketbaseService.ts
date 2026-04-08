@@ -442,6 +442,7 @@ export const pocketbaseService = {
       report_detail:            d.report_detail            ?? null,
       show_ingestion_schedule:  d.show_ingestion_schedule  ?? null,
       show_enhance_prompt:      d.show_enhance_prompt      ?? null,
+      dataset_describe_prompt:  d.dataset_describe_prompt  ?? null,
     }
   },
 

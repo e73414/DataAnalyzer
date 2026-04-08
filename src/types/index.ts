@@ -349,6 +349,7 @@ export interface AppSettings {
   show_ingestion_schedule: string | null  // 'true' | null
   show_enhance_prompt: string | null      // 'true' | null
   app_title: string | null                // custom app title, defaults to 'DataPilot'
+  dataset_describe_prompt: string | null  // admin-defined prompt for "Have AI Describe Data"
 }
 
 // ── Report Schedules ──────────────────────────────────────────────────────────

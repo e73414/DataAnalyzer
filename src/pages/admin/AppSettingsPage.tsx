@@ -406,6 +406,7 @@ export default function AppSettingsPage() {
   const [reportDetail,           setReportDetail]           = useState('')
   const [showIngestionSchedule,  setShowIngestionSchedule]  = useState(false)
   const [showEnhancePrompt,      setShowEnhancePrompt]      = useState(false)
+  const [datasetDescribePrompt,  setDatasetDescribePrompt]  = useState('')
 
   useEffect(() => {
     if (!appSettings) return
@@ -420,6 +421,7 @@ export default function AppSettingsPage() {
     setReportDetail(appSettings.report_detail ?? '')
     setShowIngestionSchedule(appSettings.show_ingestion_schedule === 'true')
     setShowEnhancePrompt(appSettings.show_enhance_prompt === 'true')
+    setDatasetDescribePrompt(appSettings.dataset_describe_prompt ?? '')
   }, [appSettings])
 
   const saveMutation = useMutation({
@@ -436,6 +438,7 @@ export default function AppSettingsPage() {
         pocketbaseService.updateAppSetting('report_detail',           reportDetail          || null),
         pocketbaseService.updateAppSetting('show_ingestion_schedule', showIngestionSchedule ? 'true' : null),
         pocketbaseService.updateAppSetting('show_enhance_prompt',      showEnhancePrompt     ? 'true' : null),
+        pocketbaseService.updateAppSetting('dataset_describe_prompt',  datasetDescribePrompt || null),
       ])
     },
     onSuccess: () => {
@@ -476,6 +479,27 @@ export default function AppSettingsPage() {
                   disabled={saveMutation.isPending}
                 />
               </div>
+            </div>
+
+            {/* Section: Dataset Description */}
+            <div className="px-6 py-5">
+              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-4">
+                Dataset Description
+              </h2>
+              <div className="flex items-center gap-4">
+                <label className="w-52 text-sm text-gray-700 dark:text-gray-300 shrink-0">Prompt for AI description of dataset</label>
+                <input
+                  type="text"
+                  value={datasetDescribePrompt}
+                  onChange={(e) => setDatasetDescribePrompt(e.target.value)}
+                  placeholder="e.g. Describe the columns, data types, and business context of this dataset"
+                  className="input-field flex-1"
+                  disabled={saveMutation.isPending}
+                />
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-500 mt-2 ml-56">
+                Used by "Have AI Describe Data" on the Edit Dataset Summary page.
+              </p>
             </div>
 
             {/* Section: AI Models */}
