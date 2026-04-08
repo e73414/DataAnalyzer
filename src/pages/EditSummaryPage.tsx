@@ -200,7 +200,7 @@ export default function EditSummaryPage() {
     try {
       const result = await n8nService.runAnalysis({
         email: session!.email,
-        model: appSettings?.analyze_model || 'claude-sonnet-4-6',
+        model: appSettings?.analyze_model || '',
         datasetId: selectedDatasetId,
         prompt: appSettings.dataset_describe_prompt,
       })
