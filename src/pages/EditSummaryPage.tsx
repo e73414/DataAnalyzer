@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
@@ -17,10 +17,13 @@ import type { DatasetDetail } from '../types'
 
 export default function EditSummaryPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
   const { session } = useSession()
   const { appSettings } = useAppSettings()
-  const [selectedDatasetId, setSelectedDatasetId] = useState('')
+  const [selectedDatasetId, setSelectedDatasetId] = useState(
+    () => (location.state as { preSelectedDatasetId?: string } | null)?.preSelectedDatasetId || ''
+  )
   const [datasetName, setDatasetName] = useState('')
   const [editedSummary, setEditedSummary] = useState('')
   const [datasetDesc, setDatasetDesc] = useState('')
@@ -42,6 +45,11 @@ export default function EditSummaryPage() {
   const [aiDescribeResult, setAiDescribeResult] = useState('')
   const [isDescribing, setIsDescribing] = useState(false)
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false)
+  const [autoEnrichPending, setAutoEnrichPending] = useState(
+    () => !!(location.state as { autoEnrich?: boolean } | null)?.autoEnrich
+  )
+  const [autoEnrichStatus, setAutoEnrichStatus] = useState('')
+  const autoEnrichRunning = useRef(false)
 
   const {
     datasets: datasets = [],
@@ -228,6 +236,73 @@ export default function EditSummaryPage() {
     }
   }
 
+  // Auto-enrich: runs when navigated from upload with autoEnrich=true
+  useEffect(() => {
+    if (!autoEnrichPending || !datasetDetail || !selectedDatasetId || autoEnrichRunning.current) return
+    if (!session?.email) return
+
+    autoEnrichRunning.current = true
+    setAutoEnrichPending(false)
+
+    const run = async () => {
+      let currentDesc = datasetDetail.dataset_desc || ''
+      const currentSummary = datasetDetail.summary || ''
+      const currentName = datasetDetail.name || ''
+
+      // Step 1: AI Describe
+      if (appSettings?.dataset_describe_prompt) {
+        try {
+          setAutoEnrichStatus('AI is describing your data…')
+          const result = await n8nService.runAnalysis({
+            email: session.email,
+            model: appSettings.analyze_model || '',
+            datasetId: selectedDatasetId,
+            prompt: appSettings.dataset_describe_prompt,
+          })
+          currentDesc = result.result || ''
+          setDatasetDesc(currentDesc)
+          setHasChanges(true)
+        } catch {
+          toast.error('AI describe failed — skipping')
+        }
+      }
+
+      // Step 2: Generate sample questions
+      try {
+        setAutoEnrichStatus('Generating sample questions…')
+        await n8nService.generateSampleQuestions(
+          selectedDatasetId, currentDesc, currentSummary, appSettings?.analyze_model ?? undefined
+        )
+        queryClient.invalidateQueries({ queryKey: ['dataset-detail', selectedDatasetId] })
+      } catch {
+        toast.error('Generate questions failed — skipping')
+      }
+
+      // Step 3: Save
+      try {
+        setAutoEnrichStatus('Saving dataset info…')
+        await n8nService.updateSummary({
+          datasetId: selectedDatasetId,
+          summary: currentSummary,
+          email: session.email,
+          datasetDesc: currentDesc.trim(),
+          datasetName: currentName.trim(),
+        })
+        queryClient.invalidateQueries({ queryKey: ['dataset-detail', selectedDatasetId] })
+        queryClient.invalidateQueries({ queryKey: ['datasets', session.email] })
+        toast.success('Dataset info saved')
+        setHasChanges(false)
+      } catch {
+        toast.error('Failed to save dataset info')
+      }
+
+      setAutoEnrichStatus('')
+      autoEnrichRunning.current = false
+    }
+
+    run()
+  }, [autoEnrichPending, datasetDetail, selectedDatasetId, session, appSettings, queryClient])
+
   const handleAddQuestion = () => {
     const text = newQuestion.trim()
     if (!text) return
@@ -367,6 +442,12 @@ export default function EditSummaryPage() {
                     </div>
                   ) : datasetDetail ? (
                     <form onSubmit={handleSubmit} className="space-y-6">
+                      {autoEnrichStatus && (
+                        <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent shrink-0" />
+                          <p className="text-sm text-blue-800 dark:text-blue-200">{autoEnrichStatus}</p>
+                        </div>
+                      )}
                       <div>
                         <label htmlFor="datasetTitle" className="label">
                           Dataset Title

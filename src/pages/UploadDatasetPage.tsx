@@ -137,7 +137,7 @@ export default function UploadDatasetPage() {
         }
       }
       toast.success(`Dataset "${result.datasetName}" uploaded successfully! ${result.rowsInserted} rows inserted.`)
-      navigate('/analyze', { state: { preSelectedDatasetId: result.datasetId } })
+      navigate('/edit-summary', { state: { preSelectedDatasetId: result.datasetId, autoEnrich: true } })
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to upload dataset')
