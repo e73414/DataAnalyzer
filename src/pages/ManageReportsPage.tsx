@@ -8,6 +8,14 @@ import Navigation from '../components/Navigation'
 import ReportHtml from '../components/ReportHtml'
 import type { ReportSchedule, ConversationHistory } from '../types'
 
+type ScheduleFormState = {
+  scheduleType: 'daily' | 'weekly' | 'monthly' | 'custom'
+  time: string
+  dayOfWeek?: number
+  dayOfMonth?: number
+  customCron?: string
+}
+
 function cronToFriendly(cron: string): string {
   const parts = cron.split(' ').filter(p => p.trim())
   if (parts.length !== 5) return cron
@@ -29,6 +37,40 @@ function cronToFriendly(cron: string): string {
   }
 
   return cron
+}
+
+function parseCronToForm(cron: string): ScheduleFormState {
+  const parts = cron.split(' ').filter(p => p.trim())
+  if (parts.length !== 5) {
+    return { scheduleType: 'custom', time: '09:00', customCron: cron }
+  }
+
+  const [minute, hour, dayMonth, , dayWeek] = parts
+  const time = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`
+
+  // Daily: minute hour * * *
+  if (dayMonth === '*' && dayWeek === '*') {
+    return { scheduleType: 'daily', time }
+  }
+
+  // Weekly: minute hour * * dayOfWeek
+  if (dayMonth === '*' && dayWeek !== '*') {
+    const dow = parseInt(dayWeek)
+    if (!isNaN(dow)) {
+      return { scheduleType: 'weekly', time, dayOfWeek: dow }
+    }
+  }
+
+  // Monthly: minute hour dayOfMonth * *
+  if (dayMonth !== '*' && dayWeek === '*') {
+    const dom = parseInt(dayMonth)
+    if (!isNaN(dom)) {
+      return { scheduleType: 'monthly', time, dayOfMonth: dom }
+    }
+  }
+
+  // Custom
+  return { scheduleType: 'custom', time: '09:00', customCron: cron }
 }
 
 function formatStatus(status?: string): { label: string; color: string } {
@@ -137,7 +179,7 @@ export default function ManageReportsPage() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [showRunsIds, setShowRunsIds] = useState<Set<string>>(new Set())
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null)
-  const [editCronValue, setEditCronValue] = useState('')
+  const [editForm, setEditForm] = useState<ScheduleFormState>({ scheduleType: 'daily', time: '09:00' })
 
   const { data: schedules = [], isLoading, error } = useQuery({
     queryKey: ['report-schedules'],
@@ -188,7 +230,7 @@ export default function ManageReportsPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['report-schedules'] })
       setEditingScheduleId(null)
-      setEditCronValue('')
+      setEditForm({ scheduleType: 'daily', time: '09:00' })
       toast.success('Schedule updated')
     },
     onError: (error) => {
@@ -198,22 +240,34 @@ export default function ManageReportsPage() {
 
   const handleEditSchedule = (schedule: ReportSchedule) => {
     setEditingScheduleId(schedule.id)
-    setEditCronValue(schedule.schedule)
+    setEditForm(parseCronToForm(schedule.schedule))
   }
 
-  const handleSaveCron = (id: string) => {
-    const trimmed = editCronValue.trim()
-    const parts = trimmed.split(/\s+/)
-    if (parts.length !== 5) {
-      toast.error('Invalid cron format. Expected 5 parts: minute hour day month weekday')
+  const handleSaveSchedule = (id: string) => {
+    let cronExpression = editForm.customCron || ''
+    if (editForm.scheduleType === 'daily') {
+      const [hour, minute] = editForm.time.split(':').map(Number)
+      cronExpression = `${minute} ${hour} * * *`
+    } else if (editForm.scheduleType === 'weekly') {
+      const [hour, minute] = editForm.time.split(':').map(Number)
+      const dayOfWeek = editForm.dayOfWeek ?? 1
+      cronExpression = `${minute} ${hour} * * ${dayOfWeek}`
+    } else if (editForm.scheduleType === 'monthly') {
+      const [hour, minute] = editForm.time.split(':').map(Number)
+      const dayOfMonth = editForm.dayOfMonth ?? 1
+      cronExpression = `${minute} ${hour} ${dayOfMonth} * *`
+    }
+
+    if (!cronExpression.trim()) {
+      toast.error('Invalid schedule')
       return
     }
-    updateCronMutation.mutate({ id, schedule: trimmed })
+    updateCronMutation.mutate({ id, schedule: cronExpression })
   }
 
   const handleCancelEdit = () => {
     setEditingScheduleId(null)
-    setEditCronValue('')
+    setEditForm({ scheduleType: 'daily', time: '09:00' })
   }
 
   const handleDeleteSchedule = (id: string) => {
@@ -345,40 +399,124 @@ export default function ManageReportsPage() {
                     </div>
                   </div>
 
-                  {/* Edit cron inline */}
+                  {/* Edit schedule form */}
                   {editingScheduleId === schedule.id && (
                     <div
                       className="border-t border-gray-200 dark:border-gray-700 p-4 bg-blue-50 dark:bg-blue-900/20"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex items-center gap-3">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                          Cron:
+                      <div className="space-y-4">
+                        <label className="block">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Frequency</span>
+                          <select
+                            value={editForm.scheduleType}
+                            onChange={e => setEditForm({...editForm, scheduleType: e.target.value as ScheduleFormState['scheduleType']})}
+                            className="w-full mt-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                          >
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="custom">Custom Cron</option>
+                          </select>
                         </label>
-                        <input
-                          type="text"
-                          value={editCronValue}
-                          onChange={(e) => setEditCronValue(e.target.value)}
-                          placeholder="0 9 * * *"
-                          className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        />
-                        <button
-                          onClick={() => handleSaveCron(schedule.id)}
-                          disabled={updateCronMutation.isPending}
-                          className="px-3 py-1.5 text-xs font-medium text-white bg-purple-900 hover:bg-purple-800 rounded disabled:opacity-50 transition-colors"
-                        >
-                          {updateCronMutation.isPending ? 'Saving...' : 'Save'}
-                        </button>
-                        <button
-                          onClick={handleCancelEdit}
-                          className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded transition-colors"
-                        >
-                          Cancel
-                        </button>
+
+                        {editForm.scheduleType === 'daily' && (
+                          <label className="block">
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Time</span>
+                            <input
+                              type="time"
+                              value={editForm.time}
+                              onChange={e => setEditForm({...editForm, time: e.target.value})}
+                              className="w-full mt-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                            />
+                          </label>
+                        )}
+
+                        {editForm.scheduleType === 'weekly' && (
+                          <>
+                            <label className="block">
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Day of Week</span>
+                              <select
+                                value={editForm.dayOfWeek ?? 1}
+                                onChange={e => setEditForm({...editForm, dayOfWeek: parseInt(e.target.value)})}
+                                className="w-full mt-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                              >
+                                <option value={0}>Sunday</option>
+                                <option value={1}>Monday</option>
+                                <option value={2}>Tuesday</option>
+                                <option value={3}>Wednesday</option>
+                                <option value={4}>Thursday</option>
+                                <option value={5}>Friday</option>
+                                <option value={6}>Saturday</option>
+                              </select>
+                            </label>
+                            <label className="block">
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Time</span>
+                              <input
+                                type="time"
+                                value={editForm.time}
+                                onChange={e => setEditForm({...editForm, time: e.target.value})}
+                                className="w-full mt-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                              />
+                            </label>
+                          </>
+                        )}
+
+                        {editForm.scheduleType === 'monthly' && (
+                          <>
+                            <label className="block">
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Day of Month</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={31}
+                                value={editForm.dayOfMonth ?? 1}
+                                onChange={e => setEditForm({...editForm, dayOfMonth: parseInt(e.target.value)})}
+                                className="w-full mt-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                              />
+                            </label>
+                            <label className="block">
+                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Time</span>
+                              <input
+                                type="time"
+                                value={editForm.time}
+                                onChange={e => setEditForm({...editForm, time: e.target.value})}
+                                className="w-full mt-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                              />
+                            </label>
+                          </>
+                        )}
+
+                        {editForm.scheduleType === 'custom' && (
+                          <label className="block">
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Cron Expression</span>
+                            <input
+                              type="text"
+                              placeholder="e.g., 0 9 * * 1"
+                              value={editForm.customCron || ''}
+                              onChange={e => setEditForm({...editForm, customCron: e.target.value})}
+                              className="w-full mt-1 px-3 py-2 text-sm font-mono border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Format: minute hour day month dayOfWeek</p>
+                          </label>
+                        )}
+
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            onClick={() => handleSaveSchedule(schedule.id)}
+                            disabled={updateCronMutation.isPending}
+                            className="px-4 py-2 text-sm font-medium text-white bg-purple-900 hover:bg-purple-800 rounded disabled:opacity-50 transition-colors"
+                          >
+                            {updateCronMutation.isPending ? 'Saving...' : 'Save Schedule'}
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
-                      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        Format: minute hour day month weekday (e.g., "0 9 * * 1" = Every Monday at 9:00 AM)
-                      </p>
                     </div>
                   )}
 
