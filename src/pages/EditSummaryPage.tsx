@@ -218,7 +218,7 @@ export default function EditSummaryPage() {
     if (!selectedDatasetId) return
     setIsGeneratingQuestions(true)
     try {
-      await n8nService.generateSampleQuestions(selectedDatasetId, datasetDesc, editedSummary, appSettings?.analyze_model)
+      await n8nService.generateSampleQuestions(selectedDatasetId, datasetDesc, editedSummary, appSettings?.analyze_model ?? undefined)
       queryClient.invalidateQueries({ queryKey: ['dataset-detail', selectedDatasetId] })
       toast.success('Sample questions generated')
     } catch (err) {
