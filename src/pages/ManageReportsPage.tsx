@@ -136,6 +136,8 @@ export default function ManageReportsPage() {
   const qc = useQueryClient()
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [showRunsIds, setShowRunsIds] = useState<Set<string>>(new Set())
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null)
+  const [editCronValue, setEditCronValue] = useState('')
 
   const { data: schedules = [], isLoading, error } = useQuery({
     queryKey: ['report-schedules'],
@@ -179,6 +181,40 @@ export default function ManageReportsPage() {
       toast.error(error instanceof Error ? error.message : 'Failed to update schedule')
     },
   })
+
+  const updateCronMutation = useMutation({
+    mutationFn: ({ id, schedule }: { id: string; schedule: string }) =>
+      pocketbaseService.updateReportSchedule(id, { schedule }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['report-schedules'] })
+      setEditingScheduleId(null)
+      setEditCronValue('')
+      toast.success('Schedule updated')
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to update schedule')
+    },
+  })
+
+  const handleEditSchedule = (schedule: ReportSchedule) => {
+    setEditingScheduleId(schedule.id)
+    setEditCronValue(schedule.schedule)
+  }
+
+  const handleSaveCron = (id: string) => {
+    const trimmed = editCronValue.trim()
+    const parts = trimmed.split(/\s+/)
+    if (parts.length !== 5) {
+      toast.error('Invalid cron format. Expected 5 parts: minute hour day month weekday')
+      return
+    }
+    updateCronMutation.mutate({ id, schedule: trimmed })
+  }
+
+  const handleCancelEdit = () => {
+    setEditingScheduleId(null)
+    setEditCronValue('')
+  }
 
   const handleDeleteSchedule = (id: string) => {
     if (window.confirm('Are you sure you want to delete this schedule?')) {
@@ -268,6 +304,13 @@ export default function ManageReportsPage() {
 
                     <div className="flex items-center gap-3 ml-4 flex-shrink-0">
                       <button
+                        onClick={(e) => { e.stopPropagation(); handleEditSchedule(schedule) }}
+                        className="px-2 py-1 text-xs font-medium text-white bg-gray-600 hover:bg-gray-500 rounded transition-colors"
+                        title="Edit schedule"
+                      >
+                        Edit
+                      </button>
+                      <button
                         onClick={(e) => { e.stopPropagation(); runNowMutation.mutate(schedule.id) }}
                         disabled={runNowMutation.isPending || schedule.last_run_status === 'running'}
                         className="px-2 py-1 text-xs font-medium text-white bg-purple-900 hover:bg-purple-800 rounded disabled:opacity-50 transition-colors"
@@ -301,6 +344,43 @@ export default function ManageReportsPage() {
                       </svg>
                     </div>
                   </div>
+
+                  {/* Edit cron inline */}
+                  {editingScheduleId === schedule.id && (
+                    <div
+                      className="border-t border-gray-200 dark:border-gray-700 p-4 bg-blue-50 dark:bg-blue-900/20"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center gap-3">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                          Cron:
+                        </label>
+                        <input
+                          type="text"
+                          value={editCronValue}
+                          onChange={(e) => setEditCronValue(e.target.value)}
+                          placeholder="0 9 * * *"
+                          className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                        <button
+                          onClick={() => handleSaveCron(schedule.id)}
+                          disabled={updateCronMutation.isPending}
+                          className="px-3 py-1.5 text-xs font-medium text-white bg-purple-900 hover:bg-purple-800 rounded disabled:opacity-50 transition-colors"
+                        >
+                          {updateCronMutation.isPending ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        Format: minute hour day month weekday (e.g., "0 9 * * 1" = Every Monday at 9:00 AM)
+                      </p>
+                    </div>
+                  )}
 
                   {/* Schedule details */}
                   {isExpanded && (
