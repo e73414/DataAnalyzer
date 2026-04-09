@@ -41,6 +41,7 @@ export default function EditSummaryPage() {
   const [describeModalOpen, setDescribeModalOpen] = useState(false)
   const [aiDescribeResult, setAiDescribeResult] = useState('')
   const [isDescribing, setIsDescribing] = useState(false)
+  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false)
 
   const {
     datasets: datasets = [],
@@ -210,6 +211,20 @@ export default function EditSummaryPage() {
       setDescribeModalOpen(false)
     } finally {
       setIsDescribing(false)
+    }
+  }
+
+  const handleGenerateSampleQuestions = async () => {
+    if (!selectedDatasetId) return
+    setIsGeneratingQuestions(true)
+    try {
+      await n8nService.generateSampleQuestions(selectedDatasetId, datasetDesc, editedSummary)
+      queryClient.invalidateQueries({ queryKey: ['dataset-detail', selectedDatasetId] })
+      toast.success('Sample questions generated')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to generate sample questions')
+    } finally {
+      setIsGeneratingQuestions(false)
     }
   }
 
@@ -422,7 +437,17 @@ export default function EditSummaryPage() {
                       </div>
 
                       <div>
-                        <label className="label">Sample Questions</label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="label mb-0">Sample Questions</label>
+                          <button
+                            type="button"
+                            onClick={handleGenerateSampleQuestions}
+                            disabled={isGeneratingQuestions || !selectedDatasetId}
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50"
+                          >
+                            {isGeneratingQuestions ? 'Generating…' : 'Have AI build sample questions'}
+                          </button>
+                        </div>
                         {sampleQuestions.length > 0 && (
                           <ul className="mb-3 space-y-1.5">
                             {sampleQuestions.map(q => (

@@ -31,6 +31,7 @@ const CHECK_REPORT_PROGRESS_WEBHOOK_PATH = 'webhook/check-report-progress'
 const RUN_FORMATTER_WEBHOOK_PATH = 'webhook/run-formatter'
 const SELECT_DATASET_WEBHOOK_PATH = 'webhook/select-dataset'
 const VALIDATE_REPORT_WEBHOOK_PATH = 'webhook/validate-report'
+const GENERATE_SAMPLE_QUESTIONS_WEBHOOK_PATH = 'webhook/generate-sample-questions'
 
 interface SendReportRequest {
   emails: string[]
@@ -698,6 +699,25 @@ export const n8nService = {
     const fullData = response.data as any
     if (fullData?.status === 'error') {
       throw new Error(fullData?.error || 'Failed to start formatter')
+    }
+  },
+
+  async generateSampleQuestions(datasetId: string, datasetDesc: string, datasetSummary: string): Promise<void> {
+    const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
+      skill: 'n8n-webhook',
+      params: {
+        webhookPath: GENERATE_SAMPLE_QUESTIONS_WEBHOOK_PATH,
+      },
+      input: {
+        dataset_id: datasetId,
+        dataset_desc: datasetDesc,
+        dataset_summary: datasetSummary,
+      },
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = response.data as any
+    if (data?.status === 'error') {
+      throw new Error(data?.error || 'Failed to generate sample questions')
     }
   },
 }
