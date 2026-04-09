@@ -702,7 +702,7 @@ export const n8nService = {
     }
   },
 
-  async generateSampleQuestions(datasetId: string, datasetDesc: string, datasetSummary: string): Promise<void> {
+  async generateSampleQuestions(datasetId: string, datasetDesc: string, datasetSummary: string, model?: string): Promise<void> {
     const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
       skill: 'n8n-webhook',
       params: {
@@ -712,6 +712,7 @@ export const n8nService = {
         dataset_id: datasetId,
         dataset_desc: datasetDesc,
         dataset_summary: datasetSummary,
+        ...(model && { model }),
       },
     })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
