@@ -733,12 +733,18 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   }, [])
 
   const [wasStopped, setWasStopped] = useState(false)
+  const [formatterStopped, setFormatterStopped] = useState(false)
 
   const handleStopExecution = useCallback(() => {
     executionCancelledRef.current = true
     stopPolling()
     setIsExecuting(false)
     setWasStopped(true)
+    if (formatterTriggeredRef.current) {
+      setFormatterStopped(true)
+      setFormatterTriggered(false)
+      formatterTriggeredRef.current = false
+    }
     // Mark any in-progress steps as error so they stop spinning visually
     setExecutionProgress(prev => prev ? {
       ...prev,
@@ -748,6 +754,40 @@ const [isEditingReport, setIsEditingReport] = useState(false)
     } : null)
     toast('Execution stopped', { icon: '\u23F9' })
   }, [stopPolling])
+
+  const handleRunFormatter = useCallback(async () => {
+    if (!reportId || !session?.email) return
+    setFormatterStopped(false)
+    setFormatterTriggered(true)
+    formatterTriggeredRef.current = true
+    setIsExecuting(true)
+    executionCancelledRef.current = false
+    completionHandledRef.current = false
+    stallCountRef.current = 0
+    // Clear stale error state so the UI shows consolidating (not error) while formatter runs
+    setExecutionProgress(prev => prev ? { ...prev, status: 'in_progress', error_message: null } : null)
+    try {
+      await n8nService.runFormatter({
+        reportId,
+        email: session.email,
+        model: appSettings?.report_model || effectiveExecuteModel,
+        templateId: userProfile?.template_id,
+        detailLevel,
+        reportDetail,
+        prompt,
+        produceReport: presentFormattedReportRef.current ? 'Yes' : 'No',
+      })
+      pollingRef.current = setInterval(() => pollProgressRef.current?.(reportId), 5000)
+      setTimeout(() => pollProgressRef.current?.(reportId), 2000)
+    } catch (err) {
+      if (executionCancelledRef.current) return
+      setFormatterTriggered(false)
+      formatterTriggeredRef.current = false
+      setFormatterStopped(true)
+      setIsExecuting(false)
+      toast.error(err instanceof Error ? err.message : 'Failed to run formatter')
+    }
+  }, [reportId, session, appSettings, effectiveExecuteModel, userProfile, detailLevel, reportDetail, prompt])
 
   // Extract HTML content from final_report — may be raw HTML, JSON { subject, content }, or other
   const extractReportHtml = (raw: string | null): string => {
@@ -958,20 +998,36 @@ const handleSaveReport = async () => {
   const pollProgress = useCallback(async (rptId: string) => {
     try {
       const progress = await n8nService.checkReportProgress(rptId)
-      // Only update UI when we have real step data — never overwrite pre-populated steps with empty
-      if (progress.steps.length > 0 || progress.status === 'completed' || progress.status === 'error') {
-        setExecutionProgress(progress)
-      }
 
       if (progress.status === 'completed') {
         stallCountRef.current = 0
+        setExecutionProgress(progress)
         handleExecutionComplete(progress)
       } else if (progress.status === 'error') {
-        stallCountRef.current = 0
-        stopPolling()
-        setIsExecuting(false)
-        toast.error(progress.error_message || 'Execution failed — one or more steps encountered an error')
+        if (formatterTriggeredRef.current) {
+          // DB may still hold a stale error from the previous run while the re-triggered
+          // formatter executes on n8n. Keep polling until it completes or times out (~60s).
+          stallCountRef.current++
+          if (stallCountRef.current >= 12) {
+            stopPolling()
+            setIsExecuting(false)
+            setFormatterTriggered(false)
+            formatterTriggeredRef.current = false
+            setFormatterStopped(true)
+            setExecutionProgress(progress)
+            toast.error(progress.error_message || 'Formatter failed to complete')
+          }
+          // Do not overwrite the locally-cleared in_progress state with stale API error
+        } else {
+          stallCountRef.current = 0
+          if (progress.steps.length > 0) setExecutionProgress(progress)
+          stopPolling()
+          setIsExecuting(false)
+          toast.error(progress.error_message || 'Execution failed — one or more steps encountered an error')
+        }
       } else {
+        // in_progress — only update when we have real step data
+        if (progress.steps.length > 0) setExecutionProgress(progress)
         // Check for stalled execution: all steps finished but no terminal state
         // Skip stall check while formatter is running — it can take several minutes
         const allStepsDone = progress.steps.length > 0 && progress.steps.every(
@@ -1089,6 +1145,7 @@ const handleSaveReport = async () => {
     setIsExecuting(true)
     setFormatterTriggered(false)
     formatterTriggeredRef.current = false
+    setFormatterStopped(false)
     completionHandledRef.current = false
     setReport('')
     setReportSaved(false)
@@ -1187,6 +1244,7 @@ const handleSaveReport = async () => {
     setWasStopped(false)
     setFormatterTriggered(false)
     formatterTriggeredRef.current = false
+    setFormatterStopped(false)
     completionHandledRef.current = false
     setExecutionProgress(prev => prev ? {
       ...prev,
@@ -2115,6 +2173,21 @@ const handleSaveReport = async () => {
                             }`}>
                               {step.status}
                             </span>
+                            {step.status === 'completed' &&
+                              step.step_number !== 0 &&
+                              !/(\\(chunk \d+ of \d+\\))/i.test(step.purpose ?? '') &&
+                              (step.step_result?.includes('<!--LIST_CSV:') || !!reportId) && (
+                                <button
+                                  onClick={() => downloadListCsv(step.step_number, step.step_result)}
+                                  className="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 transition-colors"
+                                  title="Download step CSV"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                  CSV
+                                </button>
+                              )}
                           </div>
                           {/* SQL — shown expanded while running, collapsed after */}
                           {stepSql && step.status === 'started' && (
@@ -2156,12 +2229,47 @@ const handleSaveReport = async () => {
                   {/* Consolidation indicator — only after formatter has been triggered */}
                   {formatterTriggered && !executionProgress.final_report && executionProgress.status !== 'error' && (
                     <div className="flex items-center gap-3 px-4 py-3 border rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800">
-                      <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-indigo-500 border-t-transparent"></span>
-                      <span className="text-sm text-indigo-700 dark:text-indigo-300 font-medium">
+                      <span className="inline-block animate-spin rounded-full h-5 w-5 border-2 border-indigo-500 border-t-transparent flex-shrink-0"></span>
+                      <span className="text-sm text-indigo-700 dark:text-indigo-300 font-medium flex-1">
                         All steps complete — consolidating final report...
                       </span>
+                      <button
+                        type="button"
+                        onClick={handleStopExecution}
+                        className="flex-shrink-0 px-3 py-1 text-xs font-medium rounded bg-red-600 text-white hover:bg-red-700 transition-colors"
+                      >
+                        Stop
+                      </button>
                     </div>
                   )}
+                  {(() => {
+                    const allStepsComplete = executionProgress.steps
+                      .filter(s => s.step_number !== 0)
+                      .every(s => s.status === 'completed')
+                    const formatterFailed = formatterTriggered && executionProgress.status === 'error'
+                    const showRunFormatter =
+                      !executionProgress.final_report &&
+                      !isExecuting &&
+                      allStepsComplete &&
+                      (formatterStopped || formatterFailed)
+                    if (!showRunFormatter) return null
+                    return (
+                      <div className="flex items-center gap-3 px-4 py-3 border rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
+                        <span className="text-yellow-500 text-lg leading-none">&#9646;&#9646;</span>
+                        <span className="text-sm text-yellow-700 dark:text-yellow-300 font-medium flex-1">
+                          {formatterFailed
+                            ? 'Formatter failed — all data steps completed'
+                            : 'Report consolidation was stopped'}
+                        </span>
+                        <button
+                          onClick={handleRunFormatter}
+                          className="flex-shrink-0 px-3 py-1 text-xs font-medium rounded bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                        >
+                          Run Formatter
+                        </button>
+                      </div>
+                    )
+                  })()}
 
                   {/* Error banner */}
                   {executionProgress.status === 'error' && executionProgress.error_message && (
