@@ -462,6 +462,7 @@ export const pocketbaseService = {
   async createReportSchedule(data: {
     conversation_id: string
     schedule: string
+    timezone?: string
     plan_model: string
     execute_model: string
     dataset_ids: string

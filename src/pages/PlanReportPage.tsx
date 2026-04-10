@@ -31,6 +31,21 @@ const CHUNK_THRESHOLD = Math.min(...CHUNK_THRESHOLD_OPTIONS) // fixed trigger th
 const BASELINE_COLUMNS = 10  // column count at which maxChunkRows applies 1:1
 const MIN_CHUNK_ROWS = 500
 
+const COMMON_TIMEZONES = [
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+  { value: 'America/Chicago', label: 'Central Time (CT)' },
+  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Toronto', label: 'Toronto (ET)' },
+  { value: 'America/Vancouver', label: 'Vancouver (PT)' },
+  { value: 'Europe/London', label: 'London (GMT/BST)' },
+  { value: 'Europe/Paris', label: 'Paris (CET)' },
+  { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
+  { value: 'Asia/Shanghai', label: 'Shanghai (CST)' },
+  { value: 'Australia/Sydney', label: 'Sydney (AEST)' },
+  { value: 'UTC', label: 'UTC' },
+]
+
 // Computes the effective chunk row count for a dataset.
 // maxChunkRows = user-selected limit for a baseline-column dataset;
 // wider datasets get proportionally fewer rows to keep AI context load roughly constant.
@@ -285,10 +300,12 @@ const [isEditingReport, setIsEditingReport] = useState(false)
     dayOfWeek?: number
     dayOfMonth?: number
     customCron?: string
+    timezone: string
     replanOnRun: boolean
   }>({
     scheduleType: 'daily',
     time: '09:00',
+    timezone: 'America/Los_Angeles',
     replanOnRun: false,
   })
   const editorRef = useRef<HTMLIFrameElement>(null)
@@ -864,6 +881,7 @@ const handleSaveReport = async () => {
       await pocketbaseService.createReportSchedule({
         conversation_id: savedRecordId,
         schedule: cronExpression,
+        timezone: scheduleForm.timezone,
         plan_model: effectivePlanModel,
         execute_model: effectiveExecuteModel,
         dataset_ids: datasetIds,
@@ -876,7 +894,7 @@ const handleSaveReport = async () => {
 
       toast.success('Schedule created')
       setScheduleFormOpen(false)
-      setScheduleForm({ scheduleType: 'daily', time: '09:00', replanOnRun: false })
+      setScheduleForm({ scheduleType: 'daily', time: '09:00', timezone: 'America/Los_Angeles', replanOnRun: false })
 
       // Refresh schedules
       const updated = await pocketbaseService.getReportSchedules()
@@ -2482,6 +2500,19 @@ const handleSaveReport = async () => {
                         <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Format: minute hour day month dayOfWeek</p>
                       </label>
                     )}
+
+                    <label className="block">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Timezone</span>
+                      <select
+                        value={scheduleForm.timezone}
+                        onChange={e => setScheduleForm({...scheduleForm, timezone: e.target.value})}
+                        className="input-field w-full mt-1"
+                      >
+                        {COMMON_TIMEZONES.map(tz => (
+                          <option key={tz.value} value={tz.value}>{tz.label}</option>
+                        ))}
+                      </select>
+                    </label>
 
                     <label className="flex items-start gap-2 cursor-pointer">
                       <input

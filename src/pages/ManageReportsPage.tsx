@@ -14,7 +14,23 @@ type ScheduleFormState = {
   dayOfWeek?: number
   dayOfMonth?: number
   customCron?: string
+  timezone: string
 }
+
+const COMMON_TIMEZONES = [
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+  { value: 'America/Chicago', label: 'Central Time (CT)' },
+  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Toronto', label: 'Toronto (ET)' },
+  { value: 'America/Vancouver', label: 'Vancouver (PT)' },
+  { value: 'Europe/London', label: 'London (GMT/BST)' },
+  { value: 'Europe/Paris', label: 'Paris (CET)' },
+  { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
+  { value: 'Asia/Shanghai', label: 'Shanghai (CST)' },
+  { value: 'Australia/Sydney', label: 'Sydney (AEST)' },
+  { value: 'UTC', label: 'UTC' },
+]
 
 function cronToFriendly(cron: string): string {
   const parts = cron.split(' ').filter(p => p.trim())
@@ -39,7 +55,7 @@ function cronToFriendly(cron: string): string {
   return cron
 }
 
-function parseCronToForm(cron: string): ScheduleFormState {
+function parseCronToForm(cron: string): Omit<ScheduleFormState, 'timezone'> {
   const parts = cron.split(' ').filter(p => p.trim())
   if (parts.length !== 5) {
     return { scheduleType: 'custom', time: '09:00', customCron: cron }
@@ -179,7 +195,7 @@ export default function ManageReportsPage() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [showRunsIds, setShowRunsIds] = useState<Set<string>>(new Set())
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState<ScheduleFormState>({ scheduleType: 'daily', time: '09:00' })
+  const [editForm, setEditForm] = useState<ScheduleFormState>({ scheduleType: 'daily', time: '09:00', timezone: 'America/Los_Angeles' })
 
   const { data: schedules = [], isLoading, error } = useQuery({
     queryKey: ['report-schedules'],
@@ -225,12 +241,12 @@ export default function ManageReportsPage() {
   })
 
   const updateCronMutation = useMutation({
-    mutationFn: ({ id, schedule }: { id: string; schedule: string }) =>
-      pocketbaseService.updateReportSchedule(id, { schedule }),
+    mutationFn: ({ id, schedule, timezone }: { id: string; schedule: string; timezone: string }) =>
+      pocketbaseService.updateReportSchedule(id, { schedule, timezone }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['report-schedules'] })
       setEditingScheduleId(null)
-      setEditForm({ scheduleType: 'daily', time: '09:00' })
+      setEditForm({ scheduleType: 'daily', time: '09:00', timezone: 'America/Los_Angeles' })
       toast.success('Schedule updated')
     },
     onError: (error) => {
@@ -240,7 +256,11 @@ export default function ManageReportsPage() {
 
   const handleEditSchedule = (schedule: ReportSchedule) => {
     setEditingScheduleId(schedule.id)
-    setEditForm(parseCronToForm(schedule.schedule))
+    const cronParts = parseCronToForm(schedule.schedule)
+    setEditForm({
+      ...cronParts,
+      timezone: schedule.timezone || 'America/Los_Angeles'
+    })
   }
 
   const handleSaveSchedule = (id: string) => {
@@ -262,12 +282,12 @@ export default function ManageReportsPage() {
       toast.error('Invalid schedule')
       return
     }
-    updateCronMutation.mutate({ id, schedule: cronExpression })
+    updateCronMutation.mutate({ id, schedule: cronExpression, timezone: editForm.timezone })
   }
 
   const handleCancelEdit = () => {
     setEditingScheduleId(null)
-    setEditForm({ scheduleType: 'daily', time: '09:00' })
+    setEditForm({ scheduleType: 'daily', time: '09:00', timezone: 'America/Los_Angeles' })
   }
 
   const handleDeleteSchedule = (id: string) => {
@@ -344,7 +364,12 @@ export default function ManageReportsPage() {
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-gray-600 dark:text-gray-400">{cronToFriendly(schedule.schedule)}</span>
+                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                          {cronToFriendly(schedule.schedule)}
+                          {schedule.timezone && (
+                            <span className="ml-1 text-gray-400">({COMMON_TIMEZONES.find(tz => tz.value === schedule.timezone)?.label || schedule.timezone})</span>
+                          )}
+                        </span>
                         <span className={`px-2 py-0.5 text-xs font-medium rounded ${statusBadge.color}`}>
                           {statusBadge.label}
                         </span>
@@ -500,6 +525,19 @@ export default function ManageReportsPage() {
                             <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Format: minute hour day month dayOfWeek</p>
                           </label>
                         )}
+
+                        <label className="block">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Timezone</span>
+                          <select
+                            value={editForm.timezone}
+                            onChange={e => setEditForm({...editForm, timezone: e.target.value})}
+                            className="w-full mt-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                          >
+                            {COMMON_TIMEZONES.map(tz => (
+                              <option key={tz.value} value={tz.value}>{tz.label}</option>
+                            ))}
+                          </select>
+                        </label>
 
                         <div className="flex gap-2 pt-2">
                           <button

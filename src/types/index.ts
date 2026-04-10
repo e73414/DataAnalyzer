@@ -359,6 +359,7 @@ export interface ReportSchedule {
   conversation_id: string
   user_email: string
   schedule: string                        // cron expression (e.g., '0 9 * * 1')
+  timezone?: string                       // IANA timezone (e.g., 'America/Los_Angeles')
   enabled: boolean
   plan_model: string
   execute_model: string
