@@ -566,7 +566,24 @@ const [isEditingReport, setIsEditingReport] = useState(false)
     }
   }
 
-  const downloadListCsv = async (stepNumber: number) => {
+  const downloadListCsv = async (stepNumber: number, stepResult?: string) => {
+    // If the step result contains an embedded base64 CSV, decode and download it directly
+    const csvMatch = stepResult?.match(/<!--LIST_CSV:([A-Za-z0-9+/=\s]+)-->/)
+    if (csvMatch) {
+      try {
+        const csvData = atob(csvMatch[1].replace(/\s/g, ''))
+        const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `step_${stepNumber}.csv`
+        a.click()
+        setTimeout(() => URL.revokeObjectURL(url), 100)
+        return
+      } catch {
+        // fall through to API if decode fails
+      }
+    }
     if (!reportId) return
     try {
       const response = await mcpN8nApi.get(`/step-export/${reportId}/${stepNumber}/csv`, {
@@ -2115,9 +2132,9 @@ const handleSaveReport = async () => {
                             </details>
                           )}
                           {step.step_result && step.status !== 'started' && (() => {
-                            const hasCsv = step.step_result!.includes('<!--LIST_TABLE-->')
+                            const hasCsv = step.step_result!.includes('<!--LIST_CSV:')
                             const displayResult = hasCsv
-                              ? step.step_result!.replace('<!--LIST_TABLE-->', '').trim()
+                              ? step.step_result!.replace(/<!--LIST_CSV:[A-Za-z0-9+/=\s]*-->/, '').trim()
                               : step.step_result!
                             return (
                               <>
@@ -2197,11 +2214,15 @@ const handleSaveReport = async () => {
                 </div>
                 <div className="flex items-center gap-3">
                   {(() => {
-                    const listStep = executionProgress?.steps.find(s => s.status === 'completed' && s.step_result?.includes('<!--LIST_TABLE-->') && !/(\\(chunk \d+ of \d+\\))/i.test(s.purpose ?? ''))
+                    const completedSteps = executionProgress?.steps.filter(s => s.status === 'completed' && !/(\\(chunk \d+ of \d+\\))/i.test(s.purpose ?? '')) ?? []
+                    // Prefer the last step with embedded CSV (final join result has all columns)
+                    const embeddedStep = [...completedSteps].reverse().find(s => s.step_result?.includes('<!--LIST_CSV:'))
+                    // Fall back to last completed step for API-based download (aggregate steps with raw_table_name)
+                    const listStep = embeddedStep ?? (reportId ? [...completedSteps].reverse().find(s => s.status === 'completed') : undefined)
                     return listStep ? (
                       <button
                         type="button"
-                        onClick={() => downloadListCsv(listStep.step_number)}
+                        onClick={() => downloadListCsv(listStep.step_number, listStep.step_result)}
                         className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors"
                       >
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2317,9 +2338,9 @@ const handleSaveReport = async () => {
                     <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
                       {executionProgress.steps.map(step => {
                         const isChunkStep = /(\\(chunk \d+ of \d+\\))/i.test(step.purpose ?? '')
-                        const hasCsv = !isChunkStep && step.status === 'completed' && step.step_number !== 0
-                        const displayResult = step.step_result?.includes('<!--LIST_TABLE-->')
-                          ? step.step_result!.replace('<!--LIST_TABLE-->', '').trim()
+                        const hasCsv = !isChunkStep && step.status === 'completed' && step.step_number !== 0 && (step.step_result?.includes('<!--LIST_CSV:') || !!reportId)
+                        const displayResult = step.step_result?.includes('<!--LIST_CSV:')
+                          ? step.step_result!.replace(/<!--LIST_CSV:[A-Za-z0-9+/=\s]*-->/, '').trim()
                           : step.step_result ?? ''
                         return (
                           <div key={step.step_number} className="px-4 py-3">
@@ -2339,10 +2360,10 @@ const handleSaveReport = async () => {
                               }`}>
                                 {step.status}
                               </span>
-                              {hasCsv && reportId && (
+                              {hasCsv && (step.step_result?.includes('<!--LIST_CSV:') || reportId) && (
                                 <button
                                   type="button"
-                                  onClick={() => downloadListCsv(step.step_number)}
+                                  onClick={() => downloadListCsv(step.step_number, step.step_result)}
                                   className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded transition-colors flex-shrink-0"
                                 >
                                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
