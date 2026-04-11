@@ -15,6 +15,20 @@ export const HELP_TOPICS: HelpTopic[] = [
     icon: '🔍'
   },
   {
+    slug: 'results',
+    appPath: '/results',
+    title: 'Results',
+    description: 'View and export your AI-generated analysis results',
+    icon: '📈'
+  },
+  {
+    slug: 'edit-summary',
+    appPath: '/edit-summary',
+    title: 'Edit Summary',
+    description: 'Refine and edit AI-generated data summaries',
+    icon: '✏️'
+  },
+  {
     slug: 'upload-dataset',
     appPath: '/upload-dataset',
     title: 'Upload Dataset',
@@ -27,6 +41,13 @@ export const HELP_TOPICS: HelpTopic[] = [
     title: 'Update Dataset',
     description: 'Add new data to existing datasets',
     icon: '🔄'
+  },
+  {
+    slug: 'delete-dataset',
+    appPath: '/delete-dataset',
+    title: 'Delete Dataset',
+    description: 'Remove datasets from the system',
+    icon: '🗑️'
   },
   {
     slug: 'csv-optimizer',
@@ -50,11 +71,25 @@ export const HELP_TOPICS: HelpTopic[] = [
     icon: '📊'
   },
   {
+    slug: 'upload-report-template',
+    appPath: '/upload-report-template',
+    title: 'Upload Report Template',
+    description: 'Create reusable report templates',
+    icon: '📄'
+  },
+  {
     slug: 'history',
     appPath: '/history',
     title: 'History',
     description: 'View your conversation and analysis history',
     icon: '📝'
+  },
+  {
+    slug: 'manage-reports',
+    appPath: '/manage-reports',
+    title: 'Manage Reports',
+    description: 'View, edit, and manage scheduled reports',
+    icon: '📋'
   },
   {
     slug: 'ingestion-pipelines',
@@ -97,6 +132,34 @@ export const HELP_TOPICS: HelpTopic[] = [
     title: 'Manage Questions',
     description: 'Create and organize saved questions',
     icon: '✏️'
+  },
+  {
+    slug: 'admin-profiles',
+    appPath: '/admin/profiles',
+    title: 'Admin - Profiles',
+    description: 'Manage company, business unit, and team profile codes',
+    icon: '🏢'
+  },
+  {
+    slug: 'admin-users',
+    appPath: '/admin/users',
+    title: 'Admin - Users',
+    description: 'Create and manage user accounts and access profiles',
+    icon: '👥'
+  },
+  {
+    slug: 'admin-templates',
+    appPath: '/admin/templates',
+    title: 'Admin - Templates',
+    description: 'Manage dataset access templates and permissions',
+    icon: '📄'
+  },
+  {
+    slug: 'admin-settings',
+    appPath: '/admin/settings',
+    title: 'Admin - Settings',
+    description: 'Configure global application settings',
+    icon: '⚙️'
   }
 ]
 
