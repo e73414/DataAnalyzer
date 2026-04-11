@@ -27,7 +27,7 @@ interface LoadedPlanState {
   scheduleConversationId?: string
 }
 
-const CHUNK_THRESHOLD_OPTIONS = [5_000, 10_000, 15_000, 20_000] as const
+const CHUNK_THRESHOLD_OPTIONS = [5_000, 10_000, 15_000, 20_000, 50_000, 100_000, 200_000] as const
 const CHUNK_THRESHOLD = Math.min(...CHUNK_THRESHOLD_OPTIONS) // fixed trigger threshold (lowest option)
 
 const COMMON_TIMEZONES = [

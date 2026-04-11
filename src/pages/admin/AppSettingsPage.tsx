@@ -8,10 +8,13 @@ import type { NavLink, AIModel } from '../../types'
 import { useSession } from '../../context/SessionContext'
 
 const CHUNK_OPTIONS = [
-  { value: '5000',  label: '5,000 rows' },
-  { value: '10000', label: '10,000 rows' },
-  { value: '15000', label: '15,000 rows' },
-  { value: '20000', label: '20,000 rows' },
+  { value: '5000',   label: '5,000 rows' },
+  { value: '10000',  label: '10,000 rows' },
+  { value: '15000',  label: '15,000 rows' },
+  { value: '20000',  label: '20,000 rows' },
+  { value: '50000',  label: '50,000 rows' },
+  { value: '100000', label: '100,000 rows' },
+  { value: '200000', label: '200,000 rows' },
 ]
 
 const REPORT_DETAIL_OPTIONS = ['Simple Report', 'Detailed Report']
