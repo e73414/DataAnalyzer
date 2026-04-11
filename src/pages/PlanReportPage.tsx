@@ -45,29 +45,19 @@ const COMMON_TIMEZONES = [
   { value: 'UTC', label: 'UTC' },
 ]
 
-// Wraps a direct dataset SQL query in a CTE that pages through source rows using LIMIT/OFFSET.
-// Finds the first top-level FROM clause (skipping subqueries) and replaces it with chunk_src.
+// Wraps a query so each chunk pages through the RESULTS of the full query (not source rows).
+// Using LIMIT/OFFSET on the full-query result ensures the WHERE clause filters before the
+// offset is applied, preventing empty chunks when qualifying rows are clustered in a specific
+// source-row range.
 function wrapSqlWithOffset(sql: string, chunkSize: number, offset: number): string {
   // Unescape JSON-escaped quotes that AI models sometimes emit (\" → ") so Postgres gets valid SQL
-  const flat = sql.replace(/\\"/g, '"').replace(/\s+/g, ' ').trim()
-  // SQL that already starts with a WITH clause can't be safely chunked without complex CTE
-  // rewriting — fall back to the original SQL and let the logic field guide the AI.
-  if (/^\s*with\s+/i.test(flat)) return sql.replace(/\\"/g, '"')
-  // Exclude ( and ) from the char class so inline subqueries (FROM (SELECT ...)) are not
-  // mistakenly matched as table names; the paren-balance check below handles function calls.
-  const fromRe = /\bFROM\s+("?[a-zA-Z0-9_\-.]+"?)/gi
-  let m: RegExpExecArray | null
-  let tableName: string | null = null
-  while ((m = fromRe.exec(flat)) !== null) {
-    const before = flat.slice(0, m.index)
-    const opens = (before.match(/\(/g) ?? []).length
-    const closes = (before.match(/\)/g) ?? []).length
-    if (opens === closes) { tableName = m[1]; break }
-  }
-  if (!tableName) return sql.replace(/\\"/g, '"')
-  const escaped = tableName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const modified = flat.replace(new RegExp(`\\bFROM\\s+${escaped}`, 'i'), 'FROM chunk_src')
-  return `WITH chunk_src AS (\n  SELECT * FROM ${tableName} ORDER BY 1 LIMIT ${chunkSize} OFFSET ${offset}\n)\n${modified}`
+  const unescaped = sql.replace(/\\"/g, '"')
+  const flat = unescaped.replace(/\s+/g, ' ').trim()
+  // SQL that already starts with a WITH clause can't be nested in another CTE —
+  // return unchanged and let the logic field guide the AI.
+  if (/^\s*with\s+/i.test(flat)) return unescaped
+  // Wrap the full query and page its results so OFFSET skips real filtered/aggregated rows.
+  return `WITH _chunk AS (\n  ${flat}\n)\nSELECT * FROM _chunk ORDER BY 1 LIMIT ${chunkSize} OFFSET ${offset}`
 }
 
 // Infers implicit dependencies from SQL when the plan's dependencies array is empty.
@@ -124,16 +114,19 @@ function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[], thres
           query_strategy: {
             ...step.query_strategy,
             sql: chunkSql || undefined,
-            logic: `PAGINATED CHUNK ${i + 1} OF ${numChunks} (source rows ${offset + 1}–${offset + chunkSize}):
-CRITICAL — LIMIT/OFFSET must scope the SOURCE ROWS before any filtering or aggregation, not the output rows. Use this CTE pattern — do not deviate:
+            logic: `CHUNK ${i + 1} OF ${numChunks} (result rows ${offset + 1}–${offset + chunkSize}):
+The provided SQL wraps the FULL query in a CTE and returns result rows ${offset + 1}–${offset + chunkSize}.
+This means all WHERE filtering and aggregation run first; OFFSET then selects a non-overlapping slice of the final result.
+Each chunk contains distinct result rows — the same row will NOT appear in another chunk.
+If you need to regenerate the SQL, use this pattern — do NOT deviate:
 
-  WITH chunk_src AS (
-    SELECT * FROM <dataset_view> ORDER BY 1 LIMIT ${chunkSize} OFFSET ${offset}
+  WITH _chunk AS (
+    <full original query here, including WHERE and GROUP BY>
   )
-  SELECT ... FROM chunk_src WHERE ... GROUP BY ...
+  SELECT * FROM _chunk ORDER BY 1 LIMIT ${chunkSize} OFFSET ${offset}
 
-Replace <dataset_view> with the actual view name. Do NOT add LIMIT or OFFSET anywhere outside the CTE. This ensures this chunk only processes rows ${offset + 1}–${offset + chunkSize} of the source data.
-Return raw counts and sums (not percentages or averages) so the merge step can aggregate correctly across all chunks.
+Do NOT add LIMIT, OFFSET, or WHERE outside the inner query. Return the rows exactly as produced.
+Return raw counts and sums (not percentages or averages) so the merge step can aggregate correctly.
 ${step.query_strategy?.logic ?? ''}`,
           },
         })
