@@ -50,7 +50,12 @@ const COMMON_TIMEZONES = [
 function wrapSqlWithOffset(sql: string, chunkSize: number, offset: number): string {
   // Unescape JSON-escaped quotes that AI models sometimes emit (\" → ") so Postgres gets valid SQL
   const flat = sql.replace(/\\"/g, '"').replace(/\s+/g, ' ').trim()
-  const fromRe = /\bFROM\s+("?[a-zA-Z0-9_\-.()]+"?)/gi
+  // SQL that already starts with a WITH clause can't be safely chunked without complex CTE
+  // rewriting — fall back to the original SQL and let the logic field guide the AI.
+  if (/^\s*with\s+/i.test(flat)) return sql.replace(/\\"/g, '"')
+  // Exclude ( and ) from the char class so inline subqueries (FROM (SELECT ...)) are not
+  // mistakenly matched as table names; the paren-balance check below handles function calls.
+  const fromRe = /\bFROM\s+("?[a-zA-Z0-9_\-.]+"?)/gi
   let m: RegExpExecArray | null
   let tableName: string | null = null
   while ((m = fromRe.exec(flat)) !== null) {
