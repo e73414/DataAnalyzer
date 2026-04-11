@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -122,6 +122,7 @@ export default function ResultsPage() {
   const location = useLocation()
   const { session, setAIModel } = useSession()
   const { appSettings } = useAppSettings()
+  const queryClient = useQueryClient()
   const [conversation, setConversation] = useState<ConversationItem[]>([])
   const [followUpPrompt, setFollowUpPrompt] = useState('')
   const [selectedModelId, setSelectedModelId] = useState(session?.aiModel || '')
@@ -227,6 +228,7 @@ export default function ResultsPage() {
           durationSeconds: state.durationSeconds,
         }).then((saved) => {
           savedConversationIds.current.set(0, saved.id)
+          queryClient.invalidateQueries({ queryKey: ['conversation-history', session!.email] })
         }).catch((err) => {
           console.error('Failed to save conversation to history:', err)
         })
@@ -335,6 +337,7 @@ export default function ResultsPage() {
         durationSeconds: duration,
       }).then((saved) => {
         savedConversationIds.current.set(newIndex, saved.id)
+        queryClient.invalidateQueries({ queryKey: ['conversation-history', session.email] })
       }).catch((err) => {
         console.error('Failed to save conversation to history:', err)
       })
@@ -436,6 +439,7 @@ export default function ResultsPage() {
         durationSeconds: duration,
       }).then(saved => {
         savedConversationIds.current.set(newIndex, saved.id)
+        queryClient.invalidateQueries({ queryKey: ['conversation-history', session.email] })
       }).catch(err => console.error('Failed to save conversation to history:', err))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Analysis failed')

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
@@ -251,6 +251,7 @@ function groupRetryStepsByBatch(failedSteps: ReportPlanStep[], alreadyCompleted:
 export default function PlanReportPage() {
   const { session, setAIModel } = useSession()
   const { appSettings } = useAppSettings()
+  const queryClient = useQueryClient()
   const location = useLocation()
   const loadedState = location.state as LoadedPlanState | null
   const [prompt, setPrompt] = useState(loadedState?.prompt || '')
@@ -894,6 +895,7 @@ const handleSaveReport = async () => {
           reportDetail,
         })
         setSavedRecordId(saved.id)
+        queryClient.invalidateQueries({ queryKey: ['conversation-history', session.email] })
         toast.success('Report saved to history')
       }
       setReportSaved(true)
