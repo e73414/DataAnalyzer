@@ -29,8 +29,6 @@ interface LoadedPlanState {
 
 const CHUNK_THRESHOLD_OPTIONS = [5_000, 10_000, 15_000, 20_000] as const
 const CHUNK_THRESHOLD = Math.min(...CHUNK_THRESHOLD_OPTIONS) // fixed trigger threshold (lowest option)
-const BASELINE_COLUMNS = 10  // column count at which maxChunkRows applies 1:1
-const MIN_CHUNK_ROWS = 500
 
 const COMMON_TIMEZONES = [
   { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
@@ -46,15 +44,6 @@ const COMMON_TIMEZONES = [
   { value: 'Australia/Sydney', label: 'Sydney (AEST)' },
   { value: 'UTC', label: 'UTC' },
 ]
-
-// Computes the effective chunk row count for a dataset.
-// maxChunkRows = user-selected limit for a baseline-column dataset;
-// wider datasets get proportionally fewer rows to keep AI context load roughly constant.
-function calcChunkSize(columnCount: number | undefined, maxChunkRows: number): number {
-  const cols = columnCount && columnCount > 0 ? columnCount : BASELINE_COLUMNS
-  const target = maxChunkRows * BASELINE_COLUMNS
-  return Math.min(maxChunkRows, Math.max(MIN_CHUNK_ROWS, Math.floor(target / cols)))
-}
 
 // Wraps a direct dataset SQL query in a CTE that pages through source rows using LIMIT/OFFSET.
 // Finds the first top-level FROM clause (skipping subqueries) and replaces it with chunk_src.
@@ -92,16 +81,14 @@ function inferDepsFromSql(step: ReportPlanStep): number[] {
 // Each oversized step is replaced with N parallel chunk steps + 1 merge step.
 // All step numbers and dependencies are renumbered consistently.
 function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[], threshold = CHUNK_THRESHOLD, maxChunkRows = CHUNK_THRESHOLD): ReportPlan {
-  const rowCountMap    = new Map(datasets.map(d => [d.id, d.row_count    ?? 0]))
-  const columnCountMap = new Map(datasets.map(d => [d.id, d.column_count]))
+  const rowCountMap = new Map(datasets.map(d => [d.id, d.row_count ?? 0]))
   const mergeStepFor = new Map<number, number>() // old step_number → representative new step_number
   const newSteps: ReportPlanStep[] = []
   let next = 1
 
   for (const step of plan.steps) {
-    const rowCount    = rowCountMap.get(step.dataset_id ?? '')    ?? 0
-    const columnCount = columnCountMap.get(step.dataset_id ?? '')
-    const chunkSize   = calcChunkSize(columnCount, maxChunkRows)
+    const rowCount  = rowCountMap.get(step.dataset_id ?? '') ?? 0
+    const chunkSize = maxChunkRows
     const effectiveDeps = inferDepsFromSql(step)
     const remappedDeps = effectiveDeps
       .map(d => mergeStepFor.get(d))
