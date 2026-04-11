@@ -104,7 +104,7 @@ function formatStatus(status?: string): { label: string; color: string } {
   }
 }
 
-function RunsList({ scheduleId }: { scheduleId: string }) {
+function RunsList({ scheduleId, conversationId }: { scheduleId: string; conversationId: string }) {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null)
@@ -151,6 +151,7 @@ function RunsList({ scheduleId }: { scheduleId: string }) {
         datasetName: run.dataset_name,
         aiModel: run.ai_model,
         savedRecordId: run.id,
+        scheduleConversationId: conversationId,
         detailLevel: run.detail_level,
         reportDetail: run.report_detail,
       },
@@ -648,7 +649,7 @@ export default function ManageReportsPage() {
                       <span>Completed Runs</span>
                     </button>
                     {runsVisible && (
-                      <RunsList scheduleId={schedule.id} />
+                      <RunsList scheduleId={schedule.id} conversationId={schedule.conversation_id} />
                     )}
                   </div>
                 </div>

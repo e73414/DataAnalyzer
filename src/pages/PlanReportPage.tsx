@@ -24,6 +24,7 @@ interface LoadedPlanState {
   savedRecordId: string
   detailLevel?: string
   reportDetail?: string
+  scheduleConversationId?: string
 }
 
 const CHUNK_THRESHOLD_OPTIONS = [5_000, 10_000, 15_000, 20_000] as const
@@ -294,6 +295,7 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   const [previewAnchorRect, setPreviewAnchorRect] = useState<DOMRect | null>(null)
   const [reportSchedules, setReportSchedules] = useState<import('../types').ReportSchedule[]>([])
   const [isLoadingSchedules, setIsLoadingSchedules] = useState(false)
+  const [scheduleConversationId, setScheduleConversationId] = useState<string | null>(null)
   const [scheduleFormOpen, setScheduleFormOpen] = useState(false)
   const [scheduleForm, setScheduleForm] = useState<{
     scheduleType: 'daily' | 'weekly' | 'monthly' | 'custom'
@@ -429,6 +431,7 @@ const [isEditingReport, setIsEditingReport] = useState(false)
     // Restore execution settings
     if (loadedState.detailLevel) setDetailLevel(loadedState.detailLevel)
     if (loadedState.reportDetail) setReportDetail(loadedState.reportDetail)
+    if (loadedState.scheduleConversationId) setScheduleConversationId(loadedState.scheduleConversationId)
 
     // Mark as already saved (since it came from history)
     setReportSaved(true)
@@ -470,9 +473,10 @@ const [isEditingReport, setIsEditingReport] = useState(false)
     if (appSettings.report_detail) setReportDetail(appSettings.report_detail)
   }, [appSettings])
 
-  // Load report schedules when savedRecordId is set
+  // Load report schedules when savedRecordId or scheduleConversationId is set
   useEffect(() => {
-    if (!savedRecordId) {
+    const targetId = scheduleConversationId || savedRecordId
+    if (!targetId) {
       setReportSchedules([])
       return
     }
@@ -480,14 +484,14 @@ const [isEditingReport, setIsEditingReport] = useState(false)
     pocketbaseService.getReportSchedules()
       .then(schedules => {
         // Filter to schedules for this conversation
-        setReportSchedules(schedules.filter(s => s.conversation_id === savedRecordId))
+        setReportSchedules(schedules.filter(s => s.conversation_id === targetId))
       })
       .catch(err => {
         console.error('Failed to load schedules:', err)
         toast.error('Failed to load schedules')
       })
       .finally(() => setIsLoadingSchedules(false))
-  }, [savedRecordId])
+  }, [savedRecordId, scheduleConversationId])
 
   const effectivePlanModel = appSettings?.plan_model || selectedPlanModelId
   const effectiveExecuteModel = appSettings?.execute_model || selectedExecuteModelId
