@@ -230,6 +230,8 @@ export default function ManageReportsPage() {
     queryKey: ['report-schedules'],
     queryFn: () => pocketbaseService.getReportSchedules(),
     enabled: !!session?.email,
+    refetchInterval: (query) =>
+      query.state.data?.some(s => s.last_run_status === 'running') ? 5000 : false,
   })
 
   const isAdmin = session?.profile?.trim() === 'admadmadm'
