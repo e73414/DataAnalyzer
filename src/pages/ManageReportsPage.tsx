@@ -389,11 +389,16 @@ export default function ManageReportsPage() {
                     onClick={() => toggleExpanded(schedule.id)}
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        {isAdmin && <span className="text-xs text-gray-500 dark:text-gray-400">{schedule.user_email}</span>}
+                      <div className="flex items-center gap-2 mb-1">
+                        {isAdmin && <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{schedule.user_email}</span>}
                         <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                          {schedule.dataset_name}
+                          {schedule.conversation_prompt
+                            ? (schedule.conversation_prompt.replace(/^\[.*?\]\s*/, '').split(/(?<=[.!?])\s+/)[0] || schedule.dataset_name)
+                            : schedule.dataset_name}
                         </span>
+                      </div>
+                      <div className="mb-1">
+                        <span className="text-xs text-gray-400 dark:text-gray-500 truncate">{schedule.dataset_name}</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs text-gray-600 dark:text-gray-400">

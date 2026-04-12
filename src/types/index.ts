@@ -372,6 +372,7 @@ export interface ReportSchedule {
   last_run_status?: string                // 'pending' | 'running' | 'success' | 'failed' | 'failed_max_retries'
   last_run_attempt?: number
   replan_on_run?: boolean
+  conversation_prompt?: string             // joined from conversation_history
   created_at: string
   updated_at: string
 }
