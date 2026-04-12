@@ -89,7 +89,11 @@ function expandPlanForLargeDatasets(plan: ReportPlan, datasets: Dataset[], thres
       .map(d => mergeStepFor.get(d))
       .filter((n): n is number => n !== undefined)
 
-    if (rowCount <= threshold) {
+    // Don't chunk aggregated queries — GROUP BY collapses the result set so
+    // chunking adds merge complexity for no gain and the merge SQL is fragile.
+    const isAggregated = /\bgroup\s+by\b/i.test(step.query_strategy?.sql ?? '')
+
+    if (rowCount <= threshold || isAggregated) {
       const newNum = next++
       mergeStepFor.set(step.step_number, newNum)
       newSteps.push({ ...step, step_number: newNum, dependencies: remappedDeps })
@@ -2185,19 +2189,26 @@ const handleSaveReport = async () => {
                             </span>
                             {step.status === 'completed' &&
                               step.step_number !== 0 &&
-                              !/(\\(chunk \d+ of \d+\\))/i.test(step.purpose ?? '') &&
-                              (step.step_result?.includes('<!--LIST_CSV:') || !!reportId) && (
-                                <button
-                                  onClick={() => downloadListCsv(step.step_number, step.step_result)}
-                                  className="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 transition-colors"
-                                  title="Download step CSV"
-                                >
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                  </svg>
-                                  CSV
-                                </button>
-                              )}
+                              !/(\\(chunk \d+ of \d+\\))/i.test(step.purpose ?? '') && (() => {
+                                const hasCsvData = step.step_result?.includes('<!--LIST_CSV:') || !!reportId
+                                return (
+                                  <button
+                                    onClick={hasCsvData ? () => downloadListCsv(step.step_number, step.step_result) : undefined}
+                                    disabled={!hasCsvData}
+                                    className={`flex-shrink-0 flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded transition-colors ${
+                                      hasCsvData
+                                        ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/60'
+                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50'
+                                    }`}
+                                    title={hasCsvData ? 'Download step CSV' : 'No data (empty result)'}
+                                  >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                    CSV
+                                  </button>
+                                )
+                              })()}
                           </div>
                           {/* SQL — shown expanded while running, collapsed after */}
                           {stepSql && step.status === 'started' && (
@@ -2456,7 +2467,8 @@ const handleSaveReport = async () => {
                     <div className="divide-y divide-gray-100 dark:divide-gray-700/60">
                       {executionProgress.steps.map(step => {
                         const isChunkStep = /(\\(chunk \d+ of \d+\\))/i.test(step.purpose ?? '')
-                        const hasCsv = !isChunkStep && step.status === 'completed' && step.step_number !== 0 && (step.step_result?.includes('<!--LIST_CSV:') || !!reportId)
+                        const showCsvButton = !isChunkStep && step.status === 'completed' && step.step_number !== 0
+                        const hasCsvData = showCsvButton && (step.step_result?.includes('<!--LIST_CSV:') || !!reportId)
                         const displayResult = step.step_result?.includes('<!--LIST_CSV:')
                           ? step.step_result!.replace(/<!--LIST_CSV:[A-Za-z0-9+/=\s]*-->/, '').trim()
                           : step.step_result ?? ''
@@ -2478,11 +2490,17 @@ const handleSaveReport = async () => {
                               }`}>
                                 {step.status}
                               </span>
-                              {hasCsv && (step.step_result?.includes('<!--LIST_CSV:') || reportId) && (
+                              {showCsvButton && (
                                 <button
                                   type="button"
-                                  onClick={() => downloadListCsv(step.step_number, step.step_result)}
-                                  className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded transition-colors flex-shrink-0"
+                                  onClick={hasCsvData ? () => downloadListCsv(step.step_number, step.step_result) : undefined}
+                                  disabled={!hasCsvData}
+                                  className={`flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded transition-colors flex-shrink-0 ${
+                                    hasCsvData
+                                      ? 'text-white bg-green-600 hover:bg-green-700'
+                                      : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50'
+                                  }`}
+                                  title={hasCsvData ? 'Download step CSV' : 'No data (empty result)'}
                                 >
                                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
