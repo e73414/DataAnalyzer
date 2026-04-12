@@ -276,6 +276,7 @@ const [isEditingReport, setIsEditingReport] = useState(false)
   const [detailLevel, setDetailLevel] = useState('None')
   const [reportDetail, setReportDetail] = useState('Simple Report')
   const [chunkThreshold, setChunkThreshold] = useState(10_000)
+  const [runAfterPlan, setRunAfterPlan] = useState(true)
   const [previewDatasetId, setPreviewDatasetId] = useState<string | null>(null)
   const [previewAnchorRect, setPreviewAnchorRect] = useState<DOMRect | null>(null)
   const [reportSchedules, setReportSchedules] = useState<import('../types').ReportSchedule[]>([])
@@ -1101,7 +1102,8 @@ const handleSaveReport = async () => {
         model: effectivePlanModel,
       }),
     onSuccess: (result) => {
-      setPlan(result.plan || null)
+      const newPlan = result.plan || null
+      setPlan(newPlan)
       setReport('')
       setReportId('')
       setReportSaved(false)
@@ -1110,24 +1112,29 @@ const handleSaveReport = async () => {
       editorContentRef.current = ''
       setShowJson(false)
       setExecutionProgress(null)
-      toast.success('Report plan generated')
-      setTimeout(() => {
-        planRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 100)
-
+      if (runAfterPlan && newPlan) {
+        toast.success('Plan generated — starting execution...')
+        setTimeout(() => handleExecutePlan(newPlan), 100)
+      } else {
+        toast.success('Report plan generated')
+        setTimeout(() => {
+          planRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }, 100)
+      }
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to generate plan')
     },
   })
 
-  const handleExecutePlan = useCallback(async () => {
-    if (!plan || !session?.email) return
+  const handleExecutePlan = useCallback(async (planOverride?: ReportPlan) => {
+    const activePlan = planOverride ?? plan
+    if (!activePlan || !session?.email) return
 
     executionCancelledRef.current = false
     setWasStopped(false)
     const sharedReportId = 'rpt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)
-    const expandedPlan = expandPlanForLargeDatasets(plan, datasets, CHUNK_THRESHOLD, chunkThreshold)
+    const expandedPlan = expandPlanForLargeDatasets(activePlan, datasets, CHUNK_THRESHOLD, chunkThreshold)
     expandedPlanRef.current = expandedPlan
     const batches = groupStepsByBatch(expandedPlan.steps)
     const hasParallelism = batches.some(b => b.length > 1)
@@ -1630,7 +1637,8 @@ const handleSaveReport = async () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-4">
                 <button
                   type="submit"
                   disabled={isWorking || !prompt.trim()}
@@ -1705,6 +1713,17 @@ const handleSaveReport = async () => {
                     This may take a moment...
                   </p>
                 )}
+              </div>
+                <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600 dark:text-gray-400">
+                  <input
+                    type="checkbox"
+                    checked={runAfterPlan}
+                    onChange={(e) => setRunAfterPlan(e.target.checked)}
+                    disabled={isWorking}
+                    className="w-4 h-4 rounded accent-purple-700"
+                  />
+                  Run report after plan generation
+                </label>
               </div>
             </form>
           )}
