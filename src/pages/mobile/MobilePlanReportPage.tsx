@@ -228,9 +228,7 @@ export default function MobilePlanReportPage() {
   const [plan, setPlan] = useState<ReportPlan | null>(null)
   const [report, setReport] = useState('')
   const [reportId, setReportId] = useState(loadedState?.reportId || '')
-  const [, setShowJson] = useState(false)
   const [isExecuting, setIsExecuting] = useState(false)
-  const [, setFormatterTriggered] = useState(false)
   const [executionProgress, setExecutionProgress] = useState<CheckReportProgressResult | null>(null)
   const [isSavingReport, setIsSavingReport] = useState(false)
   const [reportSaved, setReportSaved] = useState(false)
@@ -240,7 +238,7 @@ export default function MobilePlanReportPage() {
   const [detailLevel, setDetailLevel] = useState('None')
   const [reportDetail, setReportDetail] = useState('Simple Report')
   const [chunkThreshold, setChunkThreshold] = useState(10_000)
-  const [runAfterPlan] = useState(true)
+  const runAfterPlan = true
   const [reportSchedules, setReportSchedules] = useState<import('../../types').ReportSchedule[]>([])
   const [_isLoadingSchedules, setIsLoadingSchedules] = useState(false)
   const [scheduleConversationId, setScheduleConversationId] = useState<string | null>(null)
@@ -451,8 +449,6 @@ export default function MobilePlanReportPage() {
     }
   }, [])
 
-  const [, setWasStopped] = useState(false)
-  const [, setFormatterStopped] = useState(false)
 
   // Extract HTML content from final_report — may be raw HTML, JSON { subject, content }, or other
   const extractReportHtml = (raw: string | null): string => {
@@ -640,9 +636,7 @@ export default function MobilePlanReportPage() {
           if (stallCountRef.current >= 12) {
             stopPolling()
             setIsExecuting(false)
-            setFormatterTriggered(false)
             formatterTriggeredRef.current = false
-            setFormatterStopped(true)
             setExecutionProgress(progress)
             toast.error(progress.error_message || 'Formatter failed to complete')
           }
@@ -747,7 +741,6 @@ export default function MobilePlanReportPage() {
       setSavedRecordId(null)
       setIsEditingReport(false)
       editorContentRef.current = ''
-      setShowJson(false)
       setExecutionProgress(null)
       if (runAfterPlan && newPlan) {
         toast.success('Plan generated — starting execution...')
@@ -766,7 +759,6 @@ export default function MobilePlanReportPage() {
     if (!activePlan || !session?.email) return
 
     executionCancelledRef.current = false
-    setWasStopped(false)
     const sharedReportId = 'rpt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)
     const expandedPlan = expandPlanForLargeDatasets(activePlan, datasets, CHUNK_THRESHOLD, chunkThreshold)
     expandedPlanRef.current = expandedPlan
@@ -775,9 +767,7 @@ export default function MobilePlanReportPage() {
 
     setReportId(sharedReportId)
     setIsExecuting(true)
-    setFormatterTriggered(false)
     formatterTriggeredRef.current = false
-    setFormatterStopped(false)
     completionHandledRef.current = false
     setReport('')
     setReportSaved(false)
@@ -826,7 +816,6 @@ export default function MobilePlanReportPage() {
       if (executionCancelledRef.current) return
 
       // All batches done — trigger the formatter
-      setFormatterTriggered(true)
       formatterTriggeredRef.current = true
       await n8nService.runFormatter({
         reportId: sharedReportId,
@@ -852,7 +841,7 @@ export default function MobilePlanReportPage() {
       setExecutionProgress(prev => prev ? { ...prev, status: 'error', error_message: msg } : null)
       toast.error(msg)
     }
-  }, [plan, session, effectivePlanModel, effectiveExecuteModel, userProfile, detailLevel, reportDetail, chunkThreshold, datasets, waitForBatchCompletion, stopPolling])
+  }, [plan, session, effectivePlanModel, effectiveExecuteModel, userProfile, detailLevel, reportDetail, chunkThreshold, datasets, waitForBatchCompletion, stopPolling, prompt, appSettings])
 
   const isWorking = planMutation.isPending || isExecuting
 
