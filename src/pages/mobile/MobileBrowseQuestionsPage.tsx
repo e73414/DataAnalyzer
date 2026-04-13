@@ -54,6 +54,13 @@ function QuestionCard({ q }: { q: BrowsableQuestion }) {
 
 type OrgFilter = 'all' | 'company' | 'unit' | 'team'
 
+const ORG_CHIPS: { id: OrgFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'company', label: 'My Company' },
+  { id: 'unit', label: 'My Unit' },
+  { id: 'team', label: 'My Team' },
+]
+
 export default function MobileBrowseQuestionsPage() {
   const { session } = useSession()
   const [search, setSearch] = useState('')
@@ -65,7 +72,7 @@ export default function MobileBrowseQuestionsPage() {
     enabled: !!session?.email,
   })
 
-  const userProfile = parseProfile(session?.profile)
+  const userProfile = useMemo(() => parseProfile(session?.profile), [session?.profile])
   const term = search.trim()
 
   const filtered = useMemo(() => {
@@ -87,17 +94,14 @@ export default function MobileBrowseQuestionsPage() {
       })
     }
 
-    // Search filter
+    // Search filter — use Schwartzian transform to avoid double score() calls
     if (!term) return list
-    return list.filter(q => score(q, term) > 0).sort((a, b) => score(b, term) - score(a, term))
+    return list
+      .map(q => ({ q, s: score(q, term) }))
+      .filter(({ s }) => s > 0)
+      .sort((a, b) => b.s - a.s)
+      .map(({ q }) => q)
   }, [questions, term, orgFilter, userProfile])
-
-  const chips: { id: OrgFilter; label: string }[] = [
-    { id: 'all', label: 'All' },
-    { id: 'company', label: 'My Company' },
-    { id: 'unit', label: 'My Unit' },
-    { id: 'team', label: 'My Team' },
-  ]
 
   return (
     <div className="min-h-screen bg-gray-200 dark:bg-gray-950">
@@ -131,7 +135,7 @@ export default function MobileBrowseQuestionsPage() {
 
         {/* Org filter chips */}
         <div className="flex gap-2 overflow-x-auto pb-0.5">
-          {chips.map(chip => (
+          {ORG_CHIPS.map(chip => (
             <button
               key={chip.id}
               type="button"
