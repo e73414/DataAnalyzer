@@ -258,13 +258,7 @@ export default function MobileHistoryPage() {
           <div className="border-t border-gray-100 dark:border-gray-700">
             {/* Response */}
             <div className="p-3 max-h-72 overflow-y-auto">
-              {conv.report_id ? (
-                <ReportHtml html={conv.response ?? ''} />
-              ) : (
-                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                  {conv.response ?? '(no response)'}
-                </p>
-              )}
+              <ReportHtml html={conv.response ?? ''} />
             </div>
 
             {/* Action buttons */}

@@ -967,42 +967,26 @@ export default function MobilePlanReportPage() {
               </div>
             </div>
 
-            {/* Detail level + Plan model side-by-side */}
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="label">Detail Level</label>
+            {/* Plan model */}
+            {!appSettings?.plan_model && (
+              <div>
+                <label className="label">Plan Model</label>
                 <select
-                  value={detailLevel}
-                  onChange={(e) => setDetailLevel(e.target.value)}
+                  value={selectedPlanModelId}
+                  onChange={(e) => handlePlanModelChange(e.target.value)}
                   className="input-field py-3"
                   disabled={isWorking}
                 >
-                  <option value="None">None</option>
-                  <option value="Low">Low</option>
-                  <option value="Medium">Medium</option>
-                  <option value="High">High</option>
+                  {aiModels?.length === 0 ? (
+                    <option value="">No models</option>
+                  ) : aiModels?.map(model => (
+                    <option key={model.id} value={model.id}>
+                      {model.name}
+                    </option>
+                  ))}
                 </select>
               </div>
-              {!appSettings?.plan_model && (
-                <div className="flex-1">
-                  <label className="label">Plan Model</label>
-                  <select
-                    value={selectedPlanModelId}
-                    onChange={(e) => handlePlanModelChange(e.target.value)}
-                    className="input-field py-3"
-                    disabled={isWorking}
-                  >
-                    {aiModels?.length === 0 ? (
-                      <option value="">No models</option>
-                    ) : aiModels?.map(model => (
-                      <option key={model.id} value={model.id}>
-                        {model.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
+            )}
 
             {/* Plan button */}
             <button

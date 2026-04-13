@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../../context/SessionContext'
 import { useAppSettings } from '../../context/AppSettingsContext'
+import { useTheme } from '../../context/ThemeContext'
 import { pocketbaseService } from '../../services/mcpPocketbaseService'
 import { n8nService } from '../../services/mcpN8nService'
 import { useAccessibleDatasets } from '../../hooks/useAccessibleDatasets'
@@ -95,6 +96,7 @@ export default function MobileDatasetPromptPage() {
   const location = useLocation()
   const { session, setAIModel } = useSession()
   const { appSettings } = useAppSettings()
+  const { theme } = useTheme()
   const [selectedDatasetId, setSelectedDatasetId] = useState(
     (location.state as { preSelectedDatasetId?: string } | null)?.preSelectedDatasetId || ''
   )
@@ -137,12 +139,6 @@ export default function MobileDatasetPromptPage() {
     queryKey: ['user-profile', session?.email],
     queryFn: () => pocketbaseService.getUserProfile(session!.email),
     enabled: !!session?.email,
-  })
-
-  const { data: datasetDetail } = useQuery({
-    queryKey: ['dataset-detail', selectedDatasetId],
-    queryFn: () => n8nService.getDatasetDetail(selectedDatasetId, session!.email),
-    enabled: !!selectedDatasetId && !!session?.email,
   })
 
   useEffect(() => {
@@ -368,6 +364,10 @@ export default function MobileDatasetPromptPage() {
 
   return (
     <div className="min-h-screen bg-gray-200 dark:bg-gray-950 transition-colors duration-200">
+      <div className="flex items-center justify-center gap-2 pt-4 pb-1">
+        <img src={theme === 'dark' ? '/logo-dark.png' : '/logo-light.png'} alt="DataPilot" className="h-8 w-auto" />
+        <span className="text-xl font-bold text-gray-900 dark:text-white" style={{ fontFamily: "'Syne', sans-serif" }}>DataPilot</span>
+      </div>
       <Navigation />
 
       <main className="px-4 py-4 space-y-4">
@@ -507,24 +507,6 @@ export default function MobileDatasetPromptPage() {
                   >
                     Dismiss
                   </button>
-                </div>
-              </div>
-            )}
-
-            {/* Sample questions */}
-            {datasetDetail?.sample_questions?.questions && datasetDetail.sample_questions.questions.length > 0 && (
-              <div className="overflow-x-auto -mx-4 px-4">
-                <div className="flex gap-2 pb-1">
-                  {datasetDetail.sample_questions.questions.map(q => (
-                    <button
-                      key={q.id}
-                      type="button"
-                      onClick={() => setPrompt(q.question)}
-                      className="flex-shrink-0 text-xs px-3 py-2 rounded-full border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 bg-white dark:bg-gray-900 transition-colors"
-                    >
-                      {q.question}
-                    </button>
-                  ))}
                 </div>
               </div>
             )}
