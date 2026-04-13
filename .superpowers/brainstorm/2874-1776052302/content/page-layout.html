@@ -1,0 +1,81 @@
+<h2>Complex Page Layout on Mobile</h2>
+<p class="subtitle">Quick Answer & Plan Report have several controls before you can submit. Which flow feels right?</p>
+
+<div class="split">
+
+  <div class="mockup">
+    <div class="mockup-header">A — Single Scroll</div>
+    <div class="mockup-body" style="padding:0;">
+      <div style="width:200px; margin:0 auto; border:2px solid #cbd5e1; border-radius:12px; overflow:hidden; background:#fff; font-family:sans-serif; font-size:9px;">
+        <!-- Header -->
+        <div style="background:#1e1b4b; color:white; padding:8px 10px; display:flex; justify-content:space-between; align-items:center; font-size:10px; font-weight:600;">
+          <span>DataPilot</span><span>Quick Answer ▾ ⚙</span>
+        </div>
+        <!-- Scrollable content -->
+        <div style="padding:10px; background:#f8fafc; display:flex; flex-direction:column; gap:8px;">
+          <div style="font-size:8px; font-weight:600; color:#374151;">Dataset</div>
+          <div style="background:#fff; border:1px solid #d1d5db; border-radius:6px; padding:6px 8px; color:#6b7280; font-size:8px;">Select a dataset ▾</div>
+
+          <div style="font-size:8px; font-weight:600; color:#374151; margin-top:4px;">Your question</div>
+          <div style="background:#fff; border:1px solid #d1d5db; border-radius:6px; padding:6px 8px; min-height:48px; color:#9ca3af; font-size:8px;">Ask anything about your data...</div>
+
+          <div style="font-size:8px; font-weight:600; color:#374151; margin-top:4px;">AI Model</div>
+          <div style="background:#fff; border:1px solid #d1d5db; border-radius:6px; padding:6px 8px; color:#6b7280; font-size:8px;">Claude Sonnet ▾</div>
+
+          <div style="background:#1e1b4b; color:white; text-align:center; padding:8px; border-radius:6px; font-size:9px; font-weight:600; margin-top:4px;">Ask →</div>
+
+          <div style="border-top:1px solid #e5e7eb; margin-top:4px; padding-top:8px; background:#fff; border-radius:6px; padding:8px; color:#9ca3af; font-size:8px; text-align:center; min-height:60px;">
+            Results appear here after submit
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:12px 16px; font-size:12px; color:#64748b;">
+      All controls visible at once. Scroll down to see results. Simple and direct.
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">B — Step Wizard</div>
+    <div class="mockup-body" style="padding:0;">
+      <div style="width:200px; margin:0 auto; border:2px solid #cbd5e1; border-radius:12px; overflow:hidden; background:#fff; font-family:sans-serif; font-size:9px;">
+        <!-- Header -->
+        <div style="background:#1e1b4b; color:white; padding:8px 10px; display:flex; justify-content:space-between; align-items:center; font-size:10px; font-weight:600;">
+          <span>DataPilot</span><span>Quick Answer ▾ ⚙</span>
+        </div>
+        <!-- Step indicator -->
+        <div style="display:flex; background:#f1f5f9; border-bottom:1px solid #e2e8f0;">
+          <div style="flex:1; padding:6px; text-align:center; font-size:7px; font-weight:700; color:#1e1b4b; border-bottom:2px solid #1e1b4b;">① Dataset</div>
+          <div style="flex:1; padding:6px; text-align:center; font-size:7px; color:#94a3b8;">② Question</div>
+          <div style="flex:1; padding:6px; text-align:center; font-size:7px; color:#94a3b8;">③ Run</div>
+        </div>
+        <!-- Step content -->
+        <div style="padding:12px; background:#f8fafc; display:flex; flex-direction:column; gap:8px;">
+          <div style="font-size:8px; color:#374151; font-weight:600;">Choose a dataset</div>
+          <div style="background:#fff; border:1px solid #d1d5db; border-radius:6px; padding:6px 8px; color:#6b7280; font-size:8px;">Select a dataset ▾</div>
+          <div style="font-size:7px; color:#9ca3af;">3 datasets available</div>
+
+          <div style="display:flex; gap:6px; margin-top:8px;">
+            <div style="flex:1; background:#e5e7eb; color:#9ca3af; text-align:center; padding:7px; border-radius:6px; font-size:8px;">Back</div>
+            <div style="flex:2; background:#1e1b4b; color:white; text-align:center; padding:7px; border-radius:6px; font-size:8px; font-weight:600;">Next →</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:12px 16px; font-size:12px; color:#64748b;">
+      One step at a time. Clear progress. More taps to complete — but focused.
+    </div>
+  </div>
+
+</div>
+
+<div class="options" style="margin-top:24px;">
+  <div class="option" data-choice="scroll" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content"><h3>Single Scroll</h3><p>All controls stacked, results below. Fast to use once familiar.</p></div>
+  </div>
+  <div class="option" data-choice="wizard" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content"><h3>Step Wizard</h3><p>Guided steps. Better for new users, more taps for power users.</p></div>
+  </div>
+</div>
