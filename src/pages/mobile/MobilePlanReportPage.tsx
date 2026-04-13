@@ -9,7 +9,7 @@ import { n8nService } from '../../services/mcpN8nService'
 import { mcpN8nApi } from '../../services/api'
 import { useAccessibleDatasets } from '../../hooks/useAccessibleDatasets'
 import Navigation from '../../components/Navigation'
-import type { ReportPlan, ReportPlanStep, CheckReportProgressResult, Dataset } from '../../types'
+import type { ReportPlan, ReportPlanStep, CheckReportProgressResult, Dataset, PromptDialogQuestion } from '../../types'
 
 interface LoadedPlanState {
   prompt: string
@@ -243,6 +243,11 @@ export default function MobilePlanReportPage() {
   const [_isLoadingSchedules, setIsLoadingSchedules] = useState(false)
   const [scheduleConversationId, setScheduleConversationId] = useState<string | null>(null)
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogQuestions, setDialogQuestions] = useState<PromptDialogQuestion[]>([])
+  const [dialogAnswers, setDialogAnswers] = useState<Record<string, string>>({})
+  const [openHintDropdown, setOpenHintDropdown] = useState<string | null>(null)
+  const [dialogLoading, setDialogLoading] = useState(false)
   const [scheduleFormOpen, setScheduleFormOpen] = useState(false)
   const [scheduleForm, setScheduleForm] = useState<{
     scheduleType: 'daily' | 'weekly' | 'monthly' | 'custom'
@@ -426,6 +431,42 @@ export default function MobilePlanReportPage() {
   const handlePlanModelChange = (modelId: string) => {
     setSelectedPlanModelId(modelId)
     setAIModel(modelId)
+  }
+
+  const handleGuidedSetup = async () => {
+    if (!prompt.trim()) {
+      toast.error('Please enter report requirements first')
+      return
+    }
+    setDialogLoading(true)
+    try {
+      const result = await n8nService.promptDialog({
+        prompt,
+        email: session!.email,
+        datasetIds: Array.from(selectedDatasetIds),
+        model: effectivePlanModel,
+      })
+      setDialogQuestions(result.questions)
+      setDialogAnswers({})
+      setDialogOpen(true)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to generate questions')
+    } finally {
+      setDialogLoading(false)
+    }
+  }
+
+  const handleDialogSubmit = () => {
+    const answered = dialogQuestions
+      .filter(q => dialogAnswers[q.id]?.trim())
+      .map(q => `- ${q.question.replace(/\?$/, '')}: ${dialogAnswers[q.id].trim()}`)
+      .join('\n')
+    const enhanced = answered
+      ? `${prompt.trim()}\n\nAdditional context:\n${answered}`
+      : prompt
+    setPrompt(enhanced)
+    setDialogOpen(false)
+    planMutation.mutate(undefined)
   }
 
   const handleExecuteModelChange = (modelId: string) => {
@@ -1001,6 +1042,21 @@ export default function MobilePlanReportPage() {
                 </span>
               ) : 'Plan Report'}
             </button>
+
+            {/* Guided Setup button */}
+            <button
+              type="button"
+              onClick={handleGuidedSetup}
+              disabled={isWorking || dialogLoading || !prompt.trim()}
+              className="w-full py-3 text-sm font-medium text-purple-800 dark:text-purple-200 bg-purple-100 dark:bg-purple-900/30 border border-purple-400 dark:border-purple-600 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {dialogLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="animate-spin rounded-full h-4 w-4 border-2 border-purple-500 border-t-transparent" />
+                  Analyzing...
+                </span>
+              ) : 'Guided Setup'}
+            </button>
           </div>
         </form>
 
@@ -1269,6 +1325,81 @@ export default function MobilePlanReportPage() {
           </div>
         )}
       </main>
+
+      {/* Guided Setup Dialog */}
+      {dialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={() => setDialogOpen(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-t-2xl shadow-2xl w-full max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 pt-5 pb-4 border-b border-gray-200 dark:border-gray-700">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Refine Your Requirements</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Answer to generate a more targeted plan. All fields optional.</p>
+              </div>
+              <button type="button" onClick={() => setDialogOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none p-1">&times;</button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 px-4 py-4 space-y-5">
+              {dialogQuestions.map((q) => (
+                <div key={q.id}>
+                  <label className="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">{q.question}</label>
+                  {q.hints && q.hints.length > 0 && (
+                    <div className="relative mb-2">
+                      {openHintDropdown === q.id && (
+                        <div className="fixed inset-0 z-10" onClick={() => setOpenHintDropdown(null)} />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setOpenHintDropdown(openHintDropdown === q.id ? null : q.id)}
+                        className="w-full text-left px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex justify-between items-center"
+                      >
+                        <span>— select a hint —</span>
+                        <svg className={`w-4 h-4 flex-shrink-0 transition-transform ${openHintDropdown === q.id ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      {openHintDropdown === q.id && (
+                        <div className="absolute z-20 left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          {q.hints.map((h, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => { setDialogAnswers(prev => ({ ...prev, [q.id]: h.text })); setOpenHintDropdown(null) }}
+                              className="block w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-900/30 whitespace-normal leading-snug border-b border-gray-100 dark:border-gray-700 last:border-0"
+                            >
+                              {h.label ? <><span className="font-medium">{h.label}</span><span className="text-gray-400 dark:text-gray-500 ml-1">— {h.text}</span></> : h.text}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <textarea
+                    rows={2}
+                    value={dialogAnswers[q.id] || ''}
+                    onChange={(e) => setDialogAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                    placeholder="Your answer…"
+                    className="input-field resize-none"
+                  />
+                  {q.hint && <p className="mt-1 text-xs text-gray-400 dark:text-gray-500 leading-snug">{q.hint}</p>}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-4 py-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => { setDialogOpen(false); planMutation.mutate(undefined) }}
+                className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              >
+                Skip — Use Original Prompt
+              </button>
+              <button type="button" onClick={handleDialogSubmit} className="btn-primary">
+                Generate Plan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
