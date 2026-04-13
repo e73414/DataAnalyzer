@@ -103,7 +103,6 @@ export default function MobileDatasetPromptPage() {
   const datasetDropdownRef = useRef<HTMLDivElement>(null)
   const [selectedModelId, setSelectedModelId] = useState(session?.aiModel || '')
   const [prompt, setPrompt] = useState('')
-  const [captureProcess, _setCaptureProcess] = useState(false)
   const [emailResponse, setEmailResponse] = useState(false)
   const [emailSubject, setEmailSubject] = useState('')
   const [datasetScope, setDatasetScope] = useState<'all' | 'mine' | 'company' | 'unit' | 'team'>('all')
@@ -113,7 +112,7 @@ export default function MobileDatasetPromptPage() {
   const [dialogLoading, setDialogLoading] = useState(false)
   const [dialogQuestions, setDialogQuestions] = useState<PromptDialogQuestion[]>([])
   const [dialogAnswers, setDialogAnswers] = useState<Record<string, string>>({})
-  const [_openHintDropdown, _setOpenHintDropdown] = useState<string | null>(null)
+  const [dialogCustomAnswers, setDialogCustomAnswers] = useState<Record<string, string>>({})
   const [suggestedDataset, setSuggestedDataset] = useState<{ dataset_id: string; dataset_name: string; dataset_desc?: string; confidence_level?: string } | null>(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [shuffledPhrases, setShuffledPhrases] = useState<string[]>([])
@@ -143,12 +142,6 @@ export default function MobileDatasetPromptPage() {
   const { data: datasetDetail } = useQuery({
     queryKey: ['dataset-detail', selectedDatasetId],
     queryFn: () => n8nService.getDatasetDetail(selectedDatasetId, session!.email),
-    enabled: !!selectedDatasetId && !!session?.email,
-  })
-
-  useQuery({
-    queryKey: ['dataset-preview', selectedDatasetId],
-    queryFn: () => n8nService.getDatasetPreview(selectedDatasetId, session!.email, 20),
     enabled: !!selectedDatasetId && !!session?.email,
   })
 
@@ -263,7 +256,7 @@ export default function MobileDatasetPromptPage() {
         prompt: prompt.trim(),
         emailResponse,
         ...(emailSubject.trim() && { emailSubject: emailSubject.trim() }),
-        returnSteps: captureProcess,
+        returnSteps: false,
         templateId: userProfile?.template_id,
       })
 
@@ -303,6 +296,7 @@ export default function MobileDatasetPromptPage() {
       })
       setDialogQuestions(result.questions)
       setDialogAnswers({})
+      setDialogCustomAnswers({})
       setDialogOpen(true)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to generate questions')
@@ -313,8 +307,16 @@ export default function MobileDatasetPromptPage() {
 
   const handleDialogSubmit = async () => {
     const answered = dialogQuestions
-      .filter(q => dialogAnswers[q.id]?.trim())
-      .map(q => `- ${q.question.replace(/\?$/, '')}: ${dialogAnswers[q.id].trim()}`)
+      .filter(q => {
+        const ans = dialogAnswers[q.id]
+        return ans === '__custom__' ? !!dialogCustomAnswers[q.id]?.trim() : !!ans?.trim()
+      })
+      .map(q => {
+        const ans = dialogAnswers[q.id] === '__custom__'
+          ? dialogCustomAnswers[q.id].trim()
+          : dialogAnswers[q.id].trim()
+        return `- ${q.question.replace(/\?$/, '')}: ${ans}`
+      })
       .join('\n')
     const enhanced = answered
       ? `${prompt.trim()}\n\nAdditional context:\n${answered}`
@@ -651,6 +653,9 @@ export default function MobileDatasetPromptPage() {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                       {q.question}
                     </label>
+                    {q.hint && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{q.hint}</p>
+                    )}
                     {q.hints && q.hints.length > 0 ? (
                       <div className="relative">
                         <select
@@ -667,9 +672,10 @@ export default function MobileDatasetPromptPage() {
                         {dialogAnswers[q.id] === '__custom__' && (
                           <input
                             type="text"
+                            value={dialogCustomAnswers[q.id] || ''}
                             className="input-field py-3 mt-2"
                             placeholder="Type your answer..."
-                            onChange={(e) => setDialogAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                            onChange={(e) => setDialogCustomAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
                           />
                         )}
                       </div>
