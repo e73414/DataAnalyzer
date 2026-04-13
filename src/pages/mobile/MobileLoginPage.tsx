@@ -1,5 +1,5 @@
 // src/pages/mobile/MobileLoginPage.tsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -99,10 +99,11 @@ export default function MobileLoginPage() {
     defaultValues: { email: '', password: '' },
   })
 
-  if (isLoggedIn) {
-    navigate('/analyze', { replace: true })
-    return null
-  }
+  useEffect(() => {
+    if (isLoggedIn) navigate('/analyze', { replace: true })
+  }, [isLoggedIn, navigate])
+
+  if (isLoggedIn) return null
 
   const onSubmit = async (data: LoginFormData) => {
     setIsSubmitting(true)
