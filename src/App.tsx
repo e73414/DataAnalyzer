@@ -47,6 +47,14 @@ import AdminProfilesHelp from './pages/help/topics/AdminProfilesHelp'
 import AdminUsersHelp from './pages/help/topics/AdminUsersHelp'
 import AdminTemplatesHelp from './pages/help/topics/AdminTemplatesHelp'
 import AdminSettingsHelp from './pages/help/topics/AdminSettingsHelp'
+import { lazy } from 'react'
+import MobileRoute from './components/MobileRoute'
+
+const MobileLoginPage = lazy(() => import('./pages/mobile/MobileLoginPage'))
+const MobileDatasetPromptPage = lazy(() => import('./pages/mobile/MobileDatasetPromptPage'))
+const MobilePlanReportPage = lazy(() => import('./pages/mobile/MobilePlanReportPage'))
+const MobileHistoryPage = lazy(() => import('./pages/mobile/MobileHistoryPage'))
+const MobileBrowseQuestionsPage = lazy(() => import('./pages/mobile/MobileBrowseQuestionsPage'))
 
 function UnauthorizedPage() {
   const navigate = useNavigate()
@@ -99,12 +107,12 @@ function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login" element={<MobileRoute desktop={LoginPage} mobile={MobileLoginPage} />} />
       <Route
         path="/analyze"
         element={
           <ProtectedRoute>
-            <DatasetPromptPage />
+            <MobileRoute desktop={DatasetPromptPage} mobile={MobileDatasetPromptPage} />
           </ProtectedRoute>
         }
       />
@@ -152,7 +160,7 @@ function App() {
         path="/history"
         element={
           <ProtectedRoute>
-            <HistoryPage />
+            <MobileRoute desktop={HistoryPage} mobile={MobileHistoryPage} />
           </ProtectedRoute>
         }
       />
@@ -176,7 +184,7 @@ function App() {
         path="/plan-report"
         element={
           <ProtectedRoute>
-            <PlanReportPage />
+            <MobileRoute desktop={PlanReportPage} mobile={MobilePlanReportPage} />
           </ProtectedRoute>
         }
       />
@@ -241,7 +249,7 @@ function App() {
         path="/browse-questions"
         element={
           <ProtectedRoute>
-            <BrowseQuestionsPage />
+            <MobileRoute desktop={BrowseQuestionsPage} mobile={MobileBrowseQuestionsPage} />
           </ProtectedRoute>
         }
       />
