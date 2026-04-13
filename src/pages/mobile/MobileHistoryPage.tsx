@@ -215,7 +215,14 @@ export default function MobileHistoryPage() {
         {/* Card header — tappable */}
         <div
           className="p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 active:bg-gray-100 dark:active:bg-gray-700"
-          onClick={() => setExpandedConversation(isExpanded ? null : conv.id)}
+          onClick={() => {
+            if (isExpanded) {
+              if (sendingId === conv.id) { setSendingId(null); setSendEmail('') }
+              setExpandedConversation(null)
+            } else {
+              setExpandedConversation(conv.id)
+            }
+          }}
         >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
