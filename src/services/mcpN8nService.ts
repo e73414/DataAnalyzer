@@ -1,5 +1,5 @@
 import { mcpN8nApi } from './api'
-import type { AnalysisRequest, AnalysisResult, DatasetDetail, DatasetPreview, UpdateSummaryRequest, UpdateSummaryResult, UpdateDatasetRequest, UpdateDatasetResult, UploadDatasetRequest, UploadDatasetResult, DeleteDatasetRequest, DeleteDatasetResult, ReportTemplate, PlanReportRequest, PlanReportResult, ExecutePlanRequest, ExecutePlanResult, CheckReportProgressResult, ReportPlan, PromptDialogRequest, PromptDialogResult, PromptDialogQuestion, RunFormatterRequest } from '../types'
+import type { AnalysisRequest, AnalysisResult, DatasetDetail, DatasetPreview, UpdateSummaryRequest, UpdateSummaryResult, UpdateDatasetRequest, UpdateDatasetResult, UploadDatasetRequest, UploadDatasetResult, DeleteDatasetRequest, DeleteDatasetResult, ReportTemplate, PlanReportRequest, PlanReportResult, ExecutePlanRequest, ExecutePlanResult, CheckReportProgressResult, ReportPlan, PromptDialogRequest, PromptDialogResult, PromptDialogQuestion, RunFormatterRequest, AiAnalysisRequest, AiAnalysisResult } from '../types'
 
 interface N8nWebhookResponse {
   status: 'ok' | 'error'
@@ -700,6 +700,11 @@ export const n8nService = {
     if (fullData?.status === 'error') {
       throw new Error(fullData?.error || 'Failed to start formatter')
     }
+  },
+
+  async analyzeDataQuality(request: AiAnalysisRequest): Promise<AiAnalysisResult> {
+    const response = await mcpN8nApi.post<AiAnalysisResult>('/ai-analyze', request)
+    return response.data
   },
 
   async generateSampleQuestions(datasetId: string, datasetDesc: string, datasetSummary: string, model?: string): Promise<void> {

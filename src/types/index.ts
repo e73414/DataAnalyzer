@@ -439,3 +439,50 @@ export interface DriveFile {
   createdTime: string
   mimeType: string
 }
+
+export interface AiIssue {
+  type: string
+  severity: 'critical' | 'warning' | 'info'
+  columns?: string[]
+  rows?: number[]
+  description: string
+  suggested_fix: string
+  auto_applicable: boolean
+}
+
+export interface AiColumnSuggestion {
+  original: string
+  suggested_name?: string
+  suggested_type?: string
+  date_format?: string
+  confidence: 'high' | 'medium' | 'low'
+  reason: string
+}
+
+export interface AiDataBlock {
+  startRow: number
+  endRow: number
+  rowCount: number
+  sampleRows: string[][]
+}
+
+export interface AiAnalysisResult {
+  issues: AiIssue[]
+  column_suggestions: AiColumnSuggestion[]
+  rows_to_exclude: number[]
+  blocks_to_exclude: number[]
+  summary: string
+}
+
+export interface AiAnalysisRequest {
+  fileName: string
+  headers: string[]
+  firstRows: string[][]
+  lastRows: string[][]
+  dataBlocks: AiDataBlock[]
+  rowCount: number
+  columnCount: number
+  profile?: Record<string, unknown>
+  existingIssues?: string[]
+  userInstructions?: string
+}

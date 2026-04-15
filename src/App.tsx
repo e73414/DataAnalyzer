@@ -12,6 +12,7 @@ import ReportTemplateManagerPage from './pages/ReportTemplateManagerPage'
 import UploadReportTemplatePage from './pages/UploadReportTemplatePage'
 import PlanReportPage from './pages/PlanReportPage'
 import CsvOptimizerPage from './pages/CsvOptimizerPage'
+import AiReviewPage from './pages/AiReviewPage'
 import CsvOptimizerPlusPage from './pages/CsvOptimizerPlusPage'
 import ExcelUploadPage from './pages/ExcelUploadPage'
 import ProfileManagerPage from './pages/admin/ProfileManagerPage'
@@ -185,6 +186,14 @@ function App() {
         element={
           <ProtectedRoute>
             <MobileRoute desktop={PlanReportPage} mobile={MobilePlanReportPage} />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ai-review"
+        element={
+          <ProtectedRoute>
+            <AiReviewPage />
           </ProtectedRoute>
         }
       />

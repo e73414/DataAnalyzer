@@ -565,7 +565,25 @@ export default function CsvOptimizerPlusPage() {
       sourceInfo = { location_type: 'onedrive_file', folder_id: lastOnedriveUrl.current, schedule: onedriveSchedule || null }
     }
 
-    navigate('/upload-dataset', { state: { csvFile: file, fileName: displayName, ingestionConfig, sourceInfo } })
+    const { headers: activeHeaders, rows: activeRows } = parseCSV(csv)
+    const rowCount = conv.result.profileJson?.row_count ?? activeRows.length
+    const columnCount = conv.result.profileJson?.column_count ?? activeHeaders.length
+    const existingIssues = conv.aggregateRows.map(r => r.reason)
+
+    navigate('/ai-review', {
+      state: {
+        csvFile: file,
+        fileName: displayName,
+        headers: activeHeaders,
+        rows: activeRows,
+        rowCount,
+        columnCount,
+        profile: conv.result.profileJson as Record<string, unknown>,
+        existingIssues,
+        ingestionConfig,
+        sourceInfo,
+      }
+    })
   }
 
   const handleReset = () => {

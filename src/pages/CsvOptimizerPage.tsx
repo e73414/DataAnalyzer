@@ -653,7 +653,19 @@ export default function CsvOptimizerPage() {
     const fileName = `${sourceName || 'data'}${useOptimized ? '_optimized' : ''}.csv`
     const blob = new Blob([csvString], { type: 'text/csv' })
     const file = new File([blob], fileName, { type: 'text/csv' })
-    navigate('/upload-dataset', { state: { csvFile: file, fileName: sourceName || 'data' } })
+    const activeHeaders = useOptimized && optimizedCSV ? optimizedCSV.headers : analysis.originalHeaders
+    const activeRows = useOptimized && optimizedCSV ? optimizedCSV.rows : analysis.originalRows
+    navigate('/ai-review', {
+      state: {
+        csvFile: file,
+        fileName: sourceName || 'data',
+        headers: activeHeaders,
+        rows: activeRows,
+        rowCount: analysis.rowCount,
+        columnCount: analysis.columnCount,
+        existingIssues: analysis.issues.map(i => i.message),
+      }
+    })
   }
 
   const handleReset = () => {
