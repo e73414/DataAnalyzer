@@ -124,7 +124,6 @@ export default function AiReviewPage() {
   }
 
   function handleContinue() { navigateToUpload() }
-  function handleSkip() { navigateToUpload() }
 
   const criticalIssues = result?.issues.filter(i => i.severity === 'critical') ?? []
   const otherIssues = result?.issues.filter(i => i.severity !== 'critical') ?? []
@@ -279,13 +278,7 @@ export default function AiReviewPage() {
 
         {/* Actions */}
         {!loading && (
-          <div className="flex items-center justify-between">
-            <button
-              onClick={handleSkip}
-              className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
-            >
-              Skip AI Review
-            </button>
+          <div className="flex justify-end">
             <button
               onClick={handleContinue}
               disabled={!canContinue}

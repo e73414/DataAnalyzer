@@ -185,6 +185,7 @@ export default function CsvOptimizerPlusPage() {
 
   // Per-sheet results (replaces single result/aggregateRows/excludedRows)
   const [sheetConversions, setSheetConversions] = useState<SheetConversion[]>([])
+  const [skipAiReview, setSkipAiReview] = useState<Record<string, boolean>>({})
 
   // Expanded sections keyed by "<sheet>.<section>"
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
@@ -565,25 +566,29 @@ export default function CsvOptimizerPlusPage() {
       sourceInfo = { location_type: 'onedrive_file', folder_id: lastOnedriveUrl.current, schedule: onedriveSchedule || null }
     }
 
-    const { headers: activeHeaders, rows: activeRows } = parseCSV(csv)
-    const rowCount = conv.result.profileJson?.row_count ?? activeRows.length
-    const columnCount = conv.result.profileJson?.column_count ?? activeHeaders.length
-    const existingIssues = conv.aggregateRows.map(r => r.reason)
+    if (skipAiReview[conv.sheet]) {
+      navigate('/upload-dataset', { state: { csvFile: file, fileName: displayName, ingestionConfig, sourceInfo } })
+    } else {
+      const { headers: activeHeaders, rows: activeRows } = parseCSV(csv)
+      const rowCount = conv.result.profileJson?.row_count ?? activeRows.length
+      const columnCount = conv.result.profileJson?.column_count ?? activeHeaders.length
+      const existingIssues = conv.aggregateRows.map(r => r.reason)
 
-    navigate('/ai-review', {
-      state: {
-        csvFile: file,
-        fileName: displayName,
-        headers: activeHeaders,
-        rows: activeRows,
-        rowCount,
-        columnCount,
-        profile: conv.result.profileJson as Record<string, unknown>,
-        existingIssues,
-        ingestionConfig,
-        sourceInfo,
-      }
-    })
+      navigate('/ai-review', {
+        state: {
+          csvFile: file,
+          fileName: displayName,
+          headers: activeHeaders,
+          rows: activeRows,
+          rowCount,
+          columnCount,
+          profile: conv.result.profileJson as Record<string, unknown>,
+          existingIssues,
+          ingestionConfig,
+          sourceInfo,
+        }
+      })
+    }
   }
 
   const handleReset = () => {
@@ -1142,6 +1147,15 @@ export default function CsvOptimizerPlusPage() {
                     <button onClick={() => handleDownloadCleanCsv(conv)} className="btn-secondary text-sm">Download CSV</button>
                     <button onClick={() => handleUploadAsDataset(conv)} className="btn-primary text-sm">Upload as Dataset</button>
                   </div>
+                  <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={!!skipAiReview[conv.sheet]}
+                      onChange={e => setSkipAiReview(prev => ({ ...prev, [conv.sheet]: e.target.checked }))}
+                      className="h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-600 text-blue-600"
+                    />
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Skip AI review</span>
+                  </label>
                 </div>
 
                 {/* Stats */}

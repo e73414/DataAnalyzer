@@ -575,6 +575,7 @@ export default function CsvOptimizerPage() {
   const [optimizedCSV, setOptimizedCSV] = useState<{ headers: string[]; rows: string[][]; csvString: string; fixCount: number } | null>(null)
   const [originalCSVString, setOriginalCSVString] = useState<string>('')
   const [useOptimized, setUseOptimized] = useState(true)
+  const [skipAiReview, setSkipAiReview] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ error: true, warning: true, suggestion: false })
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -655,17 +656,21 @@ export default function CsvOptimizerPage() {
     const file = new File([blob], fileName, { type: 'text/csv' })
     const activeHeaders = useOptimized && optimizedCSV ? optimizedCSV.headers : analysis.originalHeaders
     const activeRows = useOptimized && optimizedCSV ? optimizedCSV.rows : analysis.originalRows
-    navigate('/ai-review', {
-      state: {
-        csvFile: file,
-        fileName: sourceName || 'data',
-        headers: activeHeaders,
-        rows: activeRows,
-        rowCount: analysis.rowCount,
-        columnCount: analysis.columnCount,
-        existingIssues: analysis.issues.map(i => i.message),
-      }
-    })
+    if (skipAiReview) {
+      navigate('/upload-dataset', { state: { csvFile: file, fileName: sourceName || 'data' } })
+    } else {
+      navigate('/ai-review', {
+        state: {
+          csvFile: file,
+          fileName: sourceName || 'data',
+          headers: activeHeaders,
+          rows: activeRows,
+          rowCount: analysis.rowCount,
+          columnCount: analysis.columnCount,
+          existingIssues: analysis.issues.map(i => i.message),
+        }
+      })
+    }
   }
 
   const handleReset = () => {
@@ -927,6 +932,15 @@ export default function CsvOptimizerPage() {
                     Upload as Dataset
                   </button>
                 </div>
+                <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={skipAiReview}
+                    onChange={e => setSkipAiReview(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-600 text-blue-600"
+                  />
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Skip AI review</span>
+                </label>
               </div>
 
               {/* Toggle: Optimized vs Original */}
