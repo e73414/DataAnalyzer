@@ -10,6 +10,9 @@ import HelpTip from '../components/HelpTip'
 import { useSession } from '../context/SessionContext'
 import { useAppSettings } from '../context/AppSettingsContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
+import { n8nService } from '../services/mcpN8nService'
+import AiReviewModal from '../components/AiReviewModal'
+import type { AiAnalysisResult, AiDataBlock } from '../types'
 
 // --- Types ---
 
@@ -119,6 +122,28 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function detectDataBlocks(rows: string[][]): AiDataBlock[] {
+  const isEmpty = (row: string[]) => row.every(cell => !cell || !cell.trim())
+  const blocks: AiDataBlock[] = []
+  let blockStart = -1
+  for (let i = 0; i <= rows.length; i++) {
+    const empty = i === rows.length || isEmpty(rows[i])
+    if (!empty && blockStart === -1) {
+      blockStart = i
+    } else if (empty && blockStart !== -1) {
+      const blockRows = rows.slice(blockStart, i)
+      blocks.push({
+        startRow: blockStart + 1,
+        endRow: i,
+        rowCount: blockRows.length,
+        sampleRows: blockRows.slice(0, 5),
+      })
+      blockStart = -1
+    }
+  }
+  return blocks
+}
+
 function ChevronIcon({ open }: { open: boolean }) {
   return (
     <svg className={`w-5 h-5 transition-transform ${open ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -185,7 +210,14 @@ export default function CsvOptimizerPlusPage() {
 
   // Per-sheet results (replaces single result/aggregateRows/excludedRows)
   const [sheetConversions, setSheetConversions] = useState<SheetConversion[]>([])
-  const [skipAiReview, setSkipAiReview] = useState<Record<string, boolean>>({})
+  // AI Review state
+  const [isAnalyzing, setIsAnalyzing] = useState<Record<string, boolean>>({})
+  const [aiReviewOpen, setAiReviewOpen] = useState(false)
+  const [aiReviewConv, setAiReviewConv] = useState<SheetConversion | null>(null)
+  const [aiReviewPlan, setAiReviewPlan] = useState<AiAnalysisResult | null>(null)
+  const [aiReviewCsvText, setAiReviewCsvText] = useState('')
+  const [aiReviewFileName, setAiReviewFileName] = useState('')
+  const [cleanedCsvs, setCleanedCsvs] = useState<Record<string, string>>({})
 
   // Expanded sections keyed by "<sheet>.<section>"
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
@@ -536,11 +568,47 @@ export default function CsvOptimizerPlusPage() {
     URL.revokeObjectURL(url)
   }
 
-  const handleUploadAsDataset = (conv: SheetConversion) => {
-    const csv = getActiveCleanCsv(conv)
+  const handleAiReview = async (conv: SheetConversion) => {
+    const csv = cleanedCsvs[conv.sheet] ?? getActiveCleanCsv(conv)
     if (!csv) return
 
-    // Build ingestion config so it can be saved alongside the dataset on upload
+    const { headers, rows } = parseCSV(csv)
+    const rawFirstRows = [headers, ...rows].slice(0, 20)
+    const sheetSuffix = sheetConversions.length > 1 ? ` - ${conv.sheet}` : ''
+    const displayName = `${sourceName}${sheetSuffix}`
+
+    setIsAnalyzing(prev => ({ ...prev, [conv.sheet]: true }))
+    try {
+      const blocks = detectDataBlocks(rows)
+      const plan = await n8nService.analyzeDataQuality({
+        fileName: displayName,
+        headers,
+        firstRows: rows.slice(0, 20),
+        lastRows: rows.slice(-10),
+        dataBlocks: blocks.length > 1 ? blocks : [],
+        rowCount: conv.result.profileJson?.row_count ?? rows.length,
+        columnCount: conv.result.profileJson?.column_count ?? headers.length,
+        profile: conv.result.profileJson as Record<string, unknown>,
+        existingIssues: conv.aggregateRows.map(r => r.reason),
+        rawFirstRows,
+      })
+      setAiReviewPlan(plan)
+      setAiReviewConv(conv)
+      setAiReviewCsvText(csv)
+      setAiReviewFileName(`${displayName}_clean.csv`)
+      setAiReviewOpen(true)
+    } catch (err) {
+      toast.error(`AI Review failed: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setIsAnalyzing(prev => ({ ...prev, [conv.sheet]: false }))
+    }
+  }
+
+  const handleUploadAsDataset = (conv: SheetConversion) => {
+    // Use AI-cleaned CSV if available, otherwise fall back to the active clean CSV
+    const csvSource = cleanedCsvs[conv.sheet] ?? getActiveCleanCsv(conv)
+    if (!csvSource) return
+
     const { headers } = parseCSV(conv.result.cleanCsv)
     const excludedColNames = headers.filter((_, i) => conv.excludedCols.has(i))
     const ingestionConfig = {
@@ -555,10 +623,9 @@ export default function CsvOptimizerPlusPage() {
     const sheetSuffix = sheetConversions.length > 1 ? ` - ${conv.sheet}` : ''
     const displayName = `${sourceName}${sheetSuffix}`
     const fileName = `${displayName}_clean.csv`
-    const blob = new Blob([csv], { type: 'text/csv' })
+    const blob = new Blob([csvSource], { type: 'text/csv' })
     const file = new File([blob], fileName, { type: 'text/csv' })
 
-    // Build sourceInfo for schedule auto-setup on upload page
     let sourceInfo: { location_type: string; folder_id: string; schedule: string | null } | undefined
     if (lastGsheetsId.current) {
       sourceInfo = { location_type: 'google_sheets', folder_id: lastGsheetsId.current, schedule: gsheetsSchedule || null }
@@ -566,29 +633,7 @@ export default function CsvOptimizerPlusPage() {
       sourceInfo = { location_type: 'onedrive_file', folder_id: lastOnedriveUrl.current, schedule: onedriveSchedule || null }
     }
 
-    if (skipAiReview[conv.sheet]) {
-      navigate('/upload-dataset', { state: { csvFile: file, fileName: displayName, ingestionConfig, sourceInfo } })
-    } else {
-      const { headers: activeHeaders, rows: activeRows } = parseCSV(csv)
-      const rowCount = conv.result.profileJson?.row_count ?? activeRows.length
-      const columnCount = conv.result.profileJson?.column_count ?? activeHeaders.length
-      const existingIssues = conv.aggregateRows.map(r => r.reason)
-
-      navigate('/ai-review', {
-        state: {
-          csvFile: file,
-          fileName: displayName,
-          headers: activeHeaders,
-          rows: activeRows,
-          rowCount,
-          columnCount,
-          profile: conv.result.profileJson as Record<string, unknown>,
-          existingIssues,
-          ingestionConfig,
-          sourceInfo,
-        }
-      })
-    }
+    navigate('/upload-dataset', { state: { csvFile: file, fileName: displayName, ingestionConfig, sourceInfo } })
   }
 
   const handleReset = () => {
@@ -1145,17 +1190,24 @@ export default function CsvOptimizerPlusPage() {
                   <div className="flex flex-wrap gap-2">
                     <button onClick={() => handleDownloadZip(conv)} className="btn-secondary text-sm">Download ZIP</button>
                     <button onClick={() => handleDownloadCleanCsv(conv)} className="btn-secondary text-sm">Download CSV</button>
+                    <button
+                      onClick={() => handleAiReview(conv)}
+                      disabled={!!isAnalyzing[conv.sheet]}
+                      className="btn-secondary text-sm border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/40 disabled:opacity-50"
+                    >
+                      {isAnalyzing[conv.sheet] ? (
+                        <span className="flex items-center gap-2">
+                          <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-purple-500 border-t-transparent" />
+                          Analyzing…
+                        </span>
+                      ) : cleanedCsvs[conv.sheet] ? (
+                        '✓ AI Reviewed'
+                      ) : (
+                        'AI Review'
+                      )}
+                    </button>
                     <button onClick={() => handleUploadAsDataset(conv)} className="btn-primary text-sm">Upload as Dataset</button>
                   </div>
-                  <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={!!skipAiReview[conv.sheet]}
-                      onChange={e => setSkipAiReview(prev => ({ ...prev, [conv.sheet]: e.target.checked }))}
-                      className="h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-600 text-blue-600"
-                    />
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Skip AI review</span>
-                  </label>
                 </div>
 
                 {/* Stats */}
@@ -1282,6 +1334,21 @@ export default function CsvOptimizerPlusPage() {
           )
         })}
       </main>
+
+      {/* AI Review Modal */}
+      {aiReviewOpen && aiReviewPlan && aiReviewConv && (
+        <AiReviewModal
+          isOpen={aiReviewOpen}
+          onClose={() => setAiReviewOpen(false)}
+          cleaningPlan={aiReviewPlan}
+          csvText={aiReviewCsvText}
+          fileName={aiReviewFileName}
+          onCleanComplete={(cleanedCsv) => {
+            setCleanedCsvs(prev => ({ ...prev, [aiReviewConv!.sheet]: cleanedCsv }))
+            setAiReviewOpen(false)
+          }}
+        />
+      )}
     </div>
   )
 }
