@@ -7,7 +7,8 @@ import shutil
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Query
+import json
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Form
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -19,6 +20,68 @@ app = FastAPI(
 
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_MB", 50)) * 1024 * 1024
 CONVERT_SCRIPT   = Path(__file__).parent / "scripts" / "convert.py"
+
+
+# ── Clean response model ──────────────────────────────────────────────────────
+
+class CleanResponse(BaseModel):
+    cleaned_csv: str
+    changes_applied: dict
+
+
+_CLEAN_MODULE = None
+
+
+def _get_clean():
+    global _CLEAN_MODULE
+    if _CLEAN_MODULE is None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "clean", Path(__file__).parent / "scripts" / "clean.py"
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _CLEAN_MODULE = mod
+    return _CLEAN_MODULE
+
+
+# ── Cleaning endpoint ─────────────────────────────────────────────────────────
+
+@app.post(
+    "/clean",
+    summary="Apply AI cleaning plan to a converted CSV",
+    response_model=CleanResponse,
+)
+async def clean(
+    file: UploadFile = File(..., description="Converted CSV file from /convert"),
+    cleaning_plan: str = Form(..., description="JSON cleaning plan from AI analysis"),
+):
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size is {MAX_UPLOAD_BYTES // (1024*1024)} MB.",
+        )
+    try:
+        csv_text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        csv_text = content.decode("latin-1")
+
+    try:
+        plan = json.loads(cleaning_plan)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid cleaning plan JSON: {exc}")
+
+    try:
+        mod = _get_clean()
+        cleaned_csv, changes = mod.apply_cleaning_plan(csv_text, plan)
+    except Exception as exc:
+        # 422 covers both invalid plan data (user-caused) and unexpected cleaning failures.
+        # apply_cleaning_plan silently skips out-of-bounds references so genuine exceptions
+        # here indicate malformed plan structure or corrupted CSV data.
+        raise HTTPException(status_code=422, detail=f"Cleaning failed: {exc}")
+
+    return CleanResponse(cleaned_csv=cleaned_csv, changes_applied=changes)
 
 
 # ── Health check ─────────────────────────────────────────────────────────────

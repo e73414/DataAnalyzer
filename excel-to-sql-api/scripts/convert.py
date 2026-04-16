@@ -182,36 +182,68 @@ def detect_encoding(path: Path) -> str:
 
 # ── Header row detection ───────────────────────────────────────────────────
 
-def detect_header_row(df_raw: pd.DataFrame, max_scan: int = 10) -> int:
+def detect_header_row(df_raw: pd.DataFrame, max_scan: int = 50) -> int:
     """
-    Scan the first max_scan rows and return the index of the best header candidate.
+    Return the 0-based index of the header row.
 
-    A good header row has:
-    - Many non-null values  (coverage)
-    - Mostly unique values  (uniqueness)
-    - Mostly string / non-numeric values  (text-likeness)
+    Primary strategy — "find data block, step back to header":
+      1. A "data row" is one with >= 3 non-empty cells that includes at least one
+         pure-numeric value (amount, rate, count — not a date or label).
+      2. Slide a 10-row window across the first max_scan rows looking for a window
+         that contains >= 3 data rows.  This threshold filters out isolated
+         metadata cells (e.g. "Canada % | 0.76") while reliably finding the main
+         table body.
+      3. Once the window is found, locate the first data row in it, then walk
+         backwards to the last non-empty row above it — that is the header.
 
-    We return the row with the highest weighted score.
+    This correctly handles files like invoice templates where billing/address
+    blocks appear above the real column headers (e.g. header at Excel row 18
+    with preamble rows 1-17).
+
+    Fallback — score-based heuristic:
+      Used when no qualifying data block is found within max_scan rows
+      (e.g. all-text CSV, very short files).  Scores each row on text-likeness,
+      uniqueness, and coverage and returns the highest scorer.
     """
-    best_row, best_score = 0, -1
-    scan_end = min(max_scan, len(df_raw))
+    _IS_NUMERIC = re.compile(r'^[£$€¥]?[\d,.\-]+[KkMmBb]?%?$')
 
+    def _cell_values(i: int) -> list[str]:
+        return [str(v).strip() for v in df_raw.iloc[i] if pd.notna(v) and str(v).strip()]
+
+    def _is_data_row(i: int) -> bool:
+        """True if row has >= 3 non-empty cells with at least one numeric value."""
+        vals = _cell_values(i)
+        return len(vals) >= 3 and any(_IS_NUMERIC.match(v) for v in vals)
+
+    scan_end  = min(max_scan, len(df_raw))
+    WINDOW    = 10   # sliding window width
+    MIN_DATA  = 3    # minimum data rows required inside the window
+
+    # ── Primary: sliding-window data-block search
     for i in range(scan_end):
-        row    = df_raw.iloc[i]
-        values = [str(v).strip() for v in row if pd.notna(v) and str(v).strip()]
+        window_end  = min(i + WINDOW, scan_end)
+        data_count  = sum(1 for j in range(i, window_end) if _is_data_row(j))
+        if data_count >= MIN_DATA:
+            # Find the first data row inside this window
+            for j in range(i, window_end):
+                if _is_data_row(j):
+                    # Header = last non-empty row immediately above row j
+                    for k in range(j - 1, -1, -1):
+                        if _cell_values(k):
+                            return k
+                    return 0  # data starts at row 0; no header above
+
+    # ── Fallback: score-based heuristic (all-text or very short files)
+    best_row, best_score = 0, -1
+    for i in range(scan_end):
+        values = _cell_values(i)
         if not values:
             continue
-
-        non_numeric = sum(
-            1 for v in values
-            if not re.match(r'^[£$€¥]?[\d,.\-]+[KkMmBb]?$', v)
-        )
-        uniqueness   = len(set(values)) / len(values)
-        coverage     = len(values) / max(len(row), 1)
-        text_ratio   = non_numeric / len(values)
-
+        non_numeric = sum(1 for v in values if not _IS_NUMERIC.match(v))
+        uniqueness  = len(set(values)) / len(values)
+        coverage    = len(values) / max(len(df_raw.columns), 1)
+        text_ratio  = non_numeric / len(values)
         score = text_ratio * 0.5 + uniqueness * 0.3 + coverage * 0.2
-
         if score > best_score:
             best_score = score
             best_row   = i

@@ -472,12 +472,24 @@ export interface AiAnalysisResult {
   rows_to_exclude: number[]
   blocks_to_exclude: number[]
   summary: string
+  header_merges?: {
+    source_rows: number[]    // row indices (in rawFirstRows) that form the compound header
+    merged_headers: string[] // final column names after merging, underscore separator
+  }[]
+  data_islands?: {
+    start_row: number  // 0-based, inclusive, in data rows (excluding header)
+    end_row: number    // 0-based, inclusive, in data rows (excluding header)
+    start_col: number  // 0-based, inclusive
+    end_col: number    // 0-based, inclusive
+    reason: string
+  }[]
 }
 
 export interface AiAnalysisRequest {
   fileName: string
   headers: string[]
   firstRows: string[][]
+  rawFirstRows?: string[][]  // first 20 rows before header normalisation
   lastRows: string[][]
   dataBlocks: AiDataBlock[]
   rowCount: number
