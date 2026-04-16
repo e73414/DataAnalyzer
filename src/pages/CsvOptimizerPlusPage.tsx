@@ -402,6 +402,8 @@ export default function CsvOptimizerPlusPage() {
     setIsConverting(true)
     setSheetConversions([])
     setExpandedSections({})
+    setCleanedCsvs({})
+    setIsAnalyzing({})
 
     const newConversions: SheetConversion[] = []
 
@@ -609,7 +611,8 @@ export default function CsvOptimizerPlusPage() {
     const csvSource = cleanedCsvs[conv.sheet] ?? getActiveCleanCsv(conv)
     if (!csvSource) return
 
-    const { headers } = parseCSV(conv.result.cleanCsv)
+    // Use the same CSV source for header extraction so excludedColNames aligns with what's uploaded
+    const { headers } = parseCSV(csvSource)
     const excludedColNames = headers.filter((_, i) => conv.excludedCols.has(i))
     const ingestionConfig = {
       source_type: isExcel ? 'excel' as const : 'csv' as const,
@@ -643,6 +646,13 @@ export default function CsvOptimizerPlusPage() {
     setSelectedSheets([])
     setSheetConversions([])
     setExpandedSections({})
+    setCleanedCsvs({})
+    setIsAnalyzing({})
+    setAiReviewOpen(false)
+    setAiReviewConv(null)
+    setAiReviewPlan(null)
+    setAiReviewCsvText('')
+    setAiReviewFileName('')
     setGsheetsInputOpen(false)
     setGsheetsUrl('')
     setOnedriveInputOpen(false)
