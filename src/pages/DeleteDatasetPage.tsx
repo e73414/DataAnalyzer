@@ -9,15 +9,18 @@ import Navigation from '../components/Navigation'
 export default function DeleteDatasetPage() {
   const queryClient = useQueryClient()
   const { session } = useSession()
+  const isAdmin = session?.profile?.trim() === 'admadmadm'
   const [selectedDatasetId, setSelectedDatasetId] = useState('')
   const [confirmText, setConfirmText] = useState('')
   const [datasetSearch, setDatasetSearch] = useState('')
 
   const {
-    datasets: datasets = [],
+    datasets: allDatasets = [],
     isLoading: isLoadingDatasets,
     error: datasetsError,
   } = useAccessibleDatasets()
+
+  const datasets = isAdmin ? allDatasets : allDatasets.filter(d => d.owner_email === session?.email)
 
   const deleteMutation = useMutation({
     mutationFn: () =>
@@ -78,7 +81,7 @@ export default function DeleteDatasetPage() {
             </div>
           ) : datasets?.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-600 dark:text-gray-400">No datasets found for your email address.</p>
+              <p className="text-gray-600 dark:text-gray-400">You do not own any dataset to delete.</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">

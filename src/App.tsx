@@ -152,9 +152,9 @@ function App() {
       <Route
         path="/delete-dataset"
         element={
-          <AdminProtectedRoute>
+          <ProtectedRoute>
             <DeleteDatasetPage />
-          </AdminProtectedRoute>
+          </ProtectedRoute>
         }
       />
       <Route
