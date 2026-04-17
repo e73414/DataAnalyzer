@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { n8nService } from '../services/mcpN8nService'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
+import DatasetSearchSelect from '../components/DatasetSearchSelect'
 import Navigation from '../components/Navigation'
 
 export default function DeleteDatasetPage() {
@@ -12,7 +13,6 @@ export default function DeleteDatasetPage() {
   const isAdmin = session?.profile?.trim() === 'admadmadm'
   const [selectedDatasetId, setSelectedDatasetId] = useState('')
   const [confirmText, setConfirmText] = useState('')
-  const [datasetSearch, setDatasetSearch] = useState('')
 
   const {
     datasets: allDatasets = [],
@@ -85,37 +85,16 @@ export default function DeleteDatasetPage() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label htmlFor="dataset" className="label">
-                  Select Dataset to Delete
-                </label>
-                <input
-                  type="text"
-                  value={datasetSearch}
-                  onChange={(e) => setDatasetSearch(e.target.value)}
-                  placeholder="Search datasets..."
-                  className="input-field mb-2"
-                  disabled={deleteMutation.isPending}
-                />
-                <select
-                  id="dataset"
-                  value={selectedDatasetId}
-                  onChange={(e) => {
-                    setSelectedDatasetId(e.target.value)
-                    setConfirmText('')
-                  }}
-                  className="input-field focus:ring-red-500 focus:border-red-500"
-                  disabled={deleteMutation.isPending}
-                >
-                  <option value="">-- Select a dataset --</option>
-                  {[...(datasets ?? [])].sort((a, b) => a.name.localeCompare(b.name)).filter(d => d.name.toLowerCase().includes(datasetSearch.toLowerCase())).map((dataset) => (
-                    <option key={dataset.id} value={dataset.id}>
-                      {dataset.name}
-                      {dataset.description && ` - ${dataset.description}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <DatasetSearchSelect
+                datasets={datasets ?? []}
+                value={selectedDatasetId}
+                onChange={(id) => {
+                  setSelectedDatasetId(id)
+                  setConfirmText('')
+                }}
+                disabled={deleteMutation.isPending}
+                label="Select Dataset to Delete"
+              />
 
               {selectedDataset && (
                 <>
