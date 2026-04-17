@@ -230,7 +230,7 @@ export default function UploadDatasetPage() {
                 onChange={(e) => setDatasetDesc(e.target.value)}
                 rows={3}
                 className="input-field resize-y"
-                placeholder="Provide context about your data to help AI understand it better (e.g., what the columns represent, time periods, business context...)"
+                placeholder="Provide context about your data (leave blank for AI-generated description)"
                 disabled={uploadMutation.isPending}
               />
             </div>

@@ -754,14 +754,13 @@ export default function EditSummaryPage() {
                         {(session?.profile?.trim() === 'admadmadm' || datasets.find(d => d.id === selectedDatasetId)?.owner_email === session?.email) && (
                           confirmDelete ? (
                             <span className="flex items-center gap-2">
-                              <span className="text-sm text-gray-600 dark:text-gray-400">Delete this dataset?</span>
                               <button
                                 type="button"
                                 onClick={() => deleteMutation.mutate()}
                                 disabled={deleteMutation.isPending}
                                 className="px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-50"
                               >
-                                {deleteMutation.isPending ? 'Deleting…' : 'Yes, Delete'}
+                                {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
                               </button>
                               <button
                                 type="button"
