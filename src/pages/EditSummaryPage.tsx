@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { useLocation, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
@@ -16,7 +16,6 @@ import Navigation from '../components/Navigation'
 import type { DatasetDetail } from '../types'
 
 export default function EditSummaryPage() {
-  const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
   const { session } = useSession()
@@ -100,7 +99,6 @@ export default function EditSummaryPage() {
       toast.success('Dataset updated successfully')
       queryClient.invalidateQueries({ queryKey: ['dataset-detail', selectedDatasetId] })
       queryClient.invalidateQueries({ queryKey: ['datasets', session?.email] })
-      navigate('/analyze', { state: { preSelectedDatasetId: selectedDatasetId } })
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to update summary')
