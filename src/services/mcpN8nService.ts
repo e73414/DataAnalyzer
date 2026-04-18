@@ -14,11 +14,8 @@ interface N8nWebhookResponse {
 
 // Webhook paths for the Data Analyzer workflows (production)
 const DATA_ANALYZER_WEBHOOK_PATH = 'webhook/analyze'
-const GET_DATASET_DETAIL_WEBHOOK_PATH = 'webhook/get-dataset-detail'
-const UPDATE_SUMMARY_WEBHOOK_PATH = 'webhook/update-summary'
 const UPDATE_DATASET_WEBHOOK_PATH = 'webhook/update-dataset'
 const UPLOAD_DATASET_WEBHOOK_PATH = 'webhook/upload-dataset'
-const DELETE_DATASET_WEBHOOK_PATH = 'webhook/delete-dataset'
 const SEND_REPORT_WEBHOOK_PATH = 'webhook/send-report'
 const UPLOAD_TEMPLATE_WEBHOOK_PATH = 'webhook/upload-template'
 const PROMPT_DIALOG_WEBHOOK_PATH = 'webhook/prompt-dialog'
@@ -82,22 +79,11 @@ export const n8nService = {
   },
 
   async getDatasetDetail(datasetId: string, email: string): Promise<DatasetDetail> {
-    const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
-      skill: 'n8n-webhook',
-      params: {
-        webhookPath: GET_DATASET_DETAIL_WEBHOOK_PATH,
-      },
-      input: {
-        datasetId,
-        email,
-      },
-    })
-
-    if (response.data.status === 'error' || !response.data.data) {
-      throw new Error(response.data.error || 'Failed to fetch dataset details')
-    }
-
-    return response.data.data as unknown as DatasetDetail
+    const response = await mcpN8nApi.get<DatasetDetail>(
+      `/datasets/${encodeURIComponent(datasetId)}/detail`,
+      { params: { email } }
+    )
+    return response.data
   },
 
   async getDatasetView(datasetId: string): Promise<DatasetPreview> {
@@ -106,28 +92,13 @@ export const n8nService = {
   },
 
   async updateSummary(request: UpdateSummaryRequest): Promise<UpdateSummaryResult> {
-    const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
-      skill: 'n8n-webhook',
-      params: {
-        webhookPath: UPDATE_SUMMARY_WEBHOOK_PATH,
-      },
-      input: {
-        datasetId: request.datasetId,
-        summary: request.summary,
-        email: request.email,
-        ...(request.datasetDesc != null && { dataset_desc: request.datasetDesc }),
-        ...(request.datasetName != null && { dataset_name: request.datasetName }),
-      },
+    await mcpN8nApi.patch(`/datasets/${encodeURIComponent(request.datasetId)}/summary`, {
+      email: request.email,
+      summary: request.summary,
+      ...(request.datasetDesc != null && { dataset_desc: request.datasetDesc }),
+      ...(request.datasetName != null && { dataset_name: request.datasetName }),
     })
-
-    if (response.data.status === 'error') {
-      throw new Error(response.data.error || 'Failed to update summary')
-    }
-
-    return {
-      status: 'ok',
-      message: 'Summary updated successfully',
-    }
+    return { status: 'ok', message: 'Summary updated successfully' }
   },
 
   async updateDataset(request: UpdateDatasetRequest): Promise<UpdateDatasetResult> {
@@ -187,26 +158,14 @@ export const n8nService = {
   },
 
   async deleteDataset(request: DeleteDatasetRequest): Promise<DeleteDatasetResult> {
-    const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
-      skill: 'n8n-webhook',
-      params: {
-        webhookPath: DELETE_DATASET_WEBHOOK_PATH,
-      },
-      input: {
-        datasetId: request.datasetId,
-        email: request.email,
-      },
-    })
-
-    if (response.data.status === 'error') {
-      throw new Error(response.data.error || 'Failed to delete dataset')
-    }
-
-    const data = response.data.data as { datasetName?: string; message?: string }
+    const response = await mcpN8nApi.delete<{ status: string; datasetName?: string; message?: string }>(
+      `/datasets/${encodeURIComponent(request.datasetId)}`,
+      { params: { email: request.email } }
+    )
     return {
       status: 'ok',
-      datasetName: data?.datasetName,
-      message: data?.message || 'Dataset deleted successfully',
+      datasetName: response.data.datasetName,
+      message: response.data.message || 'Dataset deleted successfully',
     }
   },
 
