@@ -4,34 +4,30 @@ import HelpPageLayout, { HelpSection } from '../HelpPageLayout'
 const SECTIONS: HelpSection[] = [
   {
     heading: 'Profile Manager Overview',
-    body: 'Manage the hierarchical profile codes that control data access across your organization.',
+    body: 'Profile codes control which datasets each user can access. A full profile code is 9 characters: company code (3) + business unit code (3) + team code (3). The Profile Manager has three tabs — Companies, Business Units, and Teams — one for each level of the hierarchy.',
     steps: [
-      'Companies represent your top-level organizational units',
-      'Business Units (BUs) are sub-divisions within companies',
-      'Teams are the smallest units, nested within BUs'
+      'Companies (3-char code) — your top-level organisational divisions',
+      'Business Units (3-char code) — departments or functional areas within a company',
+      'Teams (3-char code) — specific groups within a business unit'
     ]
   },
   {
-    heading: 'Profile Codes',
-    body: 'Profile codes are 9-character combinations: company(3) + BU(3) + team(3)',
+    heading: 'Profile Code Rules',
+    body: 'Codes follow these conventions:',
     steps: [
-      'Use "adm" for admin-level access',
-      'Use "000" as a wildcard for any BU or team',
-      'Example: "abc001xyz" = company abc, BU 001, team xyz'
+      '"adm" — reserved for admin-level access; users with profile admadmadm have full admin rights',
+      '"000" — wildcard; a dataset with "000" in the BU position is accessible to all BUs within that company',
+      'Example: "abc000000" = company "abc", accessible to all BUs and all teams',
+      'Example: "abcmkt001" = company "abc", marketing BU, team 001 only'
     ]
   },
   {
-    heading: 'Managing Profile Components',
-    body: 'Each tab manages one level of the hierarchy:',
-    steps: [
-      'Companies: Add your organization\'s main divisions',
-      'Business Units: Add departments or functional areas',
-      'Teams: Add specific groups within BUs'
-    ]
+    heading: 'Adding and Removing Codes',
+    body: 'Use the form on each tab to add a new code and label. Click the delete icon next to a code to remove it. Removing a code does not automatically update datasets or users that reference it.'
   },
   {
     heading: 'Profile Assignment',
-    body: 'Assign profiles to datasets to restrict access. Datasets with no profile assigned are visible to all users.'
+    body: 'Assign profile codes to datasets on the Edit Dataset Summary page (Dataset Access section) or through Admin > Templates. Assign profile codes to users on the Admin > Users page.'
   }
 ]
 

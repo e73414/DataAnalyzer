@@ -4,36 +4,31 @@ import HelpPageLayout, { HelpSection } from '../HelpPageLayout'
 const SECTIONS: HelpSection[] = [
   {
     heading: 'Manage Scheduled Reports',
-    body: 'View, edit, and manage all your report schedules in one place.',
+    body: 'Manage Reports shows all scheduled report runs — both your own and, for admins, all users\'. Each row shows the report prompt, dataset, schedule, enabled/disabled status, and the most recent run result.',
     steps: [
-      'View all your scheduled reports in the list',
-      'Check the status badge for each schedule',
-      'Expand rows to see detailed schedule information'
-    ]
-  },
-  {
-    heading: 'Schedule Actions',
-    body: 'Perform these actions on your scheduled reports:',
-    steps: [
-      'Click "Edit" to modify schedule frequency and time',
-      'Click "Run Now" to trigger an immediate report generation',
+      'Expand a row to view schedule details and the list of completed runs',
       'Toggle the switch to enable or disable a schedule',
-      'Click the delete icon to remove a schedule'
+      'Click "Run Now" to trigger an immediate report execution',
+      'Click the edit icon to modify the schedule frequency, time, or timezone',
+      'Click the delete icon to remove the schedule entirely'
     ]
   },
   {
-    heading: 'View Completed Runs',
-    body: 'Check the history of report executions:',
+    heading: 'Completed Runs',
+    body: 'Each schedule has an expandable "Completed Runs" section showing past executions:',
     steps: [
-      'Click "Completed Runs" to expand the section',
-      'View timestamp and model used for each run',
-      'Click "Load" to reload a previous report in Plan Report',
-      'Click the delete icon to remove a specific run'
+      'View the timestamp and AI model used for each run',
+      'Click the reload icon to load a past run back into the Plan Report page for review or re-execution',
+      'Click the delete icon to remove a specific run from history'
     ]
   },
   {
-    heading: 'Admin Features',
-    body: 'Administrators can view and manage all scheduled reports in the system.'
+    heading: 'Email Distribution',
+    body: 'Scheduled reports can be emailed automatically to a list of recipients on each run. The recipient list is configured when setting up the schedule from the Plan Report page.'
+  },
+  {
+    heading: 'Admin View',
+    body: 'Administrators see all scheduled reports across all users, making it easy to monitor report health and clean up stale schedules.'
   }
 ]
 

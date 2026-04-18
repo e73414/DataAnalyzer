@@ -3,24 +3,31 @@ import HelpPageLayout, { HelpSection } from '../HelpPageLayout'
 
 const SECTIONS: HelpSection[] = [
   {
-    heading: 'Upload Your First Dataset',
-    body: 'Create new datasets by uploading CSV or Excel files. This is the starting point for all data analysis and management.',
+    heading: 'Upload a New Dataset',
+    body: 'Upload a CSV file to create a new dataset available for AI analysis. Only CSV files are accepted on this page; use Excel Upload for .xlsx/.xls files.',
     steps: [
-      'Click "Choose File" to select a CSV or Excel file',
-      'Enter a descriptive name for your dataset',
-      'Provide a summary describing the data',
-      'Add business context to help AI generate better analyses',
-      'Review the detected columns and data types',
-      'Click "Upload" to create the dataset'
+      'Click "Choose File" and select a CSV file',
+      'Enter a descriptive Dataset Name',
+      'Enter a short Description (used for AI dataset selection and search)',
+      'Optionally add AI Context — instructions that help the AI understand the data',
+      'Click "Upload Dataset" to create the dataset'
     ]
   },
   {
-    heading: 'Data Requirements',
-    body: 'Your file should have a header row with column names. Supported formats include CSV (.csv), Excel (.xlsx, .xls), and Google Sheets.'
+    heading: 'AI Context',
+    body: 'The AI Context field (also labelled "Instruct AI How to Build Query" or similar) provides the AI with extra guidance about how the data is structured, what the columns mean, or how to filter and aggregate rows. This becomes part of the AI Summary and can be edited later on the Edit Dataset Summary page.'
   },
   {
-    heading: 'Access Control',
-    body: 'Control who can access your dataset. By default, only you can access datasets you create.'
+    heading: 'After Upload',
+    body: 'After uploading, the app navigates to the Edit Dataset Summary page with auto-enrich enabled. The AI will automatically generate a description and sample questions for the dataset. You can review and adjust these before saving.'
+  },
+  {
+    heading: 'Dataset Access',
+    body: 'Newly uploaded datasets are accessible only to you by default. Use the Dataset Access section on the Edit Dataset Summary page to share the dataset with other organizational profiles.'
+  },
+  {
+    heading: 'Data Requirements',
+    body: 'The CSV file must have a header row as the first row. Column names are normalised for database storage but the originals are preserved in the column mapping. Dates, numbers, and text are all supported.'
   }
 ]
 

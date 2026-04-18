@@ -3,29 +3,26 @@ import HelpPageLayout, { HelpSection } from '../HelpPageLayout'
 
 const SECTIONS: HelpSection[] = [
   {
-    heading: 'Create and Organize Questions',
-    body: 'Save your frequently asked questions for quick reuse and sharing with team members.',
+    heading: 'Manage Saved Questions',
+    body: 'Manage Questions is an admin view showing all saved questions across all users. Use it to review, copy shareable links, or delete questions that are no longer relevant.',
     steps: [
-      'After running an analysis, click "Save Question"',
-      'Give your question a descriptive title',
-      'Add notes about what the question analyzes',
-      'Choose if the question is private or public',
-      'Select if others can edit your question',
-      'Confirm to save'
+      'Filter the list by owner email using the search field',
+      'Click the copy icon to copy the direct link to a question',
+      'Click the delete icon to permanently remove a question'
     ]
   },
   {
-    heading: 'Question Privacy',
-    body: 'Private questions are only accessible to you. Public questions can be shared via link with anyone. Editable questions allow others to modify them.',
+    heading: 'Saving Questions from Analysis',
+    body: 'Questions are saved from the Analysis History page. Click the bookmark icon on any Conversation history entry to open the Save Question modal:',
     steps: [
-      'Private: Only you can view and use',
-      'Public with Link: Shareable but read-only',
-      'Public & Editable: Others can modify your question'
+      'Enter a title for the question',
+      'Choose whether the question is Editable (users can modify the prompt) or Auto-run (executes immediately)',
+      'Confirm to save — the question then appears in Browse Questions'
     ]
   },
   {
-    heading: 'Managing Saved Questions',
-    body: 'View all your saved questions, edit descriptions, change privacy settings, or delete questions you no longer need.'
+    heading: 'Question Access',
+    body: 'Saved questions inherit visibility from the dataset they reference. Users who can access the dataset can see and run questions linked to it.'
   }
 ]
 

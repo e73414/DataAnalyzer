@@ -3,32 +3,42 @@ import HelpPageLayout, { HelpSection } from '../HelpPageLayout'
 
 const SECTIONS: HelpSection[] = [
   {
-    heading: 'View Analysis Results',
-    body: 'After running an analysis, view your results here. The AI processes your data and generates insights based on your query.',
+    heading: 'Conversation View',
+    body: 'The Results page displays a threaded conversation between you and the AI. Your prompts appear as blue bubbles on the right; AI responses appear on the left. Each response includes the response time in seconds.',
+  },
+  {
+    heading: 'Dataset Preview',
+    body: 'Click "View Data" next to the dataset name to show a scrollable preview of the dataset. Click "Hide Preview" to collapse it.'
+  },
+  {
+    heading: 'Asking Follow-up Questions',
+    body: 'Use the input bar at the bottom to continue the conversation on the same dataset:',
     steps: [
-      'Review the AI-generated response to your data question',
-      'Use the tabs to switch between different result views',
-      'Click "View Details" for in-depth breakdowns',
-      'Use the export buttons to save results'
+      'Type a follow-up question in the text field',
+      'Click "Send" or press Enter to submit',
+      'Use "Let AI Ask" to open the "Refine Your Requirements" dialog for guided clarification',
+      'Use "Tips and Sample Questions" to browse saved sample questions for the dataset'
     ]
   },
   {
-    heading: 'Export Options',
-    body: 'Save your analysis results in various formats for sharing or reporting.',
-    steps: [
-      'Export to PDF for presentations and reports',
-      'Export to CSV for further analysis in Excel',
-      'Copy results to clipboard for quick sharing'
-    ]
+    heading: 'Switching Datasets',
+    body: 'Type in the "Switch dataset..." field below the follow-up input to search for and select a different dataset. Subsequent questions will run against the new dataset.'
   },
   {
-    heading: 'Follow-up Actions',
-    body: 'Build on your analysis with these options:',
-    steps: [
-      'Save the question for future reference',
-      'Schedule regular reports on this topic',
-      'Run additional analyses on the same dataset'
-    ]
+    heading: 'Capture Process',
+    body: 'Check "Capture Process" to record the AI\'s reasoning steps for the next response. When process content is captured, a "View process used" disclosure link appears below the response, and a "save conversation" button appears to store the result to history.'
+  },
+  {
+    heading: 'Email the Response',
+    body: 'Check "Email the response" to send the next AI reply to your registered email. An optional Subject field appears when this is enabled.'
+  },
+  {
+    heading: 'Saving a Conversation',
+    body: 'Click "save conversation" (appears after the latest response when process was captured) to save the result to your analysis history. All conversation turns are automatically saved to history as you go.'
+  },
+  {
+    heading: 'View Process Used',
+    body: 'If "Capture Process" was enabled, click "View process used" beneath a response to expand the AI\'s SQL queries and reasoning steps for that turn.'
   }
 ]
 

@@ -3,23 +3,30 @@ import HelpPageLayout, { HelpSection } from '../HelpPageLayout'
 
 const SECTIONS: HelpSection[] = [
   {
-    heading: 'Explore Saved Questions',
-    body: 'Browse questions that have been saved and shared within your organization. Find insights others have already generated.',
+    heading: 'Browse Saved Questions',
+    body: 'Browse Questions shows questions that have been saved from the analysis history and shared within your organisation. Use it to find analyses others have already run or to re-run a question against current data.',
     steps: [
-      'Search for questions by keyword or dataset',
-      'Filter by author or creation date',
-      'Click to view a question and its analysis',
-      'Click "Run Question" to execute it with current data',
-      'Save interesting questions to your own library'
+      'Search by keyword to filter questions by prompt text or dataset',
+      'Filter by owner email to find questions created by a specific person',
+      'Browse questions grouped by organisational profile',
+      'Click a question to view its full detail and response history'
     ]
   },
   {
-    heading: 'Public Questions',
-    body: 'Public questions are accessible to anyone with the link. They are great for sharing specific analyses with team members.'
+    heading: 'Question Badges',
+    body: 'Each question card shows a badge indicating its type:',
+    steps: [
+      'Editable — the question prompt can be modified before running',
+      'Auto-run — clicking the question immediately executes it against the current dataset'
+    ]
   },
   {
-    heading: 'Question Details',
-    body: 'Each question shows who created it, when it was created, how many times it has been used, and the dataset it applies to.'
+    heading: 'Confidence Level',
+    body: 'When a question was created via AI dataset suggestion, a confidence level badge (High, Medium, Low) may appear to indicate how well the AI matched the question to its dataset.'
+  },
+  {
+    heading: 'Running a Question',
+    body: 'Click a question card to open it. From the detail view you can run the question against the saved dataset, or switch to a different dataset before running.'
   }
 ]
 

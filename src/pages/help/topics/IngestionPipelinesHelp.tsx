@@ -3,28 +3,28 @@ import HelpPageLayout, { HelpSection } from '../HelpPageLayout'
 
 const SECTIONS: HelpSection[] = [
   {
-    heading: 'Manage Automated Data Ingestion',
-    body: 'The Ingestion Pipelines page lets you view and manage all your automated data import schedules and email-based ingestion history.',
+    heading: 'Central Pipeline Dashboard',
+    body: 'Ingestion Pipelines shows all automated data import pipelines in one place. Two tabs are available: Cloud Sources (Google Drive, OneDrive) and Email Requests.',
     steps: [
-      'View all your cloud pipelines (Google Drive, OneDrive)',
-      'Check the status and last run time of each pipeline',
-      'Enable or disable pipelines with a toggle',
-      'Click "Run Now" to manually trigger a pipeline',
-      'Monitor email ingestion attempts and results'
+      'View all cloud pipelines with their status, last run time, and schedule',
+      'Toggle a pipeline on or off using the enable/disable switch',
+      'Click "Run Now" to trigger an immediate ingestion run',
+      'Click a pipeline row to navigate to its Ingestion Schedule configuration page'
     ]
   },
   {
-    heading: 'Cloud Pipelines',
-    body: 'Cloud pipelines automatically import files from Google Drive or OneDrive on a schedule. Monitor the status column to see if the last run succeeded.',
+    heading: 'Cloud Pipeline Status',
+    body: 'The Status column shows the result of the most recent run:',
     steps: [
-      'Status shows success, failure, or no new files',
-      'Last Run shows when the pipeline last executed',
-      'Schedule shows how often the pipeline runs'
+      'Success — new files were found and ingested',
+      'No New Files — the pipeline ran but found no new or updated files',
+      'Failed — an error occurred; check the ingestion log for details',
+      'Never Run — the pipeline has been configured but has not yet executed'
     ]
   },
   {
-    heading: 'Email Ingestion',
-    body: 'Email ingestion lets you send dataset updates via email. View the history of all email ingestion attempts here.'
+    heading: 'Email Ingestion Tab',
+    body: 'The Email tab shows a history of dataset updates submitted by email. Each entry shows the sender, the dataset targeted, whether processing succeeded, and any error messages. Email ingestion is configured per-dataset on the Ingestion Schedule page.'
   }
 ]
 

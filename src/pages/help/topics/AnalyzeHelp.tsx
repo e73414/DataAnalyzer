@@ -4,21 +4,44 @@ import HelpPageLayout, { HelpSection } from '../HelpPageLayout'
 const SECTIONS: HelpSection[] = [
   {
     heading: 'Getting Started',
-    body: 'The Analyze Data feature allows you to ask natural language questions about your datasets. Simply select a dataset, choose an AI model, and ask your question. The AI will generate insights and visualizations.',
+    body: 'The Quick Answer page lets you ask natural language questions about your datasets. Select a dataset, type your question, and click "Quick Answer" to get an AI-powered response.',
     steps: [
-      'Select a dataset from the dropdown',
-      'Choose an AI model for analysis',
-      'Enter your question or request',
-      'Click "Analyze" to generate insights'
+      'Search for and select a dataset from the Dataset field',
+      'Type your question in the "Your question" text area',
+      'Optionally select an AI model (if not locked by your admin)',
+      'Click "Quick Answer" to run the analysis'
     ]
   },
   {
-    heading: 'Filtering and Scope',
-    body: 'You can limit the analysis to specific rows or time periods by using the dataset scope filter. This helps focus the AI analysis on relevant data subsets.'
+    heading: 'Dataset Selection',
+    body: 'Type in the Dataset field to search by name or description. When a dataset is selected, a preview of the first 20 rows appears automatically. Use the Scope filter to narrow the list:',
+    steps: [
+      'All — show every dataset you have access to',
+      'My Datasets — only datasets you own',
+      'Company Datasets — datasets shared at the company level',
+      'Unit Datasets — datasets shared at the business unit level',
+      'Team Datasets — datasets shared at your team level'
+    ]
   },
   {
-    heading: 'Model Selection',
-    body: 'Different AI models may provide different insights. Try different models to find the best results for your analysis.'
+    heading: 'Sample Questions',
+    body: 'If the selected dataset has saved sample questions, they appear as clickable chips above the text area. Click any chip to pre-fill the question field.'
+  },
+  {
+    heading: 'Let AI Ask',
+    body: 'Click "Let AI Ask" to open the "Refine Your Requirements" dialog. The AI generates clarifying questions based on your prompt to help produce a more targeted analysis. Answer as many or as few as you like, then click "Quick Answer" in the dialog to run the refined analysis.'
+  },
+  {
+    heading: 'Let AI Select Data',
+    body: 'If no dataset is selected, a "Let AI Select Data" button appears. Click it to have the AI review your question and suggest the most relevant dataset. A confirmation modal shows the suggested dataset name, description, and confidence level. You can then run the analysis immediately or just select the dataset.'
+  },
+  {
+    heading: 'Capture Process',
+    body: 'Check "Capture Process" to record the AI\'s internal reasoning steps alongside the response. The process is viewable in the Results page and can be saved to history.'
+  },
+  {
+    heading: 'Email Response',
+    body: 'Check "Email response" to send the analysis result to your registered email address. An optional Subject field appears when this is enabled.'
   }
 ]
 
