@@ -511,23 +511,22 @@ export default function MobileDatasetPromptPage() {
               </div>
             )}
 
-            {/* Prompt */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-              <label htmlFor="prompt" className="label">Your question</label>
-              <textarea
-                id="prompt"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={5}
-                className="input-field resize-none"
-                style={{ minHeight: '120px' }}
-                placeholder="What would you like to know about this dataset?"
-                disabled={isAnalyzing}
-              />
-            </div>
-
-            {/* Controls */}
+            {/* Prompt + controls */}
             <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-3">
+              <div>
+                <label htmlFor="prompt" className="label">Your question</label>
+                <textarea
+                  id="prompt"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  rows={5}
+                  className="input-field resize-none"
+                  style={{ minHeight: '120px' }}
+                  placeholder="What would you like to know about this dataset?"
+                  disabled={isAnalyzing}
+                />
+              </div>
+
               {/* AI Model — hidden when admin locks it */}
               {!appSettings?.analyze_model && (
                 <div>
