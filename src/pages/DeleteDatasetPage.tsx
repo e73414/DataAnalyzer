@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { n8nService } from '../services/mcpN8nService'
+import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import DatasetSearchSelect from '../components/DatasetSearchSelect'
 import Navigation from '../components/Navigation'
@@ -23,11 +24,13 @@ export default function DeleteDatasetPage() {
   const datasets = isAdmin ? allDatasets : allDatasets.filter(d => d.owner_email === session?.email)
 
   const deleteMutation = useMutation({
-    mutationFn: () =>
-      n8nService.deleteDataset({
+    mutationFn: async () => {
+      await pocketbaseService.deleteDatasetCleanup(selectedDatasetId)
+      return n8nService.deleteDataset({
         datasetId: selectedDatasetId,
         email: session!.email,
-      }),
+      })
+    },
     onSuccess: (result) => {
       toast.success(`Dataset "${result.datasetName}" deleted successfully`)
       setSelectedDatasetId('')
@@ -64,6 +67,9 @@ export default function DeleteDatasetPage() {
               <li>All data rows in the dataset will be deleted</li>
               <li>The dataset metadata and summary will be removed</li>
               <li>Any associated vector embeddings will be deleted</li>
+              <li>Ingestion schedule, config, and file history will be removed</li>
+              <li>Any scheduled reports referencing this dataset will be deleted</li>
+              <li>Saved questions for this dataset will be removed</li>
               <li>This action cannot be undone</li>
             </ul>
           </div>

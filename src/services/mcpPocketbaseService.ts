@@ -620,6 +620,10 @@ export const pocketbaseService = {
     await mcpN8nApi.delete(`/ingestion/schedule/${encodeURIComponent(datasetId)}`)
   },
 
+  async deleteDatasetCleanup(datasetId: string): Promise<void> {
+    await mcpN8nApi.delete(`/datasets/${encodeURIComponent(datasetId)}/cleanup`)
+  },
+
   async runIngestionNow(datasetId: string, email: string): Promise<{ status: string; message?: string }> {
     const response = await mcpN8nApi.post(`/ingestion/run/${encodeURIComponent(datasetId)}`, { email })
     return response.data
