@@ -330,7 +330,7 @@ const [isEditingReport, setIsEditingReport] = useState(false)
 
   const { data: previewData, isLoading: isLoadingPreview } = useQuery<DatasetPreview>({
     queryKey: ['dataset-preview', previewDatasetId],
-    queryFn: () => n8nService.getDatasetPreview(previewDatasetId!, session!.email, 10),
+    queryFn: () => pocketbaseService.getDatasetPreview(previewDatasetId!, session!.email, 10),
     enabled: !!previewDatasetId && !!session?.email,
     staleTime: 5 * 60 * 1000,
   })

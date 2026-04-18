@@ -1,5 +1,5 @@
 import { mcpN8nApi } from './api'
-import type { AnalysisRequest, AnalysisResult, DatasetDetail, DatasetPreview, UpdateSummaryRequest, UpdateSummaryResult, UpdateDatasetRequest, UpdateDatasetResult, UploadDatasetRequest, UploadDatasetResult, DeleteDatasetRequest, DeleteDatasetResult, ReportTemplate, PlanReportRequest, PlanReportResult, ExecutePlanRequest, ExecutePlanResult, CheckReportProgressResult, ReportPlan, PromptDialogRequest, PromptDialogResult, PromptDialogQuestion, RunFormatterRequest, AiAnalysisRequest, AiAnalysisResult } from '../types'
+import type { AnalysisRequest, AnalysisResult, DatasetDetail, DatasetPreview, UpdateSummaryRequest, UpdateSummaryResult, UpdateDatasetRequest, UpdateDatasetResult, UploadDatasetRequest, UploadDatasetResult, DeleteDatasetRequest, DeleteDatasetResult, PlanReportRequest, PlanReportResult, ExecutePlanRequest, ExecutePlanResult, CheckReportProgressResult, ReportPlan, PromptDialogRequest, PromptDialogResult, PromptDialogQuestion, RunFormatterRequest, AiAnalysisRequest, AiAnalysisResult } from '../types'
 
 interface N8nWebhookResponse {
   status: 'ok' | 'error'
@@ -20,10 +20,7 @@ const UPDATE_DATASET_WEBHOOK_PATH = 'webhook/update-dataset'
 const UPLOAD_DATASET_WEBHOOK_PATH = 'webhook/upload-dataset'
 const DELETE_DATASET_WEBHOOK_PATH = 'webhook/delete-dataset'
 const SEND_REPORT_WEBHOOK_PATH = 'webhook/send-report'
-const LIST_TEMPLATES_WEBHOOK_PATH = 'webhook/list-templates'
-const DELETE_TEMPLATE_WEBHOOK_PATH = 'webhook/delete-template'
 const UPLOAD_TEMPLATE_WEBHOOK_PATH = 'webhook/upload-template'
-const GET_DATASET_PREVIEW_WEBHOOK_PATH = 'webhook/get-dataset-preview'
 const PROMPT_DIALOG_WEBHOOK_PATH = 'webhook/prompt-dialog'
 const PLAN_REPORT_WEBHOOK_PATH = 'webhook/plan-report'
 const EXECUTE_PLAN_WEBHOOK_PATH = 'webhook/execute-plan'
@@ -106,26 +103,6 @@ export const n8nService = {
   async getDatasetView(datasetId: string): Promise<DatasetPreview> {
     const response = await mcpN8nApi.get<DatasetPreview>(`/dataset-view/${encodeURIComponent(datasetId)}`)
     return response.data
-  },
-
-  async getDatasetPreview(datasetId: string, email: string, limit: number = 20): Promise<DatasetPreview> {
-    const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
-      skill: 'n8n-webhook',
-      params: {
-        webhookPath: GET_DATASET_PREVIEW_WEBHOOK_PATH,
-      },
-      input: {
-        datasetId,
-        email,
-        limit,
-      },
-    })
-
-    if (response.data.status === 'error' || !response.data.data) {
-      throw new Error(response.data.error || 'Failed to fetch dataset preview')
-    }
-
-    return response.data.data as unknown as DatasetPreview
   },
 
   async updateSummary(request: UpdateSummaryRequest): Promise<UpdateSummaryResult> {
@@ -312,43 +289,6 @@ export const n8nService = {
     return {
       status: 'ok',
       message: 'Report sent successfully',
-    }
-  },
-
-  async listTemplates(email: string): Promise<ReportTemplate[]> {
-    const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
-      skill: 'n8n-webhook',
-      params: {
-        webhookPath: LIST_TEMPLATES_WEBHOOK_PATH,
-      },
-      input: {
-        email,
-      },
-    })
-
-    if (response.data.status === 'error') {
-      throw new Error(response.data.error || 'Failed to fetch templates')
-    }
-
-    const data = response.data.data as unknown as ReportTemplate[] | { data: ReportTemplate[]; items?: ReportTemplate[] }
-    if (Array.isArray(data)) return data
-    return data?.data || data?.items || []
-  },
-
-  async deleteTemplate(templateId: string, email: string): Promise<void> {
-    const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
-      skill: 'n8n-webhook',
-      params: {
-        webhookPath: DELETE_TEMPLATE_WEBHOOK_PATH,
-      },
-      input: {
-        templateId,
-        email,
-      },
-    })
-
-    if (response.data.status === 'error') {
-      throw new Error(response.data.error || 'Failed to delete template')
     }
   },
 

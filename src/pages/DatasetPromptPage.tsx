@@ -153,7 +153,7 @@ export default function DatasetPromptPage() {
     isLoading: isLoadingPreview,
   } = useQuery({
     queryKey: ['dataset-preview', selectedDatasetId],
-    queryFn: () => n8nService.getDatasetPreview(selectedDatasetId, session!.email, 20),
+    queryFn: () => pocketbaseService.getDatasetPreview(selectedDatasetId, session!.email, 20),
     enabled: !!selectedDatasetId && !!session?.email,
   })
 

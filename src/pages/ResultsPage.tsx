@@ -196,7 +196,7 @@ export default function ResultsPage() {
 
   const { data: datasetPreview, isLoading: isLoadingPreview } = useQuery({
     queryKey: ['dataset-preview', datasetId],
-    queryFn: () => n8nService.getDatasetPreview(datasetId, session!.email, 20),
+    queryFn: () => pocketbaseService.getDatasetPreview(datasetId, session!.email, 20),
     enabled: !!datasetId && !!session?.email && showPreview,
   })
 

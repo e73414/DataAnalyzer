@@ -1,8 +1,9 @@
 import { mcpN8nApi } from './api'
 import type {
-  Dataset, AIModel, NavLink, ConversationHistory, UserProfile,
+  Dataset, DatasetPreview, AIModel, NavLink, ConversationHistory, UserProfile,
   ProfileCompany, ProfileBusinessUnit, ProfileTeam, TemplateProfileAssignment, AdminUser, AppSettings,
-  SavedQuestion, IngestionConfig, IngestionSchedule, IngestionFile, GoogleTokenStatus, MicrosoftTokenStatus, DriveFile
+  SavedQuestion, IngestionConfig, IngestionSchedule, IngestionFile, ReportTemplate,
+  GoogleTokenStatus, MicrosoftTokenStatus, DriveFile
 } from '../types'
 
 // ── Types for Postgres REST responses ─────────────────────────────────────────
@@ -193,6 +194,26 @@ export const pocketbaseService = {
       row_count: row.row_count != null ? Number(row.row_count) : undefined,
       column_count: Array.isArray(row.dataset_headers) ? (row.dataset_headers as unknown[]).length : undefined,
     }))
+  },
+
+  async getDatasetPreview(datasetId: string, _email: string, limit: number = 20): Promise<DatasetPreview> {
+    const response = await mcpN8nApi.get<DatasetPreview>(`/datasets/${encodeURIComponent(datasetId)}/preview`, {
+      params: { limit },
+    })
+    return response.data
+  },
+
+  async listTemplates(email: string): Promise<ReportTemplate[]> {
+    const response = await mcpN8nApi.get<ReportTemplate[]>('/templates', {
+      params: { email },
+    })
+    return toArray<ReportTemplate>(response.data)
+  },
+
+  async deleteTemplate(templateId: string, email: string): Promise<void> {
+    await mcpN8nApi.delete(`/templates/${encodeURIComponent(templateId)}`, {
+      params: { email },
+    })
   },
 
   async getSampleQuestions(datasetId: string): Promise<{ id: string; question: string }[]> {

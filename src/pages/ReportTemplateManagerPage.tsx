@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
-import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
 import type { ReportTemplate } from '../types'
 
@@ -31,7 +30,7 @@ export default function ReportTemplateManagerPage() {
     error: templatesError,
   } = useQuery({
     queryKey: ['templates', session?.email],
-    queryFn: () => n8nService.listTemplates(session!.email),
+    queryFn: () => pocketbaseService.listTemplates(session!.email),
     enabled: !!session?.email,
   })
 
@@ -61,7 +60,7 @@ export default function ReportTemplateManagerPage() {
 
     setDeletingId(template.template_id)
     try {
-      await n8nService.deleteTemplate(template.template_id, session.email)
+      await pocketbaseService.deleteTemplate(template.template_id, session.email)
 
       // If the deleted template was the user's current one, clear it
       if (userProfile && userProfile.template_id === template.template_id) {
