@@ -689,44 +689,46 @@ export default function ResultsPage() {
               Tips and Sample Questions
             </button>
 
-            <form onSubmit={handleFollowUp} className="flex gap-3">
+            <form onSubmit={handleFollowUp} className="space-y-3">
               <input
                 type="text"
                 value={followUpPrompt}
                 onChange={(e) => setFollowUpPrompt(e.target.value)}
                 placeholder={hasSaved ? "Ask another question..." : "Ask a follow-up question..."}
                 disabled={isAnalyzing || isSaving}
-                className="input-field flex-1"
+                className="input-field w-full"
               />
-              <button
-                type="submit"
-                disabled={isAnalyzing || isSaving || !followUpPrompt.trim()}
-                className="btn-primary"
-              >
-                {isAnalyzing ? (
-                  <span className="flex items-center gap-2">
-                    <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
-                    Analyzing...
-                  </span>
-                ) : (
-                  'Send'
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={handleLetAiAsk}
-                disabled={isAnalyzing || isSaving || dialogLoading || !followUpPrompt.trim()}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {dialogLoading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent dark:border-gray-400"></span>
-                    Analyzing...
-                  </span>
-                ) : (
-                  'Let AI Ask'
-                )}
-              </button>
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  disabled={isAnalyzing || isSaving || !followUpPrompt.trim()}
+                  className="btn-primary flex-1"
+                >
+                  {isAnalyzing ? (
+                    <span className="flex items-center gap-2">
+                      <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
+                      Analyzing...
+                    </span>
+                  ) : (
+                    'Send'
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLetAiAsk}
+                  disabled={isAnalyzing || isSaving || dialogLoading || !followUpPrompt.trim()}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-500 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {dialogLoading ? (
+                    <span className="flex items-center gap-2">
+                      <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent dark:border-gray-400"></span>
+                      Analyzing...
+                    </span>
+                  ) : (
+                    'Let AI Ask'
+                  )}
+                </button>
+              </div>
             </form>
 
             {/* Dataset Selector */}
