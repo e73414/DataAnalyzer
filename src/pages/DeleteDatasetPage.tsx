@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useLocation } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { n8nService } from '../services/mcpN8nService'
@@ -10,8 +11,10 @@ import Navigation from '../components/Navigation'
 export default function DeleteDatasetPage() {
   const queryClient = useQueryClient()
   const { session } = useSession()
+  const location = useLocation()
+  const incomingDatasetId = (location.state as { preSelectedDatasetId?: string } | null)?.preSelectedDatasetId ?? ''
   const isAdmin = session?.profile?.trim() === 'admadmadm'
-  const [selectedDatasetId, setSelectedDatasetId] = useState('')
+  const [selectedDatasetId, setSelectedDatasetId] = useState(incomingDatasetId)
   const [confirmText, setConfirmText] = useState('')
 
   const {
@@ -58,6 +61,15 @@ export default function DeleteDatasetPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Permanently remove a dataset and all associated data.</p>
         </div>
         <div className="card p-6">
+          {incomingDatasetId && (
+            <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-300 dark:border-orange-700 rounded-lg">
+              <h3 className="text-sm font-semibold text-orange-800 dark:text-orange-200 mb-1">Upload failed</h3>
+              <p className="text-sm text-orange-700 dark:text-orange-300">
+                The dataset could not be fully uploaded. A partial record was created and has been pre-selected below.
+                Please delete it and try uploading again.
+              </p>
+            </div>
+          )}
           <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
             <h3 className="text-sm font-medium text-red-800 dark:text-red-200 mb-2">Warning: This action is permanent</h3>
             <ul className="text-sm text-red-700 dark:text-red-300 list-disc list-inside space-y-1">

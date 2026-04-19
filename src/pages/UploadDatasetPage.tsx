@@ -105,6 +105,13 @@ export default function UploadDatasetPage() {
     },
     onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ['datasets'] })
+
+      if (result.status === 'failed') {
+        toast.error('Upload failed: data could not be inserted. Please delete the partial dataset and try again.')
+        navigate('/delete-dataset', { state: { preSelectedDatasetId: result.datasetId } })
+        return
+      }
+
       // Save ingestion config if it was passed from CSV Optimizer PLUS
       const state = location.state as IncomingFileState | null
       if (state?.ingestionConfig && result.datasetId) {

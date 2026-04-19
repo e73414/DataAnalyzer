@@ -147,7 +147,16 @@ export const n8nService = {
       throw new Error(response.data.error || 'Failed to upload dataset')
     }
 
-    const data = response.data.data as { datasetId?: string; datasetName?: string; rowsInserted?: number }
+    const data = response.data.data as { status?: string; datasetId?: string; datasetName?: string; rowsInserted?: number }
+
+    if (data?.status === 'failed') {
+      return {
+        status: 'failed',
+        datasetId: data?.datasetId,
+        message: 'Dataset upload failed during data insertion',
+      }
+    }
+
     return {
       status: 'ok',
       datasetId: data?.datasetId,

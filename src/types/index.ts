@@ -156,7 +156,7 @@ export interface UploadDatasetRequest {
 }
 
 export interface UploadDatasetResult {
-  status: 'ok' | 'error'
+  status: 'ok' | 'error' | 'failed'
   datasetId?: string
   datasetName?: string
   rowsInserted?: number
