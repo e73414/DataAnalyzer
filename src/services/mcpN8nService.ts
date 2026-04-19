@@ -128,7 +128,7 @@ export const n8nService = {
   },
 
   async uploadDataset(request: UploadDatasetRequest): Promise<UploadDatasetResult> {
-    const response = await mcpN8nApi.post<N8nWebhookResponse>('/mcp/execute', {
+    const response = await mcpN8nApi.post<{ status: string; code: number; data: UploadDatasetResult; error?: string }>('/mcp/execute', {
       skill: 'n8n-webhook',
       params: {
         webhookPath: UPLOAD_DATASET_WEBHOOK_PATH,
@@ -147,23 +147,14 @@ export const n8nService = {
       throw new Error(response.data.error || 'Failed to upload dataset')
     }
 
-    const data = response.data.data as { status?: string; datasetId?: string; datasetName?: string; rowsInserted?: number }
-
-    if (data?.status === 'failed') {
-      return {
-        status: 'failed',
-        datasetId: data?.datasetId,
-        message: 'Dataset upload failed during data insertion',
-      }
+    // n8n may return the result wrapped in an array — unwrap to first element
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let result = response.data.data as any
+    if (Array.isArray(result)) {
+      result = result[0]
     }
 
-    return {
-      status: 'ok',
-      datasetId: data?.datasetId,
-      datasetName: data?.datasetName,
-      rowsInserted: data?.rowsInserted,
-      message: 'Dataset uploaded successfully',
-    }
+    return result as UploadDatasetResult
   },
 
   async deleteDataset(request: DeleteDatasetRequest): Promise<DeleteDatasetResult> {
