@@ -442,8 +442,9 @@ def apply_cleaning(df: pd.DataFrame) -> pd.DataFrame:
 
         elif t == 'date':
             try:
-                cleaned[col] = (pd.to_datetime(series, errors='coerce')
-                                  .dt.strftime('%Y-%m-%d'))
+                parsed = pd.to_datetime(series, errors='coerce')
+                parsed = parsed.where(parsed.dt.year.between(1, 9999))
+                cleaned[col] = parsed.dt.strftime('%Y-%m-%d')
             except Exception:
                 pass
 
