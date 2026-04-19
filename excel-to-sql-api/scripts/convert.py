@@ -452,7 +452,10 @@ def apply_cleaning(df: pd.DataFrame) -> pd.DataFrame:
             cleaned[col] = series.astype(str).str.lower().str.strip().map(BOOL_MAP)
 
         elif t == 'string':
-            cleaned[col] = series.astype(str).str.strip().replace('nan', pd.NA)
+            vals = series.astype(str).str.strip().replace('nan', pd.NA)
+            # Nullify any string that looks like a date with an out-of-range year (>9999)
+            vals = vals.where(~vals.str.match(r'^\+?\d{5,}-\d{2}-\d{2}', na=False))
+            cleaned[col] = vals
 
     return cleaned
 
