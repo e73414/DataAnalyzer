@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useAppSettings } from '../context/AppSettingsContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { findTopicByPath } from '../constants/helpTopics'
+import UserPreferencesModal from './UserPreferencesModal'
 
 async function sha256Hex(text: string): Promise<string> {
   const encoder = new TextEncoder()
@@ -116,6 +117,7 @@ export default function Navigation() {
   }
 
   // Change Password modal state
+  const [showPreferencesModal, setShowPreferencesModal] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -327,6 +329,15 @@ export default function Navigation() {
                 <button
                   onClick={() => {
                     setIsSettingsOpen(false)
+                    setShowPreferencesModal(true)
+                  }}
+                  className="block w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                >
+                  My Preferences
+                </button>
+                <button
+                  onClick={() => {
+                    setIsSettingsOpen(false)
                     setShowPasswordModal(true)
                     setPasswordError('')
                     setCurrentPassword('')
@@ -352,6 +363,13 @@ export default function Navigation() {
           </div>
         </div>
       </div>
+
+      {showPreferencesModal && session?.email && (
+        <UserPreferencesModal
+          email={session.email}
+          onClose={() => setShowPreferencesModal(false)}
+        />
+      )}
 
       {/* Change Password Modal */}
       {showPasswordModal && (
