@@ -481,7 +481,7 @@ export default function McpAnswersPage() {
           </div>
 
           {/* Input footer — different background matching Analyze page action area */}
-          <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800">
+          <div className="px-4 py-3 bg-purple-50 dark:bg-gray-800/50 border-t border-purple-100 dark:border-gray-800">
             <form onSubmit={handleSubmit} className="flex items-end gap-3">
               <textarea
                 ref={textareaRef}
