@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
 import { useSession } from '../context/SessionContext'
+import { useAppSettings } from '../context/AppSettingsContext'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import { mcpAnswersService } from '../services/mcpAnswersService'
 import { n8nService } from '../services/mcpN8nService'
@@ -154,6 +155,7 @@ function ChatBubble({ entry, onSave }: { entry: McpAnswersChatEntry; onSave: (en
 
 export default function McpAnswersPage() {
   const { session } = useSession()
+  const { appSettings } = useAppSettings()
   const { datasets, isLoading: datasetsLoading } = useAccessibleDatasets()
 
   const [selectedDatasetId, setSelectedDatasetId] = useState('')
@@ -164,6 +166,7 @@ export default function McpAnswersPage() {
 
   const [question, setQuestion] = useState('')
   const [isAsking, setIsAsking] = useState(false)
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
   const [entries, setEntries] = useState<McpAnswersChatEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [saveEntry, setSaveEntry] = useState<McpAnswersChatEntry | null>(null)
@@ -253,6 +256,7 @@ export default function McpAnswersPage() {
     setIsAsking(true)
     setError(null)
     setQuestion('')
+    setPendingQuestion(q)
     try {
       const selectedDataset = datasets.find(d => d.id === selectedDatasetId)
       const result = await mcpAnswersService.query({
@@ -262,6 +266,7 @@ export default function McpAnswersPage() {
         datasetName: selectedDataset?.name || undefined,
         conversationHistory,
       })
+      setPendingQuestion(null)
       setEntries(prev => [...prev, {
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         question: q,
@@ -273,8 +278,10 @@ export default function McpAnswersPage() {
         model: result.model || undefined,
         datasetId: selectedDatasetId || undefined,
         datasetName: selectedDataset?.name || undefined,
+        queriedDatasets: result.queriedDatasets || [],
       }])
     } catch (err) {
+      setPendingQuestion(null)
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setIsAsking(false)
@@ -444,6 +451,14 @@ export default function McpAnswersPage() {
 
             {entries.map(entry => <ChatBubble key={entry.id} entry={entry} onSave={setSaveEntry} />)}
 
+            {pendingQuestion && (
+              <div className="flex justify-end mb-2">
+                <div className="max-w-xl bg-purple-900 text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm shadow-sm">
+                  {pendingQuestion}
+                </div>
+              </div>
+            )}
+
             {isAsking && (
               <div className="flex justify-start mb-4">
                 <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex items-center gap-2">
@@ -493,9 +508,9 @@ export default function McpAnswersPage() {
         <SaveQuestionModal
           conv={{
             prompt: saveEntry.question,
-            dataset_id: saveEntry.datasetId || null,
-            dataset_name: saveEntry.datasetName || null,
-            ai_model: saveEntry.model || 'unknown',
+            dataset_id: saveEntry.datasetId || saveEntry.queriedDatasets?.[0]?.datasetId || null,
+            dataset_name: saveEntry.datasetName || saveEntry.queriedDatasets?.[0]?.datasetName || null,
+            ai_model: saveEntry.model || appSettings?.analyze_model || 'mcp-answers',
             user_email: session.email,
           }}
           source="mcp_answers"

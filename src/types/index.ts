@@ -506,6 +506,7 @@ export interface McpAnswersQueryResult {
   columns: string[] | null
   conversationId: string | null
   model?: string | null
+  queriedDatasets?: { datasetId: string; datasetName: string }[]
 }
 
 export interface McpAnswersChatEntry {
@@ -519,6 +520,7 @@ export interface McpAnswersChatEntry {
   model?: string | null
   datasetId?: string | null
   datasetName?: string | null
+  queriedDatasets?: { datasetId: string; datasetName: string }[]
 }
 
 export interface AiAnalysisRequest {
