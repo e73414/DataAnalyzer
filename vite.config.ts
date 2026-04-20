@@ -27,6 +27,12 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/excel-to-sql/, '')
+      },
+      '/mcp-answers': {
+        target: 'http://localhost:3003',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/mcp-answers/, ''),
+        timeout: 120000,
       }
     }
   }

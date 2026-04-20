@@ -444,6 +444,7 @@ export default function MobileHistoryPage() {
       {showSaveModal && (
         <SaveQuestionModal
           conv={showSaveModal}
+          source={(showSaveModal.source as 'analyze' | 'mcp_answers') || 'analyze'}
           onClose={() => setShowSaveModal(null)}
         />
       )}

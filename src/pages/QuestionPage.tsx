@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { n8nService } from '../services/mcpN8nService'
+import { mcpAnswersService } from '../services/mcpAnswersService'
 import { useSession } from '../context/SessionContext'
 import ReportHtml from '../components/ReportHtml'
 
@@ -52,13 +53,23 @@ export default function QuestionPage() {
     setIsRunning(true)
     setError(null)
     try {
-      const res = await n8nService.runAnalysis({
-        email: sq.owner_email,
-        model: sq.ai_model,
-        datasetId: sq.dataset_id,
-        prompt,
-      })
-      setResult(res.result)
+      if (sq.source === 'mcp_answers') {
+        const res = await mcpAnswersService.query({
+          question: prompt,
+          email: sq.owner_email,
+          datasetId: sq.dataset_id || undefined,
+          datasetName: sq.dataset_name || undefined,
+        })
+        setResult(res.answer)
+      } else {
+        const res = await n8nService.runAnalysis({
+          email: sq.owner_email,
+          model: sq.ai_model,
+          datasetId: sq.dataset_id || '',
+          prompt,
+        })
+        setResult(res.result)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed')
     } finally {

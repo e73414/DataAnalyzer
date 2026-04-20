@@ -196,6 +196,7 @@ export interface ConversationHistory {
   report_id?: string
   detail_level?: string
   report_detail?: string
+  source?: string // 'analyze' | 'mcp_answers'
   created: string // ISO date string from Pocketbase
 }
 
@@ -327,12 +328,13 @@ export interface BrowsableQuestion extends SavedQuestion {
 export interface SavedQuestion {
   id: string
   prompt: string
-  dataset_id: string
-  dataset_name: string
+  dataset_id: string | null
+  dataset_name: string | null
   ai_model: string
   editable: boolean
   audience: string[]     // empty = public link
   owner_email: string
+  source: 'analyze' | 'mcp_answers'
   created_at: string
   updated_at: string
 }
@@ -350,6 +352,8 @@ export interface AppSettings {
   show_enhance_prompt: string | null      // 'true' | null
   app_title: string | null                // custom app title, defaults to 'DataPilot'
   dataset_describe_prompt: string | null  // admin-defined prompt for "Have AI Describe Data"
+  mcp_answers_temperature: string | null  // AI temperature for MCP Answers (default 0.3)
+  mcp_answers_system_prompt: string | null // Custom system prompt for MCP Answers AI
 }
 
 // ── Report Schedules ──────────────────────────────────────────────────────────
@@ -483,6 +487,38 @@ export interface AiAnalysisResult {
     end_col: number    // 0-based, inclusive
     reason: string
   }[]
+}
+
+// ── MCP Answers ───────────────────────────────────────────────────────────────
+
+export interface McpAnswersQueryRequest {
+  question: string
+  email: string
+  datasetId?: string
+  datasetName?: string
+  conversationHistory?: { role: 'user' | 'assistant'; content: string }[]
+}
+
+export interface McpAnswersQueryResult {
+  answer: string
+  sql: string | null
+  rows: Record<string, unknown>[] | null
+  columns: string[] | null
+  conversationId: string | null
+  model?: string | null
+}
+
+export interface McpAnswersChatEntry {
+  id: string
+  question: string
+  answer: string
+  sql: string | null
+  rows: Record<string, unknown>[] | null
+  columns: string[] | null
+  timestamp: Date
+  model?: string | null
+  datasetId?: string | null
+  datasetName?: string | null
 }
 
 export interface AiAnalysisRequest {

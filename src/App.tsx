@@ -25,6 +25,7 @@ import BrowseQuestionsPage from './pages/BrowseQuestionsPage'
 import ManageReportsPage from './pages/ManageReportsPage'
 import IngestionSchedulePage from './pages/IngestionSchedulePage'
 import IngestionPipelinePage from './pages/IngestionPipelinePage'
+import McpAnswersPage from './pages/McpAnswersPage'
 import HelpIndexPage from './pages/help/HelpIndexPage'
 import AnalyzeHelp from './pages/help/topics/AnalyzeHelp'
 import UploadDatasetHelp from './pages/help/topics/UploadDatasetHelp'
@@ -291,6 +292,14 @@ function App() {
         element={
           <ProtectedRoute>
             <IngestionPipelinePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/mcp-answers"
+        element={
+          <ProtectedRoute>
+            <McpAnswersPage />
           </ProtectedRoute>
         }
       />

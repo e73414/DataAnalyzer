@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
-import type { ConversationHistory, SavedQuestion } from '../types'
+import type { SavedQuestion } from '../types'
 
 type AccessType = 'specific' | 'registered' | 'public'
 
@@ -11,15 +11,24 @@ function deriveAccessType(audience: string[]): AccessType {
   return 'registered'
 }
 
+interface SaveQuestionInput {
+  prompt: string
+  dataset_id: string | null
+  dataset_name: string | null
+  ai_model: string
+  user_email: string
+}
+
 interface SaveQuestionModalProps {
-  conv: ConversationHistory
+  conv: SaveQuestionInput
+  source?: 'analyze' | 'mcp_answers'
   onClose: () => void
   /** If provided, the modal operates in edit mode (PATCH instead of POST) */
   existing?: SavedQuestion
   onSaved?: () => void
 }
 
-export default function SaveQuestionModal({ conv, onClose, existing, onSaved }: SaveQuestionModalProps) {
+export default function SaveQuestionModal({ conv, source, onClose, existing, onSaved }: SaveQuestionModalProps) {
   const existingAudience = existing?.audience ?? []
   const [accessType, setAccessType] = useState<AccessType>(deriveAccessType(existingAudience))
   const [specificEmails, setSpecificEmails] = useState<string[]>(
@@ -104,6 +113,7 @@ export default function SaveQuestionModal({ conv, onClose, existing, onSaved }: 
           editable: effectiveEditable,
           audience,
           owner_email: conv.user_email,
+          source: source || 'analyze',
         })
         setSavedId(sq.id)
         onSaved?.()

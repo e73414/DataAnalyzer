@@ -1144,7 +1144,7 @@ export default function HistoryPage() {
       )}
 
       {showSaveModal && (
-        <SaveQuestionModal conv={showSaveModal} onClose={() => setShowSaveModal(null)} />
+        <SaveQuestionModal conv={showSaveModal} source={(showSaveModal.source as 'analyze' | 'mcp_answers') || 'analyze'} onClose={() => setShowSaveModal(null)} />
       )}
     </div>
   )

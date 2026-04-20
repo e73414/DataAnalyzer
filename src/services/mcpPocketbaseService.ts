@@ -37,6 +37,7 @@ interface PgConversation {
   report_id: string | null
   detail_level: string | null
   report_detail: string | null
+  source: string | null
   created_at: string
 }
 
@@ -293,6 +294,7 @@ export const pocketbaseService = {
       report_id: record.report_id ?? undefined,
       detail_level: record.detail_level ?? undefined,
       report_detail: record.report_detail ?? undefined,
+      source: record.source ?? undefined,
       created: record.created_at,
     }
   },
@@ -312,6 +314,7 @@ export const pocketbaseService = {
       report_id: record.report_id ?? undefined,
       detail_level: record.detail_level ?? undefined,
       report_detail: record.report_detail ?? undefined,
+      source: record.source ?? undefined,
       created: record.created_at,
     }))
   },
@@ -464,6 +467,8 @@ export const pocketbaseService = {
       show_ingestion_schedule:  d.show_ingestion_schedule  ?? null,
       show_enhance_prompt:      d.show_enhance_prompt      ?? null,
       dataset_describe_prompt:  d.dataset_describe_prompt  ?? null,
+      mcp_answers_temperature:  d.mcp_answers_temperature  ?? null,
+      mcp_answers_system_prompt: d.mcp_answers_system_prompt ?? null,
     }
   },
 

@@ -122,7 +122,7 @@ export default function LoginPage() {
   })
 
   if (isLoggedIn) {
-    navigate('/analyze', { replace: true })
+    navigate('/mcp-answers', { replace: true })
     return null
   }
 
@@ -145,7 +145,7 @@ export default function LoginPage() {
         return
       }
       login(data.email, undefined, profile.profile, profile.profiles ?? [])
-      navigate('/analyze')
+      navigate('/mcp-answers')
     } catch {
       setLoginError('Unable to sign in. Please try again.')
     } finally {

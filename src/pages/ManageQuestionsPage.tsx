@@ -5,19 +5,16 @@ import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import Navigation from '../components/Navigation'
 import SaveQuestionModal from '../components/SaveQuestionModal'
-import type { SavedQuestion, ConversationHistory } from '../types'
+import type { SavedQuestion } from '../types'
 
-/** Convert a SavedQuestion back to the ConversationHistory shape needed by SaveQuestionModal */
-function sqToConv(sq: SavedQuestion): ConversationHistory {
+/** Convert a SavedQuestion back to the shape needed by SaveQuestionModal */
+function sqToConv(sq: SavedQuestion) {
   return {
-    id: sq.id,
     user_email: sq.owner_email,
     prompt: sq.prompt,
-    response: '',
     ai_model: sq.ai_model,
     dataset_id: sq.dataset_id,
     dataset_name: sq.dataset_name,
-    created: sq.created_at,
   }
 }
 
@@ -148,7 +145,7 @@ export default function ManageQuestionsPage() {
                     </td>
                     {/* Dataset */}
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 hidden sm:table-cell">
-                      <span className="truncate block max-w-[160px]" title={q.dataset_name}>{q.dataset_name}</span>
+                      <span className="truncate block max-w-[160px]" title={q.dataset_name ?? ''}>{q.dataset_name}</span>
                     </td>
                     {/* Audience */}
                     <td className="px-4 py-3 hidden md:table-cell">

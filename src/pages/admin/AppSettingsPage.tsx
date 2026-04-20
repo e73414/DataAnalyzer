@@ -20,6 +20,30 @@ const CHUNK_OPTIONS = [
 const REPORT_DETAIL_OPTIONS = ['Simple Report', 'Detailed Report']
 const SHOW_STEPS_OPTIONS = ['Highly Detailed', 'Some Detail', 'Just Overview', 'None']
 
+// The built-in default system prompt shown in the textarea.
+// Note: the backend always appends the user's email and dataset context to this.
+const DEFAULT_MCP_ANSWERS_SYSTEM_PROMPT = `You are a data analyst with access to tools to explore and query a PostgreSQL database.
+
+## Required process
+1. Call list_tables to discover available tables.
+2. Call describe_table on any table that might be relevant.
+3. Only after understanding the schema, write and execute precise SQL.
+4. Base your answer SOLELY on the rows returned by your queries.
+
+## Strict rules — never violate these
+- NEVER state a number, name, date, or fact that did not appear in an actual query result. If you did not run a query that directly returns a value, you do not know that value.
+- NEVER estimate, extrapolate, or infer beyond what the query results show.
+- If a query returns zero rows, say so. Do not interpret empty results as confirmation of anything.
+- If no table contains data relevant to the question, respond with: "I was unable to find data in the accessible datasets that answers this question. This information may not be available."
+- If the question is ambiguous (time range, metric, grouping, or multiple interpretations), ask ONE specific clarifying question before querying. Do not guess.
+- If you found only partially relevant data, clearly state what you could determine from the data and what you could not.
+- Do not use phrases like "based on typical patterns" or "generally" — only report what the data shows.
+
+## Confidence check before answering
+Before writing your final response, ask yourself: "Did I execute a query whose results directly and completely answer this question?" If yes, answer confidently. If no, either ask a clarifying question or state the limitation.
+
+When you have a final answer or a clarifying question, respond in Markdown without calling any more tools. Use **bold** for key figures, bullet lists or numbered lists for multiple items, and tables for tabular data.`
+
 // ── Editable row types ────────────────────────────────────────────────────────
 
 interface EditableNavLink extends NavLink {
@@ -410,6 +434,8 @@ export default function AppSettingsPage() {
   const [showIngestionSchedule,  setShowIngestionSchedule]  = useState(false)
   const [showEnhancePrompt,      setShowEnhancePrompt]      = useState(false)
   const [datasetDescribePrompt,  setDatasetDescribePrompt]  = useState('')
+  const [mcpAnswersTemperature,  setMcpAnswersTemperature]  = useState('')
+  const [mcpAnswersSystemPrompt, setMcpAnswersSystemPrompt] = useState('')
 
   useEffect(() => {
     if (!appSettings) return
@@ -425,6 +451,8 @@ export default function AppSettingsPage() {
     setShowIngestionSchedule(appSettings.show_ingestion_schedule === 'true')
     setShowEnhancePrompt(appSettings.show_enhance_prompt === 'true')
     setDatasetDescribePrompt(appSettings.dataset_describe_prompt ?? '')
+    setMcpAnswersTemperature(appSettings.mcp_answers_temperature ?? '')
+    setMcpAnswersSystemPrompt(appSettings.mcp_answers_system_prompt ?? DEFAULT_MCP_ANSWERS_SYSTEM_PROMPT)
   }, [appSettings])
 
   const saveMutation = useMutation({
@@ -442,6 +470,8 @@ export default function AppSettingsPage() {
         pocketbaseService.updateAppSetting('show_ingestion_schedule', showIngestionSchedule ? 'true' : null),
         pocketbaseService.updateAppSetting('show_enhance_prompt',      showEnhancePrompt     ? 'true' : null),
         pocketbaseService.updateAppSetting('dataset_describe_prompt',  datasetDescribePrompt || null),
+        pocketbaseService.updateAppSetting('mcp_answers_temperature',  mcpAnswersTemperature || null),
+        pocketbaseService.updateAppSetting('mcp_answers_system_prompt', mcpAnswersSystemPrompt || null),
       ])
     },
     onSuccess: () => {
@@ -562,6 +592,44 @@ export default function AppSettingsPage() {
                     <option value="">No selection (user chooses)</option>
                     {SHOW_STEPS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Section: MCP Answers */}
+            <div className="px-6 py-5">
+              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-4">
+                MCP Answers
+              </h2>
+              <div className="flex items-center gap-4">
+                <label className="w-52 text-sm text-gray-700 dark:text-gray-300 shrink-0">AI Temperature</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="2"
+                  step="0.1"
+                  value={mcpAnswersTemperature}
+                  onChange={(e) => setMcpAnswersTemperature(e.target.value)}
+                  placeholder="0.3"
+                  className="input-field w-32"
+                  disabled={saveMutation.isPending}
+                />
+                <span className="text-xs text-gray-400 dark:text-gray-500">0 – 2 · default 0.3</span>
+              </div>
+              <div className="flex gap-4 mt-4">
+                <label className="w-52 text-sm text-gray-700 dark:text-gray-300 shrink-0 pt-1">System Prompt</label>
+                <div className="flex-1">
+                  <textarea
+                    value={mcpAnswersSystemPrompt}
+                    onChange={(e) => setMcpAnswersSystemPrompt(e.target.value)}
+                    placeholder={`Leave blank to use the built-in system prompt.\n\nExample:\nYou are a data analyst with access to tools to explore and query a PostgreSQL database. Always call list_tables first, then describe_table for relevant tables before querying. Base your answers only on actual query results — never fabricate data.`}
+                    rows={8}
+                    className="input-field w-full font-mono text-xs resize-y"
+                    disabled={saveMutation.isPending}
+                  />
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Overrides the built-in MCP Answers system prompt. Leave blank to use the default.
+                  </p>
                 </div>
               </div>
             </div>

@@ -17,7 +17,7 @@ function score(q: BrowsableQuestion, term: string): number {
   const t = term.toLowerCase()
   let s = 0
   if (q.prompt.toLowerCase().includes(t)) s += 3
-  if (q.dataset_name.toLowerCase().includes(t)) s += 2
+  if ((q.dataset_name ?? '').toLowerCase().includes(t)) s += 2
   if (q.owner_email.toLowerCase().includes(t)) s += 1
   return s
 }

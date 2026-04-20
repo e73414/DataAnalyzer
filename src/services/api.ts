@@ -16,6 +16,29 @@ export const mcpN8nApi = axios.create({
   maxBodyLength: Infinity,
 })
 
+const MCP_ANSWERS_BASE_URL = import.meta.env.VITE_MCP_ANSWERS_URL || '/mcp-answers'
+
+export const mcpAnswersApi = axios.create({
+  baseURL: MCP_ANSWERS_BASE_URL,
+  timeout: 120000, // 2 minutes for MCP + LLM processing
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  maxContentLength: Infinity,
+  maxBodyLength: Infinity,
+})
+
+mcpAnswersApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const message = error.response?.data?.error || error.message || 'Unknown error'
+    if (error.response?.status === 503) {
+      throw new Error('MCP Postgres service is unavailable. Please try again later.')
+    }
+    throw new Error(message)
+  }
+)
+
 // Add response interceptor for better error handling
 mcpN8nApi.interceptors.response.use(
   (response) => response,
