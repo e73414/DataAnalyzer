@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import Navigation from '../components/Navigation'
+import PageTitle from '../components/PageTitle'
 import type { ReportTemplate } from '../types'
 
 export default function ReportTemplateManagerPage() {
@@ -87,7 +88,7 @@ export default function ReportTemplateManagerPage() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6 flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Report Templates</h1>
+            <PageTitle fallback="Report Templates" />
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage Word document templates used for formatted reports.</p>
           </div>
           <button

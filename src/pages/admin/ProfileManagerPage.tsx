@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { pocketbaseService } from '../../services/mcpPocketbaseService'
 import type { ProfileCompany, ProfileBusinessUnit, ProfileTeam } from '../../types'
 import Navigation from '../../components/Navigation'
+import PageTitle from '../../components/PageTitle'
 import { useSession } from '../../context/SessionContext'
 
 type Tab = 'companies' | 'business-units' | 'teams'
@@ -596,7 +597,7 @@ export default function ProfileManagerPage() {
     <div className="min-h-screen bg-gray-200 dark:bg-gray-950">
       <Navigation />
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Profile Manager</h1>
+        <PageTitle fallback="Profile Manager" className="text-2xl font-bold text-gray-900 dark:text-white mb-1" />
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
           Manage company, business unit, and team profile codes. Codes are auto-generated.
           Reserved codes: <span className="font-mono">adm</span> (admin) and <span className="font-mono">000</span> (blank).

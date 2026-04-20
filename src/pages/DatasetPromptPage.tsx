@@ -9,6 +9,7 @@ import { n8nService } from '../services/mcpN8nService'
 import { mcpN8nApi } from '../services/api'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
+import PageTitle from '../components/PageTitle'
 import HelpTip from '../components/HelpTip'
 import type { AnalysisResult, PromptDialogQuestion } from '../types'
 
@@ -395,7 +396,7 @@ export default function DatasetPromptPage() {
 
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Quick Answer</h1>
+          <PageTitle fallback="Quick Answer" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Select a dataset and ask a question to get an AI-powered analysis.</p>
         </div>
 

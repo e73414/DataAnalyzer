@@ -13,6 +13,7 @@ import { ProfilePicker, composeProfile } from '../components/ProfilePicker'
 import DatasetSearchSelect from '../components/DatasetSearchSelect'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
+import PageTitle from '../components/PageTitle'
 import type { DatasetDetail } from '../types'
 
 export default function EditSummaryPage() {
@@ -396,7 +397,7 @@ export default function EditSummaryPage() {
 
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Edit Dataset Summary</h1>
+          <PageTitle fallback="Edit Dataset Summary" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Edit metadata, summary, and access settings for a dataset.</p>
         </div>
         <div className="card p-6">

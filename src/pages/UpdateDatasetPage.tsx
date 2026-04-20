@@ -6,6 +6,7 @@ import { n8nService } from '../services/mcpN8nService'
 import DatasetSearchSelect from '../components/DatasetSearchSelect'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
+import PageTitle from '../components/PageTitle'
 
 type CompatibilityStatus = 'exact' | 'partial' | 'incompatible' | null
 
@@ -203,7 +204,7 @@ export default function UpdateDatasetPage() {
 
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Update Dataset</h1>
+          <PageTitle fallback="Update Dataset" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Replace the data in an existing dataset while preserving its settings.</p>
         </div>
         <div className="card p-6">

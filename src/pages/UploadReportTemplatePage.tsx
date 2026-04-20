@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { n8nService } from '../services/mcpN8nService'
 import Navigation from '../components/Navigation'
+import PageTitle from '../components/PageTitle'
 
 export default function UploadReportTemplatePage() {
   const { session } = useSession()
@@ -63,7 +64,7 @@ export default function UploadReportTemplatePage() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6 flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Upload Report Template</h1>
+            <PageTitle fallback="Upload Report Template" />
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Add a new Word document template for report generation.</p>
           </div>
           <button

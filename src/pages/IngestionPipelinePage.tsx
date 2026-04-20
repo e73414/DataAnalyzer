@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import Navigation from '../components/Navigation'
+import PageTitle from '../components/PageTitle'
 import HelpTip from '../components/HelpTip'
 import type { IngestionSchedule } from '../types'
 
@@ -113,7 +114,7 @@ export default function IngestionPipelinePage() {
       <main className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Ingestion Pipelines</h1>
+          <PageTitle fallback="Ingestion Pipelines" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Manage automated data refresh schedules and view ingestion history.
           </p>

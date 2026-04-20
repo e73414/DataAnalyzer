@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import Navigation from '../components/Navigation'
+import PageTitle from '../components/PageTitle'
 import ReportHtml from '../components/ReportHtml'
 import type { ReportSchedule, ConversationHistory } from '../types'
 
@@ -350,7 +351,7 @@ export default function ManageReportsPage() {
 
       <main className="max-w-5xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Manage Scheduled Reports</h1>
+          <PageTitle fallback="Manage Scheduled Reports" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {isAdmin ? 'View and manage all scheduled reports.' : 'View and manage your scheduled reports.'}
           </p>

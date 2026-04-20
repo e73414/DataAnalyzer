@@ -5,6 +5,7 @@ import { pocketbaseService } from '../../services/mcpPocketbaseService'
 import { ProfilePicker, composeProfile } from '../../components/ProfilePicker'
 import type { AdminUser } from '../../types'
 import Navigation from '../../components/Navigation'
+import PageTitle from '../../components/PageTitle'
 import { useSession } from '../../context/SessionContext'
 
 // ── Timezone list ─────────────────────────────────────────────────────────────
@@ -436,7 +437,7 @@ export default function UserManagerPage() {
       <Navigation />
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-1">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">User Manager</h1>
+          <PageTitle fallback="User Manager" />
           <button className="btn-primary px-4" onClick={() => setModalUser(null)}>
             Add User
           </button>

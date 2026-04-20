@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import Navigation from '../components/Navigation'
+import PageTitle from '../components/PageTitle'
 import type { BrowsableQuestion } from '../types'
 
 // ── Org helpers ───────────────────────────────────────────────────────────────
@@ -146,7 +147,7 @@ export default function BrowseQuestionsPage() {
 
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Browse Questions</h1>
+          <PageTitle fallback="Browse Questions" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Explore saved questions and analysis prompts.</p>
         </div>
 

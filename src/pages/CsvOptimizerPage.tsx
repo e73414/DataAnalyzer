@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Navigation from '../components/Navigation'
+import PageTitle from '../components/PageTitle'
 
 // --- Types ---
 
@@ -716,7 +717,7 @@ export default function CsvOptimizerPage() {
       <Navigation />
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">CSV Optimizer</h1>
+          <PageTitle fallback="CSV Optimizer" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Analyze and clean CSV files before uploading as datasets.</p>
         </div>
 

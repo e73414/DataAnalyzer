@@ -8,6 +8,7 @@ import { n8nService } from '../services/mcpN8nService'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import { ProfilePicker, composeProfile } from '../components/ProfilePicker'
 import Navigation from '../components/Navigation'
+import PageTitle from '../components/PageTitle'
 import HelpTip from '../components/HelpTip'
 
 interface IncomingFileState {
@@ -196,7 +197,7 @@ export default function UploadDatasetPage() {
 
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Upload Dataset</h1>
+          <PageTitle fallback="Upload Dataset" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Add a new dataset to your library for AI-powered analysis.</p>
         </div>
         <div className="card p-6">

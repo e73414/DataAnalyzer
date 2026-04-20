@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx'
 import JSZip from 'jszip'
 import toast from 'react-hot-toast'
 import Navigation from '../components/Navigation'
+import PageTitle from '../components/PageTitle'
 import HelpTip from '../components/HelpTip'
 import { useSession } from '../context/SessionContext'
 import { useAppSettings } from '../context/AppSettingsContext'
@@ -665,7 +666,7 @@ export default function CsvOptimizerPlusPage() {
       <Navigation />
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Uploader PLUS</h1>
+          <PageTitle fallback="Uploader PLUS" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Convert, clean, and upload Excel and CSV files to your dataset library.</p>
         </div>
 

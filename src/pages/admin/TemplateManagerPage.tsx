@@ -6,6 +6,7 @@ import { n8nService } from '../../services/mcpN8nService'
 import { mcpN8nApi } from '../../services/api'
 import type { Dataset, TemplateProfileAssignment } from '../../types'
 import Navigation from '../../components/Navigation'
+import PageTitle from '../../components/PageTitle'
 import { useSession } from '../../context/SessionContext'
 
 function composeProfile(companyCode: string, buCode: string, teamCode: string): string {
@@ -331,7 +332,7 @@ export default function TemplateManagerPage() {
     <div className="min-h-screen bg-gray-200 dark:bg-gray-950">
       <Navigation />
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Dataset Access Manager</h1>
+        <PageTitle fallback="Dataset Access Manager" className="text-2xl font-bold text-gray-900 dark:text-white mb-1" />
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
           Assign a profile code to each dataset to restrict which users can access it.
           Datasets with no profile assigned are visible to all users.

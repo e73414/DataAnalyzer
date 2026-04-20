@@ -7,6 +7,7 @@ import { n8nService } from '../services/mcpN8nService'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import DatasetSearchSelect from '../components/DatasetSearchSelect'
 import Navigation from '../components/Navigation'
+import PageTitle from '../components/PageTitle'
 
 export default function DeleteDatasetPage() {
   const queryClient = useQueryClient()
@@ -57,7 +58,7 @@ export default function DeleteDatasetPage() {
 
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Delete Dataset</h1>
+          <PageTitle fallback="Delete Dataset" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Permanently remove a dataset and all associated data.</p>
         </div>
         <div className="card p-6">

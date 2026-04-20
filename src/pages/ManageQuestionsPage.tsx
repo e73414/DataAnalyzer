@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import Navigation from '../components/Navigation'
+import PageTitle from '../components/PageTitle'
 import SaveQuestionModal from '../components/SaveQuestionModal'
 import type { SavedQuestion } from '../types'
 
@@ -82,7 +83,7 @@ export default function ManageQuestionsPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Manage Questions</h1>
+            <PageTitle fallback="Manage Questions" />
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Create, edit, and organize questions for your datasets.</p>
           </div>
           {isAdmin && ownerEmails.length > 0 && (

@@ -8,6 +8,7 @@ import { mcpAnswersService } from '../services/mcpAnswersService'
 import { n8nService } from '../services/mcpN8nService'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import Navigation from '../components/Navigation'
+import PageTitle from '../components/PageTitle'
 import SaveQuestionModal from '../components/SaveQuestionModal'
 import ReportHtml from '../components/ReportHtml'
 import type { McpAnswersChatEntry } from '../types'
@@ -299,7 +300,7 @@ export default function McpAnswersPage() {
 
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">MCP Answers</h1>
+          <PageTitle fallback="MCP Answers" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Ask questions about your data in plain language</p>
         </div>
 

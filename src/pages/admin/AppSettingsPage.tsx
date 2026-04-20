@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { pocketbaseService } from '../../services/mcpPocketbaseService'
 import { useAppSettings } from '../../context/AppSettingsContext'
 import Navigation from '../../components/Navigation'
+import PageTitle from '../../components/PageTitle'
 import type { NavLink, AIModel } from '../../types'
 import { useSession } from '../../context/SessionContext'
 
@@ -488,7 +489,7 @@ export default function AppSettingsPage() {
     <div className="min-h-screen bg-gray-200 dark:bg-gray-950">
       <Navigation />
       <div className="max-w-5xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">App Settings</h1>
+        <PageTitle fallback="App Settings" className="text-2xl font-bold text-gray-900 dark:text-white mb-2" />
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
           Settings set here apply to all users. Select "No selection" to let users choose their own.
         </p>

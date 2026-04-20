@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import Navigation from '../components/Navigation'
+import PageTitle from '../components/PageTitle'
 
 // --- Robust Excel-to-CSV conversion ---
 
@@ -178,7 +179,7 @@ export default function ExcelUploadPage() {
       <Navigation />
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Upload Excel File</h1>
+          <PageTitle fallback="Upload Excel File" />
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Convert an Excel workbook to datasets for analysis.</p>
         </div>
 
