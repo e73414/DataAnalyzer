@@ -18,7 +18,8 @@ export default function PageTitle({ fallback, className = 'text-2xl font-bold te
   let title = fallback
   if (match) {
     const name = match.name
-    title = name.startsWith('Admin:') ? name.slice(6).trimStart() : name
+    const colon = name.indexOf(':')
+    title = colon !== -1 ? name.slice(colon + 1).trimStart() : name
   }
   return <h1 className={className}>{title}</h1>
 }

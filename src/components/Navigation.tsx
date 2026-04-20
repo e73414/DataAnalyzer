@@ -168,7 +168,8 @@ export default function Navigation() {
 
   const currentPageTitle = (() => {
     const name = navLinks?.find((link) => link.path === location.pathname)?.name || 'Menu'
-    return name.startsWith('Admin:') ? name.slice(6).trimStart() : name
+    const colon = name.indexOf(':')
+    return colon !== -1 ? name.slice(colon + 1).trimStart() : name
   })()
 
   return (
