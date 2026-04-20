@@ -22,6 +22,7 @@ interface PgUser {
   user_timezone: string | null
   profile: string | null
   profiles: string[]
+  mcp_answers_user_prompt: string | null
 }
 
 interface PgConversation {
@@ -93,6 +94,21 @@ export const pocketbaseService = {
 
   async updatePasswordHash(recordId: string, passwordHash: string, actorEmail: string): Promise<void> {
     await mcpN8nApi.patch(`/users/${recordId}`, { password_hash: passwordHash, actor_email: actorEmail })
+  },
+
+  async getUserPrompt(email: string): Promise<string> {
+    const response = await mcpN8nApi.get<{ user_prompt: string | null }>('/user-prompt', { params: { email } })
+    return response.data.user_prompt ?? ''
+  },
+
+  async updateUserPrompt(email: string, prompt: string): Promise<void> {
+    const profileResponse = await mcpN8nApi.get<PgUser | null>('/users', { params: { email } })
+    const user = profileResponse.data
+    if (!user) throw new Error('User not found')
+    await mcpN8nApi.patch(`/users/${encodeURIComponent(user.id)}`, {
+      mcp_answers_user_prompt: prompt.trim() || null,
+      actor_email: email,
+    })
   },
 
   async updateUserTemplateId(recordId: string, templateId: string, actorEmail: string): Promise<void> {
