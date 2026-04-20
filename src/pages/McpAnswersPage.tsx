@@ -8,7 +8,13 @@ import { n8nService } from '../services/mcpN8nService'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 import Navigation from '../components/Navigation'
 import SaveQuestionModal from '../components/SaveQuestionModal'
+import ReportHtml from '../components/ReportHtml'
 import type { McpAnswersChatEntry } from '../types'
+
+function isHtmlAnswer(text: string): boolean {
+  const t = text.trim()
+  return t.startsWith('<') || /<(p|h[1-6]|table|ul|ol|div|strong|em|br)[\s>]/i.test(t)
+}
 
 /** Returns true if the answer text is primarily a question / clarification request */
 function isClarificationResponse(text: string): boolean {
@@ -89,6 +95,7 @@ function ResultsTable({ columns, rows }: { columns: string[]; rows: Record<strin
 
 function ChatBubble({ entry, onSave }: { entry: McpAnswersChatEntry; onSave: (entry: McpAnswersChatEntry) => void }) {
   const isClarification = isClarificationResponse(entry.answer)
+  const isHtml = isHtmlAnswer(entry.answer)
   return (
     <div className="mb-4">
       <div className="flex justify-end mb-2">
@@ -110,14 +117,18 @@ function ChatBubble({ entry, onSave }: { entry: McpAnswersChatEntry; onSave: (en
               Clarification needed
             </div>
           )}
-          <div className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-100
-            prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5
-            prose-headings:text-gray-900 dark:prose-headings:text-white
-            prose-strong:text-gray-900 dark:prose-strong:text-white
-            prose-code:text-purple-700 dark:prose-code:text-purple-300
-            prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:rounded prose-code:px-1">
-            <ReactMarkdown>{entry.answer}</ReactMarkdown>
-          </div>
+          {isHtml ? (
+            <ReportHtml html={entry.answer} className="report-html" />
+          ) : (
+            <div className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-100
+              prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5
+              prose-headings:text-gray-900 dark:prose-headings:text-white
+              prose-strong:text-gray-900 dark:prose-strong:text-white
+              prose-code:text-purple-700 dark:prose-code:text-purple-300
+              prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:rounded prose-code:px-1">
+              <ReactMarkdown>{entry.answer}</ReactMarkdown>
+            </div>
+          )}
           {entry.sql && <SqlBlock sql={entry.sql} />}
           {entry.columns && entry.rows && entry.rows.length > 0 && (
             <ResultsTable columns={entry.columns} rows={entry.rows} />
