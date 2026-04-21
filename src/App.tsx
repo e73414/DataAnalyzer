@@ -57,6 +57,7 @@ const MobileDatasetPromptPage = lazy(() => import('./pages/mobile/MobileDatasetP
 const MobilePlanReportPage = lazy(() => import('./pages/mobile/MobilePlanReportPage'))
 const MobileHistoryPage = lazy(() => import('./pages/mobile/MobileHistoryPage'))
 const MobileBrowseQuestionsPage = lazy(() => import('./pages/mobile/MobileBrowseQuestionsPage'))
+const MobileMcpAnswersPage = lazy(() => import('./pages/mobile/MobileMcpAnswersPage'))
 
 function UnauthorizedPage() {
   const navigate = useNavigate()
@@ -299,7 +300,7 @@ function App() {
         path="/mcp-answers"
         element={
           <ProtectedRoute>
-            <McpAnswersPage />
+            <MobileRoute desktop={McpAnswersPage} mobile={MobileMcpAnswersPage} />
           </ProtectedRoute>
         }
       />

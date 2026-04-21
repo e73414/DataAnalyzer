@@ -176,8 +176,8 @@ export default function Navigation() {
     <header className="bg-white dark:bg-gray-800 shadow-sm dark:shadow-gray-900/50 transition-colors duration-200">
       <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <img src={theme === 'dark' ? '/logo-dark.png' : '/logo-light.png'} alt={appSettings?.app_title || 'DataPilot'} className="h-12 w-auto" />
-          <span className="text-2xl font-bold text-gray-900 dark:text-white" style={{fontFamily: "'Syne', sans-serif"}}>{appSettings?.app_title || 'DataPilot'}</span>
+          <img src={theme === 'dark' ? '/logo-dark.png' : '/logo-light.png'} alt={appSettings?.app_title || 'DataPilot'} className="h-8 sm:h-12 w-auto" />
+          <span className="text-base sm:text-2xl font-bold text-gray-900 dark:text-white" style={{fontFamily: "'Syne', sans-serif"}}>{appSettings?.app_title || 'DataPilot'}</span>
         </div>
         <div className="flex gap-2 items-center">
           {session?.email && (
@@ -192,14 +192,14 @@ export default function Navigation() {
             {theme === 'light' ? <MoonIcon /> : <SunIcon />}
           </button>
 
-          {/* Help Button */}
+          {/* Help Button — desktop only */}
           {(() => {
             const helpTopic = findTopicByPath(location.pathname)
             const helpPath = helpTopic ? `/help/${helpTopic.slug}` : '/help'
             return (
               <Link
                 to={helpPath}
-                className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-600 border border-yellow-400 dark:border-yellow-700 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 hover:border-yellow-500 dark:hover:border-yellow-600 transition-colors"
+                className="hidden sm:flex w-6 h-6 rounded-full items-center justify-center text-xs font-bold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-600 border border-yellow-400 dark:border-yellow-700 hover:bg-yellow-200 dark:hover:bg-yellow-900/50 hover:border-yellow-500 dark:hover:border-yellow-600 transition-colors"
                 title="Help & Documentation"
               >
                 ?
