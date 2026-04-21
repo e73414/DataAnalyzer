@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useSession } from '../context/SessionContext'
 import { useTheme } from '../context/ThemeContext'
+import { useAppSettings } from '../context/AppSettingsContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
 
 const loginSchema = z.object({
@@ -106,6 +107,8 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const { login, isLoggedIn } = useSession()
   const { theme, toggleTheme } = useTheme()
+  const { appSettings } = useAppSettings()
+  const startPage = appSettings?.start_page || '/mcp-answers'
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
 
@@ -122,7 +125,7 @@ export default function LoginPage() {
   })
 
   if (isLoggedIn) {
-    navigate('/mcp-answers', { replace: true })
+    navigate(startPage, { replace: true })
     return null
   }
 
@@ -145,7 +148,7 @@ export default function LoginPage() {
         return
       }
       login(data.email, undefined, profile.profile, profile.profiles ?? [])
-      navigate('/mcp-answers')
+      navigate(startPage)
     } catch {
       setLoginError('Unable to sign in. Please try again.')
     } finally {

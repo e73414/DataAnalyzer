@@ -426,6 +426,7 @@ export default function AppSettingsPage() {
   })
 
   const [appTitle,               setAppTitle]               = useState('')
+  const [startPage,              setStartPage]              = useState('')
   const [analyzeModel,           setAnalyzeModel]           = useState('')
   const [planModel,              setPlanModel]              = useState('')
   const [executeModel,           setExecuteModel]           = useState('')
@@ -443,6 +444,7 @@ export default function AppSettingsPage() {
   useEffect(() => {
     if (!appSettings) return
     setAppTitle(appSettings.app_title ?? '')
+    setStartPage(appSettings.start_page ?? '')
     setAnalyzeModel(appSettings.analyze_model ?? '')
     setPlanModel(appSettings.plan_model ?? '')
     setExecuteModel(appSettings.execute_model ?? '')
@@ -462,6 +464,7 @@ export default function AppSettingsPage() {
     mutationFn: async () => {
       await Promise.all([
         pocketbaseService.updateAppSetting('app_title',               appTitle              || null),
+        pocketbaseService.updateAppSetting('start_page',              startPage             || null),
         pocketbaseService.updateAppSetting('analyze_model',           analyzeModel          || null),
         pocketbaseService.updateAppSetting('plan_model',              planModel             || null),
         pocketbaseService.updateAppSetting('execute_model',           executeModel          || null),
@@ -504,16 +507,32 @@ export default function AppSettingsPage() {
               <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-4">
                 App Branding
               </h2>
-              <div className="flex items-center gap-4">
-                <label className="w-52 text-sm text-gray-700 dark:text-gray-300 shrink-0">App Title</label>
-                <input
-                  type="text"
-                  value={appTitle}
-                  onChange={(e) => setAppTitle(e.target.value)}
-                  placeholder="DataPilot"
-                  className="input-field flex-1"
-                  disabled={saveMutation.isPending}
-                />
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <label className="w-52 text-sm text-gray-700 dark:text-gray-300 shrink-0">App Title</label>
+                  <input
+                    type="text"
+                    value={appTitle}
+                    onChange={(e) => setAppTitle(e.target.value)}
+                    placeholder="DataPilot"
+                    className="input-field flex-1"
+                    disabled={saveMutation.isPending}
+                  />
+                </div>
+                <div className="flex items-center gap-4">
+                  <label className="w-52 text-sm text-gray-700 dark:text-gray-300 shrink-0">Start Page</label>
+                  <input
+                    type="text"
+                    value={startPage}
+                    onChange={(e) => setStartPage(e.target.value)}
+                    placeholder="/analyze"
+                    className="input-field flex-1 font-mono"
+                    disabled={saveMutation.isPending}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-500 ml-56">
+                  Path to redirect users to after login. Use any path from Nav Link Manager (e.g. <code className="font-mono">/analyze</code>, <code className="font-mono">/mcp-answers</code>). Defaults to <code className="font-mono">/mcp-answers</code>.
+                </p>
               </div>
             </div>
 

@@ -485,6 +485,7 @@ export const pocketbaseService = {
       dataset_describe_prompt:  d.dataset_describe_prompt  ?? null,
       mcp_answers_temperature:  d.mcp_answers_temperature  ?? null,
       mcp_answers_system_prompt: d.mcp_answers_system_prompt ?? null,
+      start_page:               d.start_page               ?? null,
     }
   },
 

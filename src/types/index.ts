@@ -354,6 +354,7 @@ export interface AppSettings {
   dataset_describe_prompt: string | null  // admin-defined prompt for "Have AI Describe Data"
   mcp_answers_temperature: string | null  // AI temperature for MCP Answers (default 0.3)
   mcp_answers_system_prompt: string | null // Custom system prompt for MCP Answers AI
+  start_page: string | null               // path to redirect to after login (e.g. /analyze)
 }
 
 // ── Report Schedules ──────────────────────────────────────────────────────────

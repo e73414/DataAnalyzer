@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useSession } from '../../context/SessionContext'
 import { useTheme } from '../../context/ThemeContext'
+import { useAppSettings } from '../../context/AppSettingsContext'
 import { pocketbaseService } from '../../services/mcpPocketbaseService'
 
 const loginSchema = z.object({
@@ -91,6 +92,8 @@ export default function MobileLoginPage() {
   const navigate = useNavigate()
   const { login, isLoggedIn } = useSession()
   const { theme, toggleTheme } = useTheme()
+  const { appSettings } = useAppSettings()
+  const startPage = appSettings?.start_page || '/mcp-answers'
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
 
@@ -100,8 +103,8 @@ export default function MobileLoginPage() {
   })
 
   useEffect(() => {
-    if (isLoggedIn) navigate('/analyze', { replace: true })
-  }, [isLoggedIn, navigate])
+    if (isLoggedIn) navigate(startPage, { replace: true })
+  }, [isLoggedIn, navigate, startPage])
 
   if (isLoggedIn) return null
 
@@ -118,7 +121,7 @@ export default function MobileLoginPage() {
       const inputHash = await sha256Hex(data.password)
       if (inputHash !== profile.password_hash) { setLoginError('Invalid email or password.'); return }
       login(data.email, undefined, profile.profile, profile.profiles ?? [])
-      navigate('/analyze')
+      navigate(startPage)
     } catch {
       setLoginError('Unable to sign in. Please try again.')
     } finally {
