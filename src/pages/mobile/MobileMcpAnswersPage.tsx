@@ -191,6 +191,7 @@ export default function MobileMcpAnswersPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   // Scoped + filtered datasets
   const scopedDatasets = useMemo(() => {
@@ -242,6 +243,8 @@ export default function MobileMcpAnswersPage() {
   async function handleSubmit() {
     const q = question.trim()
     if (!q || isAsking) return
+    const controller = new AbortController()
+    abortControllerRef.current = controller
     setIsAsking(true)
     setError(null)
     setQuestion('')
@@ -253,7 +256,7 @@ export default function MobileMcpAnswersPage() {
         datasetId: selectedDatasetId || undefined,
         datasetName: selectedDataset?.name || undefined,
         conversationHistory,
-      })
+      }, controller.signal)
       setPendingQuestion(null)
       setEntries(prev => [...prev, {
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -268,13 +271,22 @@ export default function MobileMcpAnswersPage() {
         datasetName: selectedDataset?.name || undefined,
         queriedDatasets: result.queriedDatasets || [],
       }])
-    } catch (err) {
+    } catch (err: unknown) {
       setPendingQuestion(null)
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      const isCancelled = (err instanceof Error && err.name === 'CanceledError') ||
+        (err as { code?: string })?.code === 'ERR_CANCELED'
+      if (!isCancelled) {
+        setError(err instanceof Error ? err.message : 'An error occurred')
+      }
     } finally {
+      abortControllerRef.current = null
       setIsAsking(false)
       setTimeout(() => inputRef.current?.focus(), 50)
     }
+  }
+
+  function handleStop() {
+    abortControllerRef.current?.abort()
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -378,18 +390,30 @@ export default function MobileMcpAnswersPage() {
             onChange={e => setQuestion(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Ask about your data…"
-            disabled={isAsking}
             rows={2}
             className="flex-1 resize-none bg-transparent text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
           />
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isAsking || !question.trim()}
-            className="flex-shrink-0 px-4 py-2 bg-purple-900 hover:bg-purple-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            {isAsking ? '…' : 'Ask'}
-          </button>
+          {isAsking ? (
+            <button
+              type="button"
+              onClick={handleStop}
+              className="flex-shrink-0 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
+            >
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                <rect x="6" y="6" width="12" height="12" rx="1" />
+              </svg>
+              Stop
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!question.trim()}
+              className="flex-shrink-0 px-4 py-2 bg-purple-900 hover:bg-purple-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              Ask
+            </button>
+          )}
         </div>
       </div>
 
