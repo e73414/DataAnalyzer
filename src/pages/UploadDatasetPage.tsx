@@ -88,7 +88,7 @@ export default function UploadDatasetPage() {
         email: session.email,
         csvData,
         ...(datasetDesc.trim() && { datasetDesc: datasetDesc.trim() }),
-        ...(appSettings?.analyze_model && { model: appSettings.analyze_model }),
+        ...(appSettings?.upload_model && { model: appSettings.upload_model }),
       })
 
       const isAdmin = session.profile?.trim() === 'admadmadm'
