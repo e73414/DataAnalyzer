@@ -292,8 +292,15 @@ export default function CsvOptimizerPlusPage() {
       setGsheetsInputOpen(false)
       setGsheetsUrl('')
       toast.success('Google Sheet loaded successfully')
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err)
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: unknown }; message?: string }
+      let detail = err instanceof Error ? err.message : String(err)
+      const raw = axiosErr?.response?.data
+      if (typeof raw === 'string') {
+        try { detail = (JSON.parse(raw) as { error?: string }).error ?? detail } catch { detail = raw.slice(0, 200) || detail }
+      } else if (raw && typeof raw === 'object' && 'error' in raw) {
+        detail = String((raw as { error: unknown }).error)
+      }
       toast.error(googleConnected
         ? `Failed to fetch Google Sheet: ${detail}`
         : 'Failed to fetch Google Sheet. Make sure it is shared publicly or connect your Google account.')
