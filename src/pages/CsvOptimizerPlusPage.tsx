@@ -590,6 +590,7 @@ export default function CsvOptimizerPlusPage() {
         profile: conv.result.profileJson as Record<string, unknown>,
         existingIssues: conv.aggregateRows.map(r => r.reason),
         rawFirstRows,
+        ...(appSettings?.analyze_model && { model: appSettings.analyze_model }),
       })
       setAiReviewPlan(plan)
       setAiReviewConv(conv)

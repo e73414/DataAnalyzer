@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Navigation from '../components/Navigation'
 import PageTitle from '../components/PageTitle'
 import { n8nService } from '../services/mcpN8nService'
+import { useAppSettings } from '../context/AppSettingsContext'
 import type { AiAnalysisResult, AiIssue, AiDataBlock } from '../types'
 
 interface AiReviewState {
@@ -68,6 +69,7 @@ export default function AiReviewPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const state = location.state as AiReviewState | null
+  const { appSettings } = useAppSettings()
 
   const [result, setResult] = useState<AiAnalysisResult | null>(null)
   const [loading, setLoading] = useState(true)
@@ -101,6 +103,7 @@ export default function AiReviewPage() {
         columnCount,
         profile,
         existingIssues: existingIssues || [],
+        ...(appSettings?.analyze_model && { model: appSettings.analyze_model }),
       })
       setResult(res)
     } catch (err) {

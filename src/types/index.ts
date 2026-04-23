@@ -536,4 +536,5 @@ export interface AiAnalysisRequest {
   profile?: Record<string, unknown>
   existingIssues?: string[]
   userInstructions?: string
+  model?: string
 }
