@@ -155,13 +155,6 @@ function ChevronIcon({ open }: { open: boolean }) {
 
 // --- Main Component ---
 
-const SCHEDULE_PRESETS = [
-  { label: 'Manual only', value: '' },
-  { label: 'Every hour', value: '0 * * * *' },
-  { label: 'Daily at midnight', value: '0 0 * * *' },
-  { label: 'Daily at 6 AM', value: '0 6 * * *' },
-  { label: 'Weekly (Mon 6 AM)', value: '0 6 * * 1' },
-]
 
 export default function CsvOptimizerPlusPage() {
   const navigate = useNavigate()
@@ -233,15 +226,11 @@ export default function CsvOptimizerPlusPage() {
   const [gsheetsInputOpen, setGsheetsInputOpen] = useState(false)
   const [gsheetsUrl, setGsheetsUrl] = useState('')
   const [isFetchingSheet, setIsFetchingSheet] = useState(false)
-  const [gsheetsSchedule, setGsheetsSchedule] = useState('')
-  // Track last imported sheet ID for sourceInfo
   const lastGsheetsId = useRef<string | null>(null)
 
   const [onedriveInputOpen, setOnedriveInputOpen] = useState(false)
   const [onedriveUrl, setOnedriveUrl] = useState('')
   const [isFetchingOnedrive, setIsFetchingOnedrive] = useState(false)
-  const [onedriveSchedule, setOnedriveSchedule] = useState('')
-  // Track last imported OneDrive share URL for sourceInfo
   const lastOnedriveUrl = useRef<string | null>(null)
 
   const isExcel = selectedFile ? /\.(xlsx?|xlsm)$/i.test(selectedFile.name) : false
@@ -632,9 +621,9 @@ export default function CsvOptimizerPlusPage() {
 
     let sourceInfo: { location_type: string; folder_id: string; schedule: string | null } | undefined
     if (lastGsheetsId.current) {
-      sourceInfo = { location_type: 'google_sheets', folder_id: lastGsheetsId.current, schedule: gsheetsSchedule || null }
+      sourceInfo = { location_type: 'google_sheets', folder_id: lastGsheetsId.current, schedule: null }
     } else if (lastOnedriveUrl.current) {
-      sourceInfo = { location_type: 'onedrive_file', folder_id: lastOnedriveUrl.current, schedule: onedriveSchedule || null }
+      sourceInfo = { location_type: 'onedrive_file', folder_id: lastOnedriveUrl.current, schedule: null }
     }
 
     navigate('/upload-dataset', { state: { csvFile: file, fileName: displayName, ingestionConfig, sourceInfo } })
@@ -769,18 +758,6 @@ export default function CsvOptimizerPlusPage() {
                       </>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <label className="text-gray-500 dark:text-gray-400 whitespace-nowrap">Auto-refresh schedule:</label>
-                    <select
-                      value={gsheetsSchedule}
-                      onChange={e => setGsheetsSchedule(e.target.value)}
-                      className="input-field py-1 text-xs flex-1"
-                    >
-                      {SCHEDULE_PRESETS.map(p => (
-                        <option key={p.value} value={p.value}>{p.label}</option>
-                      ))}
-                    </select>
-                  </div>
                 </div>
               )}
             </div>
@@ -847,18 +824,6 @@ export default function CsvOptimizerPlusPage() {
                         <span className="text-gray-400 dark:text-gray-500">to import OneDrive files</span>
                       </>
                     )}
-                  </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <label className="text-gray-500 dark:text-gray-400 whitespace-nowrap">Auto-refresh schedule:</label>
-                    <select
-                      value={onedriveSchedule}
-                      onChange={e => setOnedriveSchedule(e.target.value)}
-                      className="input-field py-1 text-xs flex-1"
-                    >
-                      {SCHEDULE_PRESETS.map(p => (
-                        <option key={p.value} value={p.value}>{p.label}</option>
-                      ))}
-                    </select>
                   </div>
                 </div>
               )}
