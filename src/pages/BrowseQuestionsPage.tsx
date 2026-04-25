@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+
 import { useQuery } from '@tanstack/react-query'
 import { useSession } from '../context/SessionContext'
 import { pocketbaseService } from '../services/mcpPocketbaseService'
@@ -34,7 +34,7 @@ function score(q: BrowsableQuestion, term: string): number {
 // ── Question card ─────────────────────────────────────────────────────────────
 
 function QuestionCard({ q }: { q: BrowsableQuestion }) {
-  const navigate = useNavigate()
+
   return (
     <div className="flex items-start justify-between gap-3 px-4 py-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
       <div className="flex-1 min-w-0">
@@ -50,7 +50,7 @@ function QuestionCard({ q }: { q: BrowsableQuestion }) {
         </div>
       </div>
       <button
-        onClick={() => navigate(`/question/${q.id}`)}
+        onClick={() => window.open(`/question/${q.id}`, '_blank')}
         className="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-white bg-purple-900 hover:bg-purple-800 rounded-lg transition-colors"
       >
         Open

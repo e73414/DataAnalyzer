@@ -563,7 +563,6 @@ export default function McpAnswersPage() {
           }}
           source="mcp_answers"
           onClose={() => setSaveEntry(null)}
-          onSaved={() => setSaveEntry(null)}
         />
       )}
     </div>
