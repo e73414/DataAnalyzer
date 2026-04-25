@@ -228,12 +228,15 @@ export default function MobileMcpAnswersPage() {
   })
 
   // Conversation history for multi-turn
+  // Only include entries from the same dataset to prevent cross-dataset anchoring
   const conversationHistory = useMemo(() =>
-    entries.flatMap(e => [
-      { role: 'user' as const, content: e.question },
-      { role: 'assistant' as const, content: e.answer },
-    ]),
-    [entries]
+    entries
+      .filter(e => (e.datasetId || '') === (selectedDatasetId || ''))
+      .flatMap(e => [
+        { role: 'user' as const, content: e.question },
+        { role: 'assistant' as const, content: e.answer },
+      ]),
+    [entries, selectedDatasetId]
   )
 
   useEffect(() => {
