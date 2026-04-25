@@ -99,6 +99,8 @@ function ResultsTable({ columns, rows }: { columns: string[]; rows: Record<strin
 
 function ChatBubble({ entry, onSave }: { entry: McpAnswersChatEntry; onSave: (entry: McpAnswersChatEntry) => void }) {
   const isClarification = isClarificationResponse(entry.answer)
+  const [rawOpen, setRawOpen] = useState(false)
+  const hasRaw = !!(entry.sql || (entry.columns && entry.rows && entry.rows.length > 0))
   return (
     <div className="mb-4">
       <div className="flex justify-end mb-2">
@@ -121,9 +123,26 @@ function ChatBubble({ entry, onSave }: { entry: McpAnswersChatEntry; onSave: (en
             </div>
           )}
           <ReportHtml html={toHtml(entry.answer)} className="report-html" />
-          {entry.sql && <SqlBlock sql={entry.sql} />}
-          {entry.columns && entry.rows && entry.rows.length > 0 && (
-            <ResultsTable columns={entry.columns} rows={entry.rows} />
+          {hasRaw && (
+            <div className="mt-3">
+              <button
+                onClick={() => setRawOpen(o => !o)}
+                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              >
+                <svg className={`w-3.5 h-3.5 transition-transform ${rawOpen ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                {rawOpen ? 'Collapse raw data' : 'Expand raw data'}
+              </button>
+              {rawOpen && (
+                <div className="mt-2">
+                  {entry.sql && <SqlBlock sql={entry.sql} />}
+                  {entry.columns && entry.rows && entry.rows.length > 0 && (
+                    <ResultsTable columns={entry.columns} rows={entry.rows} />
+                  )}
+                </div>
+              )}
+            </div>
           )}
           <div className="mt-2 flex justify-end">
             <button
