@@ -168,6 +168,7 @@ export default function McpAnswersPage() {
   const [question, setQuestion] = useState('')
   const [isAsking, setIsAsking] = useState(false)
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
+  const [streamingText, setStreamingText] = useState('')
   const [entries, setEntries] = useState<McpAnswersChatEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [saveEntry, setSaveEntry] = useState<McpAnswersChatEntry | null>(null)
@@ -263,16 +264,22 @@ export default function McpAnswersPage() {
     setIsAsking(true)
     setError(null)
     setQuestion('')
+    setStreamingText('')
     setPendingQuestion(q)
     try {
       const selectedDataset = datasets.find(d => d.id === selectedDatasetId)
-      const result = await mcpAnswersService.query({
-        question: q,
-        email: session!.email,
-        datasetId: selectedDatasetId || undefined,
-        datasetName: selectedDataset?.name || undefined,
-        conversationHistory,
-      }, controller.signal)
+      const result = await mcpAnswersService.queryStream(
+        {
+          question: q,
+          email: session!.email,
+          datasetId: selectedDatasetId || undefined,
+          datasetName: selectedDataset?.name || undefined,
+          conversationHistory,
+        },
+        (token) => setStreamingText(prev => prev + token),
+        controller.signal,
+      )
+      setStreamingText('')
       setPendingQuestion(null)
       setEntries(prev => [...prev, {
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -288,6 +295,7 @@ export default function McpAnswersPage() {
         queriedDatasets: result.queriedDatasets || [],
       }])
     } catch (err: unknown) {
+      setStreamingText('')
       setPendingQuestion(null)
       const isCancelled = (err instanceof Error && err.name === 'CanceledError') ||
         (err as { code?: string })?.code === 'ERR_CANCELED'
@@ -475,13 +483,21 @@ export default function McpAnswersPage() {
               </div>
             )}
 
-            {isAsking && (
+            {isAsking && !streamingText && (
               <div className="flex justify-start mb-4">
                 <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex items-center gap-2">
                   {[0, 1, 2].map(i => (
                     <span key={i} className="w-2 h-2 rounded-full bg-purple-600 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
                   ))}
                   <span className="text-sm text-gray-500 dark:text-gray-400">Analyzing your data…</span>
+                </div>
+              </div>
+            )}
+
+            {isAsking && streamingText && (
+              <div className="flex justify-start mb-4">
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+                  <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-pre-wrap">{streamingText}</span>
                 </div>
               </div>
             )}
