@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeRaw from 'rehype-raw'
+import { marked } from 'marked'
 import { useSession } from '../context/SessionContext'
 import { useAppSettings } from '../context/AppSettingsContext'
 import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
@@ -12,7 +10,15 @@ import { pocketbaseService } from '../services/mcpPocketbaseService'
 import Navigation from '../components/Navigation'
 import PageTitle from '../components/PageTitle'
 import SaveQuestionModal from '../components/SaveQuestionModal'
+import ReportHtml from '../components/ReportHtml'
 import type { McpAnswersChatEntry } from '../types'
+
+function toHtml(text: string): string {
+  const t = text.trim()
+  // Already HTML — pass through
+  if (t.startsWith('<')) return t
+  return marked.parse(t) as string
+}
 
 /** Returns true if the answer text is primarily a question / clarification request */
 function isClarificationResponse(text: string): boolean {
@@ -114,15 +120,7 @@ function ChatBubble({ entry, onSave }: { entry: McpAnswersChatEntry; onSave: (en
               Clarification needed
             </div>
           )}
-          <div className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-100
-            prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5
-            prose-headings:text-gray-900 dark:prose-headings:text-white
-            prose-strong:text-gray-900 dark:prose-strong:text-white
-            prose-code:text-purple-700 dark:prose-code:text-purple-300
-            prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:rounded prose-code:px-1
-            prose-table:w-full prose-th:text-left prose-th:font-semibold prose-td:align-top">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>{entry.answer}</ReactMarkdown>
-          </div>
+          <ReportHtml html={toHtml(entry.answer)} className="report-html" />
           {entry.sql && <SqlBlock sql={entry.sql} />}
           {entry.columns && entry.rows && entry.rows.length > 0 && (
             <ResultsTable columns={entry.columns} rows={entry.rows} />
