@@ -276,7 +276,11 @@ export default function McpAnswersPage() {
           datasetName: selectedDataset?.name || undefined,
           conversationHistory,
         },
-        (token) => setStreamingText(prev => prev + token),
+        (token) => setStreamingText(prev => {
+          const trimmed = prev.trimEnd()
+          const needsGap = trimmed.endsWith('.') || trimmed.endsWith(':')
+          return prev + (needsGap ? '  ' : '') + token
+        }),
         controller.signal,
       )
       setStreamingText('')
