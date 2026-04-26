@@ -207,6 +207,10 @@ export default function CsvOptimizerPlusPage() {
   const [selectedPages, setSelectedPages] = useState<number[]>([])
   const [isFetchingPdfInfo, setIsFetchingPdfInfo] = useState(false)
 
+  // Upload progress overlay
+  type OverlayStep = { label: string; status: 'pending' | 'active' | 'done' | 'error' }
+  const [uploadOverlay, setUploadOverlay] = useState<{ steps: OverlayStep[]; error: string | null } | null>(null)
+
   // Per-sheet results (replaces single result/aggregateRows/excludedRows)
   const [sheetConversions, setSheetConversions] = useState<SheetConversion[]>([])
   // AI Review state
@@ -661,12 +665,10 @@ export default function CsvOptimizerPlusPage() {
     }
   }
 
-  const handleUploadAsDataset = (conv: SheetConversion) => {
-    // Use AI-cleaned CSV if available, otherwise fall back to the active clean CSV
+  const handleUploadAsDataset = async (conv: SheetConversion) => {
     const csvSource = cleanedCsvs[conv.sheet] ?? getActiveCleanCsv(conv)
-    if (!csvSource) return
+    if (!csvSource || !session?.email) return
 
-    // Use the same CSV source for header extraction so excludedColNames aligns with what's uploaded
     const { headers } = parseCSV(csvSource)
     const excludedColNames = headers.filter((_, i) => conv.excludedCols.has(i))
     const ingestionConfig = {
@@ -680,9 +682,6 @@ export default function CsvOptimizerPlusPage() {
 
     const sheetSuffix = sheetConversions.length > 1 ? ` - ${conv.sheet}` : ''
     const displayName = `${sourceName}${sheetSuffix}`
-    const fileName = `${displayName}_clean.csv`
-    const blob = new Blob([csvSource], { type: 'text/csv' })
-    const file = new File([blob], fileName, { type: 'text/csv' })
 
     let sourceInfo: { location_type: string; folder_id: string; schedule: string | null } | undefined
     if (lastGsheetsId.current) {
@@ -691,7 +690,112 @@ export default function CsvOptimizerPlusPage() {
       sourceInfo = { location_type: 'onedrive_file', folder_id: lastOnedriveUrl.current, schedule: null }
     }
 
-    navigate('/upload-dataset', { state: { csvFile: file, fileName: displayName, ingestionConfig, sourceInfo, autoUpload: true } })
+    const hasDescribePrompt = !!appSettings?.dataset_describe_prompt
+    const steps: OverlayStep[] = [
+      { label: 'Uploading dataset', status: 'pending' },
+      ...(hasDescribePrompt ? [{ label: 'AI is generating dataset description', status: 'pending' as const }] : []),
+      { label: 'AI is generating sample questions', status: 'pending' },
+      { label: 'Saving', status: 'pending' },
+    ]
+
+    const setStep = (index: number, status: OverlayStep['status']) => {
+      setUploadOverlay(prev => {
+        if (!prev) return prev
+        const next = [...prev.steps]
+        next[index] = { ...next[index]!, status }
+        return { ...prev, steps: next }
+      })
+    }
+
+    setUploadOverlay({ steps, error: null })
+
+    let stepIdx = 0
+    let datasetId = ''
+    let uploadedSummary = ''
+
+    try {
+      // Step: Upload
+      setStep(stepIdx, 'active')
+      const csvData = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve((reader.result as string).split(',')[1]!)
+        reader.onerror = () => reject(new Error('Failed to read file'))
+        reader.readAsDataURL(new File([csvSource], `${displayName}_clean.csv`, { type: 'text/csv' }))
+      })
+      const result = await n8nService.uploadDataset({
+        datasetName: displayName,
+        description: '',
+        email: session.email,
+        csvData,
+        ...(appSettings?.upload_model && { model: appSettings.upload_model }),
+      })
+      if (result.status === 'failed' || !result.datasetId) {
+        throw new Error(result.message || 'Upload failed — data could not be inserted')
+      }
+      datasetId = result.datasetId
+      uploadedSummary = ''
+      setStep(stepIdx, 'done')
+      stepIdx++
+
+      // Save ingestion config (non-fatal, silent)
+      try {
+        await pocketbaseService.saveIngestionConfig({ dataset_id: datasetId, ...ingestionConfig })
+        if (sourceInfo && session.email) {
+          await pocketbaseService.saveIngestionSchedule({
+            dataset_id: datasetId,
+            owner_email: session.email,
+            folder_id: sourceInfo.folder_id,
+            location_type: sourceInfo.location_type,
+            schedule: sourceInfo.schedule,
+            enabled: true,
+          })
+        }
+      } catch { /* non-fatal */ }
+
+      // Step: AI describe (optional)
+      let currentDesc = ''
+      if (hasDescribePrompt) {
+        setStep(stepIdx, 'active')
+        try {
+          const descResult = await n8nService.runAnalysis({
+            email: session.email,
+            model: appSettings!.analyze_model || '',
+            datasetId,
+            prompt: appSettings!.dataset_describe_prompt!,
+          })
+          currentDesc = descResult.result || ''
+        } catch { /* non-fatal — continue without description */ }
+        setStep(stepIdx, 'done')
+        stepIdx++
+      }
+
+      // Step: Generate sample questions
+      setStep(stepIdx, 'active')
+      try {
+        await n8nService.generateSampleQuestions(datasetId, currentDesc, uploadedSummary, appSettings?.analyze_model ?? undefined)
+      } catch { /* non-fatal */ }
+      setStep(stepIdx, 'done')
+      stepIdx++
+
+      // Step: Save description
+      setStep(stepIdx, 'active')
+      if (currentDesc) {
+        await n8nService.updateSummary({
+          datasetId,
+          summary: uploadedSummary,
+          email: session.email,
+          datasetDesc: currentDesc,
+          datasetName: displayName,
+        })
+      }
+      setStep(stepIdx, 'done')
+
+      setUploadOverlay(null)
+      navigate('/edit-summary', { state: { preSelectedDatasetId: datasetId } })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setUploadOverlay(prev => prev ? { ...prev, error: message } : prev)
+    }
   }
 
   const handleReset = () => {
@@ -1440,6 +1544,64 @@ export default function CsvOptimizerPlusPage() {
           )
         })}
       </main>
+
+      {/* Upload Progress Overlay */}
+      {uploadOverlay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-5">
+              {uploadOverlay.error ? 'Upload failed' : 'Uploading dataset…'}
+            </h3>
+            <div className="space-y-3 mb-5">
+              {uploadOverlay.steps.map((step, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  {step.status === 'active' && (
+                    <span className="shrink-0 w-5 h-5 flex items-center justify-center">
+                      <span className="inline-block w-4 h-4 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+                    </span>
+                  )}
+                  {step.status === 'done' && (
+                    <span className="shrink-0 w-5 h-5 flex items-center justify-center text-green-500">
+                      <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                    </span>
+                  )}
+                  {step.status === 'error' && (
+                    <span className="shrink-0 w-5 h-5 flex items-center justify-center text-red-500">
+                      <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                    </span>
+                  )}
+                  {step.status === 'pending' && (
+                    <span className="shrink-0 w-5 h-5 flex items-center justify-center">
+                      <span className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600" />
+                    </span>
+                  )}
+                  <span className={`text-sm ${
+                    step.status === 'active' ? 'text-gray-900 dark:text-white font-medium' :
+                    step.status === 'done' ? 'text-gray-500 dark:text-gray-400' :
+                    step.status === 'error' ? 'text-red-600 dark:text-red-400' :
+                    'text-gray-400 dark:text-gray-600'
+                  }`}>
+                    {step.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {uploadOverlay.error && (
+              <>
+                <p className="text-sm text-red-600 dark:text-red-400 mb-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                  {uploadOverlay.error}
+                </p>
+                <button
+                  onClick={() => setUploadOverlay(null)}
+                  className="w-full btn-secondary"
+                >
+                  Close
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* AI Review Modal */}
       {aiReviewOpen && aiReviewPlan && aiReviewConv && (
