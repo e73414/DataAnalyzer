@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { useLocation, Link } from 'react-router-dom'
+import { useLocation, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useSession } from '../context/SessionContext'
@@ -18,6 +18,7 @@ import type { DatasetDetail } from '../types'
 
 export default function EditSummaryPage() {
   const location = useLocation()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { session } = useSession()
   const { appSettings } = useAppSettings()
@@ -122,8 +123,9 @@ export default function EditSummaryPage() {
     mutationFn: () => n8nService.deleteDataset({ datasetId: selectedDatasetId, email: session!.email }),
     onSuccess: (result) => {
       toast.success(`"${result.datasetName}" deleted`)
+      setSelectedDatasetId('')
       queryClient.invalidateQueries({ queryKey: ['datasets'] })
-      window.location.assign('/edit-summary')
+      navigate('/edit-summary', { replace: true })
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : 'Failed to delete dataset'),
   })

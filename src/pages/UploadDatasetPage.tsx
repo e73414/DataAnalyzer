@@ -14,6 +14,7 @@ import HelpTip from '../components/HelpTip'
 interface IncomingFileState {
   csvFile?: File
   fileName?: string
+  autoUpload?: boolean
   ingestionConfig?: {
     source_type: 'excel' | 'csv'
     config: {
@@ -65,6 +66,17 @@ export default function UploadDatasetPage() {
       })
     }
   }, [location.state])
+
+  // Auto-trigger upload when arriving from Uploader Plus with autoUpload flag
+  const autoUploadFiredRef = useRef(false)
+  useEffect(() => {
+    if (autoUploadFiredRef.current) return
+    const state = location.state as IncomingFileState | null
+    if (state?.autoUpload && selectedFile && session?.email) {
+      autoUploadFiredRef.current = true
+      uploadMutation.mutate()
+    }
+  }, [selectedFile, session?.email])
 
   const uploadMutation = useMutation({
     mutationFn: async () => {

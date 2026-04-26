@@ -202,6 +202,11 @@ export default function CsvOptimizerPlusPage() {
   const [sheetNames, setSheetNames] = useState<string[]>([])
   const [selectedSheets, setSelectedSheets] = useState<string[]>([])
 
+  // Page detection (PDF only)
+  const [pdfPages, setPdfPages] = useState<{ page_num: number; table_count: number }[]>([])
+  const [selectedPages, setSelectedPages] = useState<number[]>([])
+  const [isFetchingPdfInfo, setIsFetchingPdfInfo] = useState(false)
+
   // Per-sheet results (replaces single result/aggregateRows/excludedRows)
   const [sheetConversions, setSheetConversions] = useState<SheetConversion[]>([])
   // AI Review state
@@ -234,6 +239,7 @@ export default function CsvOptimizerPlusPage() {
   const lastOnedriveUrl = useRef<string | null>(null)
 
   const isExcel = selectedFile ? /\.(xlsx?|xlsm)$/i.test(selectedFile.name) : false
+  const isPdf = selectedFile ? /\.pdf$/i.test(selectedFile.name) : false
   const hasResults = sheetConversions.length > 0
 
   function parseGoogleSheetId(input: string): string | null {
@@ -365,15 +371,38 @@ export default function CsvOptimizerPlusPage() {
     const file = e.target.files?.[0]
     if (!file) return
     setSelectedFile(file)
-    setSourceName(file.name.replace(/\.(csv|xlsx?|xlsm)$/i, ''))
+    setSourceName(file.name.replace(/\.(csv|xlsx?|xlsm|pdf)$/i, ''))
     setSheetConversions([])
     setExpandedSections({})
+    setPdfPages([])
+    setSelectedPages([])
 
     if (/\.(xlsx?|xlsm)$/i.test(file.name)) {
       const buffer = await file.arrayBuffer()
       const workbook = XLSX.read(buffer, { bookSheets: true })
       setSheetNames(workbook.SheetNames)
       setSelectedSheets([...workbook.SheetNames])
+    } else if (/\.pdf$/i.test(file.name)) {
+      setSheetNames([])
+      setSelectedSheets([])
+      setIsFetchingPdfInfo(true)
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        const res = await axios.post('/excel-to-sql/pdf-info', formData)
+        const pages: { page_num: number; table_count: number }[] = res.data.pages
+        setPdfPages(pages)
+        setSelectedPages(pages.filter(p => p.table_count > 0).map(p => p.page_num))
+      } catch (err) {
+        let message = 'Failed to read PDF page info.'
+        if (axios.isAxiosError(err) && err.response?.data?.detail) {
+          message = err.response.data.detail
+        }
+        toast.error(message)
+        setSelectedFile(null)
+      } finally {
+        setIsFetchingPdfInfo(false)
+      }
     } else {
       setSheetNames([])
       setSelectedSheets([])
@@ -390,11 +419,19 @@ export default function CsvOptimizerPlusPage() {
     setSelectedSheets(prev => prev.length === sheetNames.length ? [] : [...sheetNames])
   }
 
+  const togglePageSelected = (pageNum: number) => {
+    setSelectedPages(prev =>
+      prev.includes(pageNum) ? prev.filter(p => p !== pageNum) : [...prev, pageNum]
+    )
+  }
+
+  const toggleAllPages = () => {
+    const selectablePages = pdfPages.filter(p => p.table_count > 0).map(p => p.page_num)
+    setSelectedPages(prev => prev.length === selectablePages.length ? [] : selectablePages)
+  }
+
   const handleConvert = async () => {
     if (!selectedFile) return
-
-    // For CSV files fall back to the manual sheet option; for Excel use checkboxes
-    const sheets = sheetNames.length > 0 ? selectedSheets : [options.sheet || '0']
 
     setIsConverting(true)
     setSheetConversions([])
@@ -404,18 +441,38 @@ export default function CsvOptimizerPlusPage() {
 
     const newConversions: SheetConversion[] = []
 
-    for (const sheet of sheets) {
-      try {
-        const formData = new FormData()
-        formData.append('file', selectedFile)
+    // Build list of "jobs": for PDF use page numbers, for Excel/CSV use sheet names
+    type Job = { key: string; params: URLSearchParams }
+    let jobs: Job[]
 
+    if (isPdf) {
+      jobs = selectedPages.map(pageNum => {
+        const params = new URLSearchParams()
+        params.set('page', String(pageNum))
+        if (options.no_unpivot) params.set('no_unpivot', 'true')
+        if (options.keep_dupes) params.set('keep_dupes', 'true')
+        if (options.header_row !== '') params.set('header_row', options.header_row)
+        return { key: `page_${pageNum}`, params }
+      })
+    } else {
+      // For CSV files fall back to the manual sheet option; for Excel use checkboxes
+      const sheets = sheetNames.length > 0 ? selectedSheets : [options.sheet || '0']
+      jobs = sheets.map(sheet => {
         const params = new URLSearchParams()
         params.set('sheet', sheet)
         if (options.no_unpivot) params.set('no_unpivot', 'true')
         if (options.keep_dupes) params.set('keep_dupes', 'true')
         if (options.header_row !== '') params.set('header_row', options.header_row)
+        return { key: sheet, params }
+      })
+    }
 
-        const response = await axios.post(`/excel-to-sql/convert?${params.toString()}`, formData, {
+    for (const job of jobs) {
+      try {
+        const formData = new FormData()
+        formData.append('file', selectedFile)
+
+        const response = await axios.post(`/excel-to-sql/convert?${job.params.toString()}`, formData, {
           responseType: 'arraybuffer',
           timeout: 120000,
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -443,37 +500,37 @@ export default function CsvOptimizerPlusPage() {
         }
 
         const zipBlob = new Blob([response.data], { type: 'application/zip' })
-        const stem = selectedFile.name.replace(/\.(csv|xlsx?|xlsm)$/i, '')
-        const sheetSuffix = sheets.length > 1 ? `_${sheet.replace(/[^a-zA-Z0-9]/g, '_')}` : ''
+        const stem = selectedFile.name.replace(/\.(csv|xlsx?|xlsm|pdf)$/i, '')
+        const keySuffix = jobs.length > 1 ? `_${job.key.replace(/[^a-zA-Z0-9]/g, '_')}` : ''
 
         const convResult: ConversionResult = {
           cleanCsv, profileJson, schemaSql, relationshipsJson, zipBlob,
-          zipFileName: `${stem}${sheetSuffix}_sql_ready.zip`,
+          zipFileName: `${stem}${keySuffix}_sql_ready.zip`,
         }
 
         const { headers, rows } = parseCSV(cleanCsv)
         const aggregateRows = detectAggregateRows(headers, rows)
 
         newConversions.push({
-          sheet,
+          sheet: job.key,
           result: convResult,
           aggregateRows,
           excludedRows: new Set(aggregateRows.map(r => r.rowIndex)),
           excludedCols: new Set<number>(),
         })
 
-        // Show progress as each sheet completes
+        // Show progress as each job completes
         setSheetConversions([...newConversions])
         setExpandedSections(prev => ({
           ...prev,
-          [`${sheet}.profile`]: false,
-          [`${sheet}.schema`]: false,
-          [`${sheet}.relationships`]: false,
-          [`${sheet}.aggregates`]: true,
+          [`${job.key}.profile`]: false,
+          [`${job.key}.schema`]: false,
+          [`${job.key}.relationships`]: false,
+          [`${job.key}.aggregates`]: true,
         }))
       } catch (err: unknown) {
-        let message = sheets.length > 1
-          ? `Sheet "${sheet}": conversion failed.`
+        let message = jobs.length > 1
+          ? `${isPdf ? 'Page' : 'Sheet'} "${job.key}": conversion failed.`
           : 'Conversion failed. Make sure the Docker API is running on port 8000.'
         if (axios.isAxiosError(err)) {
           if (err.response) {
@@ -482,8 +539,8 @@ export default function CsvOptimizerPlusPage() {
               const parsed = JSON.parse(text)
               message = parsed.detail || message
             } catch {
-              message = sheets.length > 1
-                ? `Sheet "${sheet}": server error ${err.response.status}`
+              message = jobs.length > 1
+                ? `${isPdf ? 'Page' : 'Sheet'} "${job.key}": server error ${err.response.status}`
                 : `Server error ${err.response.status}`
             }
           } else if (err.code === 'ECONNREFUSED' || err.message.includes('Network')) {
@@ -634,7 +691,7 @@ export default function CsvOptimizerPlusPage() {
       sourceInfo = { location_type: 'onedrive_file', folder_id: lastOnedriveUrl.current, schedule: null }
     }
 
-    navigate('/upload-dataset', { state: { csvFile: file, fileName: displayName, ingestionConfig, sourceInfo } })
+    navigate('/upload-dataset', { state: { csvFile: file, fileName: displayName, ingestionConfig, sourceInfo, autoUpload: true } })
   }
 
   const handleReset = () => {
@@ -642,6 +699,8 @@ export default function CsvOptimizerPlusPage() {
     setSourceName('')
     setSheetNames([])
     setSelectedSheets([])
+    setPdfPages([])
+    setSelectedPages([])
     setSheetConversions([])
     setExpandedSections({})
     setCleanedCsvs({})
@@ -690,7 +749,7 @@ export default function CsvOptimizerPlusPage() {
                 ref={fileInputRef}
                 type="file"
                 id="convertFile"
-                accept=".csv,.xlsx,.xls,.xlsm"
+                accept=".csv,.xlsx,.xls,.xlsm,.pdf"
                 onChange={handleFileChange}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm
                            bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100
@@ -882,6 +941,65 @@ export default function CsvOptimizerPlusPage() {
               </div>
             )}
 
+            {/* PDF Page Selector */}
+            {isFetchingPdfInfo && (
+              <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent shrink-0"></div>
+                Scanning PDF pages for tables...
+              </div>
+            )}
+            {pdfPages.length > 0 && (
+              <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Pages to Convert
+                    <span className="ml-2 text-gray-400 dark:text-gray-500 font-normal">
+                      ({selectedPages.length} of {pdfPages.filter(p => p.table_count > 0).length} with tables selected)
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={toggleAllPages}
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    {selectedPages.length === pdfPages.filter(p => p.table_count > 0).length ? 'Deselect all' : 'Select all'}
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {pdfPages.map(p => {
+                    const hasTable = p.table_count > 0
+                    const checked = selectedPages.includes(p.page_num)
+                    return (
+                      <label
+                        key={p.page_num}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-colors ${
+                          !hasTable
+                            ? 'border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                            : checked
+                              ? 'border-purple-400 bg-purple-50 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 cursor-pointer'
+                              : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={!hasTable}
+                          onChange={() => hasTable && togglePageSelected(p.page_num)}
+                          className="rounded border-gray-300 dark:border-gray-600 text-blue-600 disabled:opacity-40"
+                        />
+                        <span>
+                          Page {p.page_num}
+                          <span className="ml-1 text-xs opacity-70">
+                            {p.table_count > 0 ? `(${p.table_count} table${p.table_count > 1 ? 's' : ''})` : '(no tables)'}
+                          </span>
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Advanced Options */}
             <div>
               <button
@@ -895,8 +1013,8 @@ export default function CsvOptimizerPlusPage() {
 
               {showAdvanced && (
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                  {/* Sheet field only for CSV — Excel uses the checkboxes above */}
-                  {!isExcel && (
+                  {/* Sheet field only for CSV — Excel and PDF use their own selectors above */}
+                  {!isExcel && !isPdf && (
                     <div>
                       <label className="label text-xs">Sheet (name, index, or "all")</label>
                       <input
@@ -964,13 +1082,15 @@ export default function CsvOptimizerPlusPage() {
                   )}
                   <button
                     onClick={handleConvert}
-                    disabled={isConverting || (sheetNames.length > 0 && selectedSheets.length === 0)}
+                    disabled={isConverting || isFetchingPdfInfo || (sheetNames.length > 0 && selectedSheets.length === 0) || (isPdf && selectedPages.length === 0)}
                     className="btn-primary text-sm"
                   >
                     {isConverting ? (
                       <span className="flex items-center gap-2">
                         <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
-                        Converting{sheetConversions.length > 0 ? ` (${sheetConversions.length}/${selectedSheets.length})` : '...'}
+                        {isPdf
+                          ? `Converting${sheetConversions.length > 0 ? ` (${sheetConversions.length}/${selectedPages.length})` : '...'}`
+                          : `Converting${sheetConversions.length > 0 ? ` (${sheetConversions.length}/${selectedSheets.length})` : '...'}`}
                       </span>
                     ) : hasResults ? 'Re-convert' : 'Convert'}
                   </button>
@@ -996,7 +1116,9 @@ export default function CsvOptimizerPlusPage() {
                 <div className="flex items-center gap-3 mb-4">
                   <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
                   <span className="px-3 py-1 text-sm font-semibold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700">
-                    Sheet: {conv.sheet}
+                    {isPdf
+                      ? `Page: ${conv.sheet.replace('page_', '')}`
+                      : `Sheet: ${conv.sheet}`}
                   </span>
                   <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
                 </div>
