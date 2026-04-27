@@ -610,15 +610,6 @@ export default function CsvOptimizerPlusPage() {
     }))
   }
 
-  const handleDownloadZip = (conv: SheetConversion) => {
-    const url = URL.createObjectURL(conv.result.zipBlob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = conv.result.zipFileName
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   const handleDownloadCleanCsv = (conv: SheetConversion) => {
     const csv = getActiveCleanCsv(conv)
     if (!csv) return
@@ -1328,54 +1319,6 @@ export default function CsvOptimizerPlusPage() {
                 </div>
               )}
 
-              {/* Column Profile */}
-              <div className="mb-4 border border-purple-200 dark:border-purple-800 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => toggleSection(sk('profile'))}
-                  className="w-full flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 hover:opacity-90 transition-opacity"
-                >
-                  <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <span className="font-medium text-blue-800 dark:text-blue-200">Column Profile (Click to Expand)</span>
-                  </div>
-                  <ChevronIcon open={!!expandedSections[sk('profile')]} />
-                </button>
-                {expandedSections[sk('profile')] && (
-                  <div className="p-4 bg-white dark:bg-gray-800">
-                    <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-x-auto bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg">
-                      {JSON.stringify(conv.result.profileJson, null, 2)}
-                    </pre>
-                  </div>
-                )}
-              </div>
-
-              {/* Schema SQL */}
-              {conv.result.schemaSql && (
-                <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                  <button
-                    onClick={() => toggleSection(sk('schema'))}
-                    className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 hover:opacity-90 transition-opacity"
-                  >
-                    <div className="flex items-center gap-3">
-                      <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582 4 8 4s8 1.79 8 4" />
-                      </svg>
-                      <span className="font-medium text-gray-800 dark:text-gray-200">Schema SQL (Click to Expand)</span>
-                    </div>
-                    <ChevronIcon open={!!expandedSections[sk('schema')]} />
-                  </button>
-                  {expandedSections[sk('schema')] && (
-                    <div className="p-4 bg-white dark:bg-gray-800">
-                      <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-x-auto bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg">
-                        {conv.result.schemaSql}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Relationships */}
               {conv.result.relationshipsJson != null && (
                 <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
@@ -1406,12 +1349,12 @@ export default function CsvOptimizerPlusPage() {
                 <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Clean CSV Preview</h2>
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={() => handleDownloadZip(conv)} className="btn-secondary text-sm">Download ZIP</button>
                     <button onClick={() => handleDownloadCleanCsv(conv)} className="btn-secondary text-sm">Download CSV</button>
+                    <div className="relative group">
                     <button
                       onClick={() => handleAiReview(conv)}
                       disabled={!!isAnalyzing[conv.sheet]}
-                      className="btn-secondary text-sm border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/40 disabled:opacity-50"
+                      className="btn-secondary text-sm border border-purple-400 dark:border-purple-600 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/40 disabled:opacity-50"
                     >
                       {isAnalyzing[conv.sheet] ? (
                         <span className="flex items-center gap-2">
@@ -1424,7 +1367,15 @@ export default function CsvOptimizerPlusPage() {
                         'AI Review'
                       )}
                     </button>
-                    <button onClick={() => handleUploadAsDataset(conv)} className="btn-primary text-sm animate-pulse">Upload as Dataset</button>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 dark:bg-gray-700 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
+                        Click to have AI review for data quality check
+                      </div>
+                    </div>
+                    <div className="relative inline-block">
+                      <style>{`@keyframes ping-short { 75%, 100% { transform: scale(1.15); opacity: 0; } }`}</style>
+                      <span className="absolute inset-0 rounded bg-purple-400 opacity-50 pointer-events-none" style={{ animation: 'ping-short 1.5s cubic-bezier(0,0,0.2,1) infinite' }}></span>
+                      <button onClick={() => handleUploadAsDataset(conv)} className="btn-primary text-sm relative border border-purple-500 dark:border-purple-400">Upload as Dataset</button>
+                    </div>
                   </div>
                 </div>
 
@@ -1548,6 +1499,54 @@ export default function CsvOptimizerPlusPage() {
                   <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No preview available.</p>
                 )}
               </div>
+
+              {/* Column Profile */}
+              <div className="mb-4 border border-purple-200 dark:border-purple-800 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => toggleSection(sk('profile'))}
+                  className="w-full flex items-center justify-between p-4 bg-purple-50 dark:bg-purple-900/20 hover:opacity-90 transition-opacity"
+                >
+                  <div className="flex items-center gap-3">
+                    <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <span className="font-medium text-blue-800 dark:text-blue-200">Column Profile (Click to Expand)</span>
+                  </div>
+                  <ChevronIcon open={!!expandedSections[sk('profile')]} />
+                </button>
+                {expandedSections[sk('profile')] && (
+                  <div className="p-4 bg-white dark:bg-gray-800">
+                    <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-x-auto bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg">
+                      {JSON.stringify(conv.result.profileJson, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+
+              {/* Schema SQL */}
+              {conv.result.schemaSql && (
+                <div className="mb-4 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => toggleSection(sk('schema'))}
+                    className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 hover:opacity-90 transition-opacity"
+                  >
+                    <div className="flex items-center gap-3">
+                      <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582 4 8 4s8 1.79 8 4" />
+                      </svg>
+                      <span className="font-medium text-gray-800 dark:text-gray-200">Schema SQL (Click to Expand)</span>
+                    </div>
+                    <ChevronIcon open={!!expandedSections[sk('schema')]} />
+                  </button>
+                  {expandedSections[sk('schema')] && (
+                    <div className="p-4 bg-white dark:bg-gray-800">
+                      <pre className="text-xs text-gray-700 dark:text-gray-300 overflow-x-auto bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg">
+                        {conv.result.schemaSql}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )
         })}
