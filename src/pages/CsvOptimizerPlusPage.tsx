@@ -162,6 +162,7 @@ export default function CsvOptimizerPlusPage() {
   const { appSettings } = useAppSettings()
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const resultsRef = useRef<HTMLDivElement>(null)
 
   const { data: googleTokenStatus, refetch: refetchGoogleStatus } = useQuery({
     queryKey: ['google-token-status', session?.email],
@@ -556,6 +557,9 @@ export default function CsvOptimizerPlusPage() {
     }
 
     setIsConverting(false)
+    if (newConversions.length > 0) {
+      setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+    }
   }
 
   // --- Per-sheet helpers ---
@@ -733,7 +737,10 @@ export default function CsvOptimizerPlusPage() {
         throw new Error(result.message || 'Upload failed — data could not be inserted')
       }
       datasetId = result.datasetId
-      uploadedSummary = ''
+      try {
+        const detail = await n8nService.getDatasetDetail(datasetId, session.email)
+        uploadedSummary = detail.summary || ''
+      } catch { /* non-fatal — proceed without summary */ }
       setStep(stepIdx, 'done')
       stepIdx++
 
@@ -834,7 +841,7 @@ export default function CsvOptimizerPlusPage() {
         <div className="mb-6 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
           <h3 className="text-sm font-medium text-purple-800 dark:text-purple-200 mb-2">How it works</h3>
           <ul className="text-sm text-purple-700 dark:text-purple-300 list-disc list-inside space-y-1">
-            <li>Upload a CSV or Excel file (.xlsx, .xls, .xlsm)</li>
+            <li>Upload your data file (csv, xlsx, xls or pdf)</li>
             <li>The file is processed by the Excel → SQL converter API</li>
             <li>Receive a clean SQL-ready CSV, column profile, and schema DDL</li>
             <li>Review and exclude aggregate rows (totals/subtotals) before uploading</li>
@@ -1205,6 +1212,7 @@ export default function CsvOptimizerPlusPage() {
         </div>
 
         {/* Results — one block per converted sheet */}
+        <div ref={resultsRef} />
         {sheetConversions.map((conv, sheetIdx) => {
           const activeCleanCsv = getActiveCleanCsv(conv)
           const originalParsed = conv.result.cleanCsv ? parseCSV(conv.result.cleanCsv) : null
@@ -1330,7 +1338,7 @@ export default function CsvOptimizerPlusPage() {
                     <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
-                    <span className="font-medium text-blue-800 dark:text-blue-200">Column Profile</span>
+                    <span className="font-medium text-blue-800 dark:text-blue-200">Column Profile (Click to Expand)</span>
                   </div>
                   <ChevronIcon open={!!expandedSections[sk('profile')]} />
                 </button>
@@ -1354,7 +1362,7 @@ export default function CsvOptimizerPlusPage() {
                       <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582 4 8 4s8 1.79 8 4" />
                       </svg>
-                      <span className="font-medium text-gray-800 dark:text-gray-200">Schema SQL</span>
+                      <span className="font-medium text-gray-800 dark:text-gray-200">Schema SQL (Click to Expand)</span>
                     </div>
                     <ChevronIcon open={!!expandedSections[sk('schema')]} />
                   </button>
@@ -1416,7 +1424,7 @@ export default function CsvOptimizerPlusPage() {
                         'AI Review'
                       )}
                     </button>
-                    <button onClick={() => handleUploadAsDataset(conv)} className="btn-primary text-sm">Upload as Dataset</button>
+                    <button onClick={() => handleUploadAsDataset(conv)} className="btn-primary text-sm animate-pulse">Upload as Dataset</button>
                   </div>
                 </div>
 
