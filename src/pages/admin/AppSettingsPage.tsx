@@ -504,9 +504,18 @@ export default function AppSettingsPage() {
 
             {/* Section: App Branding */}
             <div className="px-6 py-5">
-              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide mb-4">
-                App Branding
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+                  App Branding
+                </h2>
+                <button
+                  onClick={() => saveMutation.mutate()}
+                  disabled={saveMutation.isPending}
+                  className="px-3 py-1.5 text-xs font-medium text-white bg-purple-900 hover:bg-purple-800 disabled:opacity-50 rounded-lg transition-colors"
+                >
+                  {saveMutation.isPending ? 'Saving…' : 'Save Settings'}
+                </button>
+              </div>
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
                   <label className="w-52 text-sm text-gray-700 dark:text-gray-300 shrink-0">App Title</label>
@@ -691,12 +700,6 @@ export default function AppSettingsPage() {
               </div>
             </div>
 
-            {/* Save button */}
-            <div className="px-6 py-4 flex justify-end">
-              <button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="btn-primary">
-                {saveMutation.isPending ? 'Saving…' : 'Save Settings'}
-              </button>
-            </div>
           </div>
 
           {/* ── Nav Link Manager ── */}
