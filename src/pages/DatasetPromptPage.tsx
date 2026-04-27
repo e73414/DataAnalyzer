@@ -11,6 +11,7 @@ import { useAccessibleDatasets } from '../hooks/useAccessibleDatasets'
 import Navigation from '../components/Navigation'
 import PageTitle from '../components/PageTitle'
 import HelpTip from '../components/HelpTip'
+import BackToTopButton from '../components/BackToTopButton'
 import type { AnalysisResult, PromptDialogQuestion } from '../types'
 
 const WITTY_PHRASES = [
@@ -745,6 +746,8 @@ export default function DatasetPromptPage() {
           )}
         </div>
       </main>
+
+      <BackToTopButton />
 
       {/* Let AI Ask Dialog */}
       {dialogOpen && (

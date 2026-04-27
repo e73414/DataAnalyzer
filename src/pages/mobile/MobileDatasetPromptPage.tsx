@@ -9,6 +9,7 @@ import { pocketbaseService } from '../../services/mcpPocketbaseService'
 import { n8nService } from '../../services/mcpN8nService'
 import { useAccessibleDatasets } from '../../hooks/useAccessibleDatasets'
 import Navigation from '../../components/Navigation'
+import BackToTopButton from '../../components/BackToTopButton'
 import type { AnalysisResult, PromptDialogQuestion } from '../../types'
 
 const WITTY_PHRASES = [
@@ -692,6 +693,8 @@ export default function MobileDatasetPromptPage() {
           </div>
         )}
       </main>
+
+      <BackToTopButton className="bottom-5 right-4 h-10 w-10" />
     </div>
   )
 }

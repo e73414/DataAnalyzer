@@ -10,6 +10,7 @@ import { n8nService } from '../../services/mcpN8nService'
 import Navigation from '../../components/Navigation'
 import SaveQuestionModal from '../../components/SaveQuestionModal'
 import ReportHtml from '../../components/ReportHtml'
+import BackToTopButton from '../../components/BackToTopButton'
 import type { McpAnswersChatEntry } from '../../types'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -190,6 +191,7 @@ export default function MobileMcpAnswersPage() {
   const [saveEntry, setSaveEntry] = useState<McpAnswersChatEntry | null>(null)
 
   const bottomRef = useRef<HTMLDivElement>(null)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -341,7 +343,7 @@ export default function MobileMcpAnswersPage() {
       )}
 
       {/* Chat area — scrollable */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-4">
         {entries.length === 0 && !isAsking && !error && (
           <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 dark:text-gray-600 pb-8">
             <svg className="w-10 h-10 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -385,6 +387,8 @@ export default function MobileMcpAnswersPage() {
       </div>
 
       {/* Input bar — sticky at bottom */}
+      <BackToTopButton scrollContainerRef={chatScrollRef} className="bottom-24 right-4 h-10 w-10" />
+
       <div className="bg-purple-50 dark:bg-gray-800/60 border-t border-purple-100 dark:border-gray-700 px-4 py-3">
         <div className="flex items-end gap-2">
           <textarea

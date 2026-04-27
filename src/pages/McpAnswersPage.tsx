@@ -11,6 +11,7 @@ import Navigation from '../components/Navigation'
 import PageTitle from '../components/PageTitle'
 import SaveQuestionModal from '../components/SaveQuestionModal'
 import ReportHtml from '../components/ReportHtml'
+import BackToTopButton from '../components/BackToTopButton'
 import type { McpAnswersChatEntry } from '../types'
 
 function toHtml(text: string): string {
@@ -560,6 +561,8 @@ export default function McpAnswersPage() {
           </div>
         </div>
       </main>
+
+      <BackToTopButton />
 
       {saveEntry && session && (
         <SaveQuestionModal
